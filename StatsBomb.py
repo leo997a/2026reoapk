@@ -1145,8 +1145,7 @@ if st.session_state.analysis_triggered and st.session_state.df is not None and s
 with tab1:
     an_tp = st.selectbox('نوع التحليل:', [
         'شبكة التمريرات',
-        'مناطق الهجوم',  # خيار جديد
-
+        'مناطق الهجوم',
         'Defensive Actions Heatmap',
         'Progressive Passes',
         'Progressive Carries',
@@ -1169,7 +1168,6 @@ with tab1:
         team_choice = st.selectbox('اختر الفريق:', [hteamName, ateamName], key='team_choice')
         phase_tag = st.selectbox('اختر الفترة:', ['Full Time', 'First Half', 'Second Half'], key='phase_tag')
         
-        # حساب عدد الأهداف
         homedf = st.session_state.df[(st.session_state.df['teamName'] == hteamName)]
         awaydf = st.session_state.df[(st.session_state.df['teamName'] == ateamName)]
         hgoal_count = len(homedf[(homedf['teamName'] == hteamName) & (homedf['type'] == 'Goal') & (~homedf['qualifiers'].str.contains('OwnGoal'))])
@@ -1177,18 +1175,15 @@ with tab1:
         hgoal_count += len(awaydf[(awaydf['teamName'] == ateamName) & (awaydf['type'] == 'Goal') & (awaydf['qualifiers'].str.contains('OwnGoal'))])
         agoal_count += len(homedf[(homedf['teamName'] == hteamName) & (homedf['type'] == 'Goal') & (homedf['qualifiers'].str.contains('OwnGoal'))])
         
-        # تحديد معرفات الفرق
         hteamID = list(st.session_state.teams_dict.keys())[0]
         ateamID = list(st.session_state.teams_dict.keys())[1]
         
-        # تحديد اللون بناءً على اختيار الفريق
         col = hcol if team_choice == hteamName else acol
         
-        # إنشاء الرسم
-        fig, ax = plt.subplots(figsize=(10, 10), facecolor=bg_color)
-        fig.tight_layout(pad=0.1)  # تقليل الهوامش
-        fig.subplots_adjust(left=0.02, right=0.88, top=0.88, bottom=0.03)  # ضبط حدود الشكل
-        # استدعاء pass_network مع جميع الوسائط المطلوبة
+        fig, ax = plt.subplots(figsize=(10, 6.8), facecolor=bg_color)  # نسبة 105:68
+        fig.tight_layout(pad=0.05)
+        fig.subplots_adjust(left=0.01, right=0.99, top=0.98, bottom=0.02)
+        
         pass_btn = pass_network(
             ax,
             team_choice,
@@ -1206,33 +1201,26 @@ with tab1:
         
     elif an_tp == 'مناطق الهجوم':
         st.subheader('تحليل مناطق الهجوم')
-        fig, ax = plt.subplots(figsize=(10, 10), facecolor=bg_color)
-        attack_summary, fig_heatmap, fig_bar = attack_zones_analysis(fig, ax, hteamName, ateamName, hcol, acol)
+        fig, ax = plt.subplots(figsize=(10, 6.8), facecolor=bg_color)
+        fig.tight_layout(pad=0.05)
+        fig.subplots_adjust(left=0.01, right=0.99, top=0.98, bottom=0.02)
         
-        # عرض خريطة حرارية
+        attack_summary, fig_heatmap, fig_bar = attack_zones_analysis(fig, ax, hteamName, ateamName, hcol, acol, hteamID, ateamID)
+        
         st.pyplot(fig_heatmap)
-        
-        # عرض الرسم البياني الشريطي
         st.pyplot(fig_bar)
         
-        # عرض الجدول الإحصائي
         st.subheader('إحصائيات مناطق الهجوم')
-        attack_summary = attack_summary.rename(columns={
-            'teamName': 'الفريق',
-            'اليسار': 'اليسار',
-            'العمق': 'العمق',
-            'اليمين': 'اليمين'
-        })
-        st.dataframe(attack_summary, hide_index=True)    
-
+        st.dataframe(attack_summary, hide_index=True)
+    
     elif an_tp == reshape_arabic_text('Team Domination Zones'):
         st.subheader(reshape_arabic_text('مناطق سيطرة الفريق'))
         phase_tag = st.selectbox(
-        'اختر الفترة:', ['Full Time', 'First Half', 'Second Half'], key='phase_tag_domination')
+            'اختر الفترة:', ['Full Time', 'First Half', 'Second Half'], key='phase_tag_domination')
         
-        fig, ax = plt.subplots(figsize=(12, 8), facecolor=bg_color)
-        fig.tight_layout(pad=0.1)  # تقليل الهوامش
-        fig.subplots_adjust(left=0.03, right=0.97, top=0.95, bottom=0.05)  # ضبط حدود الشكل
+        fig, ax = plt.subplots(figsize=(10, 6.8), facecolor=bg_color)
+        fig.tight_layout(pad=0.05)
+        fig.subplots_adjust(left=0.01, right=0.99, top=0.98, bottom=0.02)
         
         team_domination_zones(
             ax,
@@ -1244,17 +1232,16 @@ with tab1:
             bg_color,
             line_color,
             gradient_colors)
-        # إضافة عنوان أعلى الرسم
+        
         fig.text(
             0.5,
             0.98,
-            reshape_arabic_text(
-                f'{hteamName} {hgoal_count} - {agoal_count} {ateamName}'),
+            reshape_arabic_text(f'{hteamName} {hgoal_count} - {agoal_count} {ateamName}'),
             fontsize=16,
             fontweight='bold',
             ha='center',
             va='center',
             color='white')
-        fig.text(0.5, 0.94, reshape_arabic_text('مناطق السيطرة'),
+        fig.text(0.5, 0.95, reshape_arabic_text('مناطق السيطرة'),
                  fontsize=14, ha='center', va='center', color='white')
         st.pyplot(fig)
