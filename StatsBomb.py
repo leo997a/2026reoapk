@@ -1221,9 +1221,12 @@ with tab1:
     elif an_tp == reshape_arabic_text('Team Domination Zones'):
         st.subheader(reshape_arabic_text('مناطق سيطرة الفريق'))
         phase_tag = st.selectbox(
-            'اختر الفترة:', [
-                'Full Time', 'First Half', 'Second Half'], key='phase_tag_domination')
+        'اختر الفترة:', ['Full Time', 'First Half', 'Second Half'], key='phase_tag_domination')
+        
         fig, ax = plt.subplots(figsize=(12, 8), facecolor=bg_color)
+        fig.subplots_adjust(left=0.03, right=0.97, top=0.95, bottom=0.05)  # ضبط حدود الشكل
+        fig.subplots_adjust(left=0.03, right=0.97, top=0.95, bottom=0.05)  # ضبط حدود الشكل
+        
         team_domination_zones(
             ax,
             phase_tag,
