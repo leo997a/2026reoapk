@@ -218,6 +218,22 @@ def get_event_data(json_data):
     df['type'] = df['type'].apply(lambda x: x.get('displayName') if isinstance(x, dict) else str(x))
     df['outcomeType'] = df['outcomeType'].apply(lambda x: x.get('displayName') if isinstance(x, dict) else str(x))
     df['period'] = df['period'].apply(lambda x: x.get('displayName') if isinstance(x, dict) else str(x))
+
+    # تسجيل قيم period الأصلية
+    st.write("قيم period الأصلية:", df['period'].unique())    
+    # تحويل قيم period إلى نصوص موحدة
+    period_mapping = {
+        'FirstHalf': 'FirstHalf', 'SecondHalf': 'SecondHalf',
+        'FirstPeriodOfExtraTime': 'FirstPeriodOfExtraTime',
+        'SecondPeriodOfExtraTime': 'SecondPeriodOfExtraTime',
+        'PenaltyShootout': 'PenaltyShootout', 'PostGame': 'PostGame',
+        'PreMatch': 'PreMatch',
+        # التعامل مع القيم الرقمية أو غير المتوقعة
+        1: 'FirstHalf', 2: 'SecondHalf', 3: 'FirstPeriodOfExtraTime',
+        4: 'SecondPeriodOfExtraTime', 5: 'PenaltyShootout', 14: 'PostGame',
+        16: 'PreMatch'
+    }
+    df['period'] = df['period'].map(period_mapping).fillna(df['period'])    
     
     df['period'] = df['period'].replace({
         'FirstHalf': 1, 'SecondHalf': 2, 'FirstPeriodOfExtraTime': 3,
