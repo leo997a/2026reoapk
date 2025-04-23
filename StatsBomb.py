@@ -129,13 +129,13 @@ def extract_match_dict_from_html(uploaded_file):
             f.write(script.text)
         st.write("تم حفظ نص <script> الكامل في script_content.txt")
         
-        # تعبير منتظم لالتقاط كائن JSON الكامل
-        pattern = r'matchCentreData:\s*(\{.*?\}(?=\s*(?:,|\s*;|matchCentreEventTypeJson|$)))'
+        # تعبير منتظم لالتقاط كائن JSON مع التعامل مع التداخل العميق
+        pattern = r'matchCentreData:\s*(\{(?:[^{}]|\{(?:[^{}]|\{[^{}]*\})*\})*\})\s*(?:,|\s*;|matchCentreEventTypeJson|$)'
         match = re.search(pattern, script.text, re.DOTALL)
         
         if not match:
-            # تعبير منتظم بديل للتعامل مع التداخل العميق
-            pattern_fallback = r'matchCentreData:\s*(\{(?:[^{}]|\{(?:[^{}]|\{[^{}]*\})*\})*\})\s*(?:,|\s*;|matchCentreEventTypeJson|$)'
+            # تعبير منتظم بديل أكثر مرونة
+            pattern_fallback = r'matchCentreData:\s*(\{.*\})\s*(?:,|\s*;|matchCentreEventTypeJson|$)'
             match = re.search(pattern_fallback, script.text, re.DOTALL)
             if not match:
                 st.error("فشل في استخراج بيانات JSON من matchCentreData بجميع التعابير المنتظمة")
