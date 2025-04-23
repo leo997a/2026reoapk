@@ -29,10 +29,11 @@ import warnings
 import os
 import requests
 from io import StringIO, BytesIO
+import matplotlib.font_manager as fm
+fm.rebuild()  # إعادة بناء ذاكرة التخزين المؤقت للخطوط
 
-# إعدادات الخطوط
 plt.rcParams['font.family'] = 'sans-serif'
-plt.rcParams['font.sans-serif'] = ['DejaVu Sans']  # خط افتراضي متاح
+plt.rcParams['font.sans-serif'] = ['Noto Sans Arabic', 'DejaVu Sans']
 
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
@@ -216,7 +217,7 @@ def get_event_data(json_data):
     df['period'] = df['period'].replace({
         'FirstHalf': 1, 'SecondHalf': 2, 'FirstPeriodOfExtraTime': 3,
         'SecondPeriodOfExtraTime': 4, 'PenaltyShootout': 5, 'PostGame': 14, 'PreMatch': 16
-    })
+    }).infer_objects(copy=False)
     
     def cumulative_match_mins(events_df):
         events_out = pd.DataFrame()
@@ -338,8 +339,8 @@ def get_event_data(json_data):
     dfxT['x2_bin_xT'] = pd.cut(dfxT['endX'], bins=xT_cols, labels=False)
     dfxT['y2_bin_xT'] = pd.cut(dfxT['endY'], bins=xT_rows, labels=False)
     
-    dfxT['start_zone_value_xT'] = dfxT[['x1_bin_xT', 'y1_bin_xT']].apply(lambda x: xT[x[1]][x[0]], axis=1)
-    dfxT['end_zone_value_xT'] = dfxT[['x2_bin_xT', 'y2_bin_xT']].apply(lambda x: xT[x[1]][x[0]], axis=1)
+    dfxT['start_zone_value_xT'] = dfxT[['x1_bin_xT', 'y1_bin_xT']].apply(lambda x: xT[x.iloc[1]][x.iloc[0]], axis=1)
+    dfxT['end_zone_value_xT'] = dfxT[['x2_bin_xT', 'y2_bin_xT']].apply(lambda x: xT[x.iloc[1]][x.iloc[0]], axis=1)
     
     dfxT['xT'] = dfxT['end_zone_value_xT'] - dfxT['start_zone_value_xT']
     columns_to_drop = [
@@ -1138,17 +1139,26 @@ if st.button("تحليل المباراة"):
     with st.spinner("جارٍ استخراج بيانات المباراة..."):
         st.session_state.json_data = None
         st.session_state.df = pd.DataFrame({
-            'period': ['FirstHalf', 'FirstHalf', 'SecondHalf', 'SecondHalf'],
-            'teamName': ['TeamA', 'TeamA', 'TeamA', 'TeamA'],
-            'type': ['Pass', 'Pass', 'Pass', 'Pass'],
-            'outcomeType': ['Successful', 'Successful', 'Successful', 'Successful'],
-            'name': ['Player1', 'Player2', 'Player1', 'Player2'],
-            'x': [10, 20, 30, 40],
-            'y': [10, 20, 30, 40],
-            'qualifiers': ['', '', '', '']
+            'period': ['FirstHalf', 'FirstHalf', 'SecondHalf', 'SecondHalf', 'FirstHalf', 'SecondHalf']
+            'teamName': ['TeamA', 'TeamA', 'TeamA', 'TeamB', 'TeamB', 'TeamA'],
+            'type': ['Pass', 'Pass', 'Pass', 'Goal', 'Pass', 'Carry'],
+            'outcomeType': ['Successful', 'Successful', 'Successful', 'Successful', 'Successful', 'Successful'],
+            name': ['Player1', 'Player2', 'Player1', 'Player3', 'Player4', 'Player2'],
+            'x': [10, 20, 30, 90, 50, 40],
+            'y': [10, 20, 30, 34, 40, 50],
+            'endX': [20, 30, 40, np.nan, 60, 50],
+            'endY': [20, 30, 40, np.nan, 50, 60],
+            'qualifiers': ['', '', '', 'Goal', '', '']
+            'shirtNo': [1, 2, 1, 3, 4, 2],
+            'position': ['DC', 'DC', 'DC', 'FW', 'MC', 'DC'],
+            'isFirstEleven': [True, True, True, True, True, True],
+            'playerId': [101, 102, 101, 103, 104, 102],
+            'isTouch': [True, True, True, True, True, True],
+            'cumulative_mins': [5, 10, 50, 60, 20, 70]
          })
-        st.session_state.teams_dict = None
-        st.session_state.players_df = None
+        st.session_state.teams_dict = {1: 'TeamA', 2: 'TeamB'}
+        st.session_state.analysis_triggered = True
+        st.success("تم تحميل البيانات التجريبية بنجاح!")
         
         if uploaded_json:
             try:
