@@ -35,6 +35,14 @@ import matplotlib.font_manager as fm
 plt.rcParams['font.family'] = 'sans-serif'
 plt.rcParams['font.sans-serif'] = ['Noto Sans Arabic', 'DejaVu Sans', 'Arial']
 plt.rcParams['axes.unicode_minus'] = False
+plt.rcParams['text.usetex'] = False
+
+# التحقق من توفر الخطوط
+available_fonts = [f.name for f in fm.fontManager.ttflist]
+st.write("الخطوط المتوفرة:", available_fonts)
+
+if 'Noto Sans Arabic' not in available_fonts:
+    st.warning("خط 'Noto Sans Arabic' غير متاح. قد يؤثر ذلك على وضوح النصوص العربية. تأكد من تثبيت 'fonts-noto' في ملف packages.txt.")
 
 # اختياري: طباعة الخطوط المتوفرة للتصحيح (أزل في الإنتاج)
 # available_fonts = [f.name for f in fm.fontManager.ttflist]
@@ -55,13 +63,6 @@ except requests.exceptions.RequestException as e:
 except Exception as e:
     st.error(f"خطأ أثناء قراءة الملف: {e}")
     fotmob_team_ids = {}
-
-# تهيئة matplotlib لدعم العربية
-plt.rcParams['text.usetex'] = False
-plt.rcParams['font.family'] = 'sans-serif'
-plt.rcParams['font.sans-serif'] = ['Amiri',
-                                   'Noto Sans Arabic', 'Arial', 'Tahoma']
-plt.rcParams['axes.unicode_minus'] = False
 
 # دالة لتحويل النص العربي
 
@@ -692,8 +693,9 @@ def pass_network(ax, team_name, col, phase_tag, hteamName, ateamName, hgoal_coun
         
         # إضافة النتيجة
         score_text = reshape_arabic_text(f"{hteamName} {hgoal_count} - {agoal_count} {ateamName}")
-        ax.text(34, 120, score_text, color='white', fontsize=16, ha='center', va='center', weight='bold')
-        
+        score = ax.text(34, 120, score_text, color='white', fontsize=18, ha='center', va='center', weight='bold')
+        score.set_path_effects([path_effects.withStroke(linewidth=2, foreground='black')])
+
         # إضافة شعار الفريق
         try:
             teamID_fotmob = fotmob_team_ids.get(team_name, hteamID if team_name == hteamName else ateamID)
@@ -707,25 +709,47 @@ def pass_network(ax, team_name, col, phase_tag, hteamName, ateamName, hgoal_coun
             logo_ax.imshow(logo)
             logo_ax.axis('off')
             
-            ax.text(34, 1, reshape_arabic_text(f"شبكة تمريرات {team_name}"), 
-                    color='white', fontsize=12, ha='center', va='center', weight='bold')
+            title = ax.text(34, 1, reshape_arabic_text(f"شبكة تمريرات {team_name}"), 
+                            color='white', fontsize=14, ha='center', va='center', weight='bold')
+            title.set_path_effects([path_effects.withStroke(linewidth=2, foreground='black')])
         except Exception as e:
             st.warning(f"فشل في تحميل شعار {team_name} من FotMob: {str(e)}")
-            ax.text(34, 1, reshape_arabic_text(f"شبكة تمريرات {team_name}"), 
-                    color='white', fontsize=12, ha='center', va='center', weight='bold')
+            title = ax.text(34, 1, reshape_arabic_text(f"شبكة تمريرات {team_name}"), 
+                            color='white', fontsize=14, ha='center', va='center', weight='bold')
+            title.set_path_effects([path_effects.withStroke(linewidth=2, foreground='black')])
         
         # إضافة نصوص الوقت والإحصائيات
         if phase_tag == 'Full Time':
-            ax.text(34, 115, reshape_arabic_text('الوقت بالكامل: 0-90 دقيقة'), color='white', fontsize=14, ha='center', va='center', weight='bold')
-            ax.text(34, 112, reshape_arabic_text(f'إجمالي التمريرات: {len(total_pass)} | الناجحة: {len(accrt_pass)} | الدقة: {accuracy}%'), color='white', fontsize=12, ha='center', va='center')
+            time_text = ax.text(34, 115, reshape_arabic_text('الوقت بالكامل: 0-90 دقيقة'), 
+                                color='white', fontsize=16, ha='center', va='center', weight='bold')
+            time_text.set_path_effects([path_effects.withStroke(linewidth=2, foreground='black')])
+            stats_text = ax.text(34, 112, reshape_arabic_text(f'إجمالي التمريرات: {len(total_pass)} | الناجحة: {len(accrt_pass)} | الدقة: {accuracy}%'), 
+                                 color='white', fontsize=14, ha='center', va='center')
+            stats_text.set_path_effects([path_effects.withStroke(linewidth=2, foreground='black')])
         elif phase_tag == 'First Half':
-            ax.text(34, 115, reshape_arabic_text('الشوط الأول: 0-45 دقيقة'), color='white', fontsize=14, ha='center', va='center', weight='bold')
-            ax.text(34, 112, reshape_arabic_text(f'إجمالي التمريرات: {len(total_pass)} | الناجحة: {len(accrt_pass)} | الدقة: {accuracy}%'), color='white', fontsize=12, ha='center', va='center')
+            time_text = ax.text(34, 115, reshape_arabic_text('الشوط الأول: 0-45 دقيقة'), 
+                                color='white', fontsize=16, ha='center', va='center', weight='bold')
+            time_text.set_path_effects([path_effects.withStroke(linewidth=2, foreground='black')])
+            stats_text = ax.text(34, 112, reshape_arabic_text(f'إجمالي التمريرات: {len(total_pass)} | الناجحة: {len(accrt_pass)} | الدقة: {accuracy}%'), 
+                                 color='white', fontsize=14, ha='center', va='center')
+            stats_text.set_path_effects([path_effects.withStroke(linewidth=2, foreground='black')])
         elif phase_tag == 'Second Half':
-            ax.text(34, 115, reshape_arabic_text('الشوط الثاني: 45-90 دقيقة'), color='white', fontsize=14, ha='center', va='center', weight='bold')
-            ax.text(34, 112, reshape_arabic_text(f'إجمالي التمريرات: {len(total_pass)} | الناجحة: {len(accrt_pass)} | الدقة: {accuracy}%'), color='white', fontsize=12, ha='center', va='center')
+            time_text = ax.text(34, 115, reshape_arabic_text('الشوط الثاني: 45-90 دقيقة'), 
+                                color='white', fontsize=16, ha='center', va='center', weight='bold')
+            time_text.set_path_effects([path_effects.withStroke(linewidth=2, foreground='black')])
+            stats_text = ax.text(34, 112, reshape_arabic_text(f'إجمالي التمريرات: {len(total_pass)} | الناجحة: {len(accrt_pass)} | الدقة: {accuracy}%'), 
+                                 color='white', fontsize=14, ha='center', va='center')
+            stats_text.set_path_effects([path_effects.withStroke(linewidth=2, foreground='black')])
         
-        ax.text(34, -6, reshape_arabic_text(f"على الكرة\nالتماسك العمودي (المنطقة المظللة): {v_comp}%"), color='white', fontsize=12, ha='center', va='center', weight='bold')
+        compact_text = ax.text(34, -6, reshape_arabic_text(f"على الكرة\nالتماسك العمودي (المنطقة المظللة): {v_comp}%"), 
+                               color='white', fontsize=14, ha='center', va='center', weight='bold')
+        compact_text.set_path_effects([path_effects.withStroke(linewidth=2, foreground='black')])
+        
+        # تعديل حجم ووضوح أرقام القمصان
+        for index, row in avg_locs_df.iterrows():
+            player_initials = row["shirtNo"]
+            number = pitch.annotate(player_initials, xy=(row.avg_x, row.avg_y), c='white', ha='center', va='center', size=16, weight='bold', ax=ax)
+            number.set_path_effects([path_effects.withStroke(linewidth=2, foreground='black')])
         
         return pass_btn
     
