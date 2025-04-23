@@ -523,7 +523,6 @@ def pass_network(ax, team_name, col, phase_tag, hteamName, ateamName, hgoal_coun
     team_pdf = st.session_state.players_df[['name', 'shirtNo', 'position', 'isFirstEleven']]
     avg_locs_df = avg_locs_df.merge(team_pdf, on='name', how='left')
     
-    # التعامل مع قيم NaN في isFirstEleven
     avg_locs_df['isFirstEleven'] = avg_locs_df['isFirstEleven'].fillna(False)
     avg_locs_df['shirtNo'] = avg_locs_df['shirtNo'].fillna(0)
     avg_locs_df['position'] = avg_locs_df['position'].fillna('Unknown')
@@ -602,15 +601,15 @@ def pass_network(ax, team_name, col, phase_tag, hteamName, ateamName, hgoal_coun
     ax.fill(ymid, xmid, col, alpha=0.2)
     v_comp = round((1 - ((fwd_line_h - def_line_h) / 105)) * 100, 2)
     
-    # إضافة النتيجة
+    # إضافة النتيجة (مرفوعة أعلى داخل حدود الشكل)
     score_text = reshape_arabic_text(f"{hteamName} {hgoal_count} - {agoal_count} {ateamName}")
-    ax.text(34, 120, score_text, color='white', fontsize=16, ha='center', va='center', weight='bold')
+    ax.text(34, 108, score_text, color='white', fontsize=16, ha='center', va='center', weight='bold')
     
-    # إضافة أسماء الفريقين أعلى الرسم بدلاً من الشعارات
-    ax.text(5, 115, reshape_arabic_text(hteamName), color='white', fontsize=12, ha='left', va='center')
-    ax.text(63, 115, reshape_arabic_text(ateamName), color='white', fontsize=12, ha='right', va='center')
+    # إضافة أسماء الفريقين أعلى الرسم (مرفوعة أقرب إلى الملعب)
+    ax.text(5, 103, reshape_arabic_text(hteamName), color='white', fontsize=12, ha='left', va='center')
+    ax.text(63, 103, reshape_arabic_text(ateamName), color='white', fontsize=12, ha='right', va='center')
     
-    # إضافة شعار الفريق المختار أسفل الرسم (مرفوع أعلى لتجنب التداخل)
+    # إضافة شعار الفريق المختار أسفل الرسم (مرفوع أعلى)
     try:
         teamID_fotmob = fotmob_team_ids.get(team_name, hteamID if team_name == hteamName else ateamID)
         logo_url = f"https://images.fotmob.com/image_resources/logo/teamlogo/{teamID_fotmob}.png"
@@ -619,31 +618,29 @@ def pass_network(ax, team_name, col, phase_tag, hteamName, ateamName, hgoal_coun
         logo = Image.open(BytesIO(response.content))
         logo = logo.resize((50, 50), Image.Resampling.LANCZOS)
         
-        # إضافة شعار الفريق المختار أسفل الرسم (مرفوع أعلى)
-        logo_ax = ax.inset_axes([0.45, -0.05, 0.1, 0.1], transform=ax.transAxes)
+        logo_ax = ax.inset_axes([0.45, -0.03, 0.1, 0.1], transform=ax.transAxes)
         logo_ax.imshow(logo)
         logo_ax.axis('off')
         
-        # إضافة نص توضيحي بجوار الشعار
-        ax.text(34, -8, reshape_arabic_text(f"شبكة تمريرات {team_name}"), 
+        # إضافة نص توضيحي بجوار الشعار (مرفوع أعلى)
+        ax.text(34, -3, reshape_arabic_text(f"شبكة تمريرات {team_name}"), 
                 color='white', fontsize=12, ha='center', va='center', weight='bold')
     except Exception as e:
         st.warning(f"فشل في تحميل شعار {team_name} من FotMob: {str(e)}")
-        # إضافة اسم الفريق كنص بديل أسفل الرسم
-        ax.text(34, -8, reshape_arabic_text(f"شبكة تمريرات {team_name}"), 
+        ax.text(34, -3, reshape_arabic_text(f"شبكة تمريرات {team_name}"), 
                 color='white', fontsize=12, ha='center', va='center', weight='bold')
     
     if phase_tag == 'Full Time':
-        ax.text(34, 115, reshape_arabic_text('الوقت بالكامل: 0-90 دقيقة'), color='white', fontsize=14, ha='center', va='center', weight='bold')
-        ax.text(34, 112, reshape_arabic_text(f'إجمالي التمريرات: {len(total_pass)} | الناجحة: {len(accrt_pass)} | الدقة: {accuracy}%'), color='white', fontsize=12, ha='center', va='center')
+        ax.text(34, 100, reshape_arabic_text('الوقت بالكامل: 0-90 دقيقة'), color='white', fontsize=14, ha='center', va='center', weight='bold')
+        ax.text(34, 97, reshape_arabic_text(f'إجمالي التمريرات: {len(total_pass)} | الناجحة: {len(accrt_pass)} | الدقة: {accuracy}%'), color='white', fontsize=12, ha='center', va='center')
     elif phase_tag == 'First Half':
-        ax.text(34, 115, reshape_arabic_text('الشوط الأول: 0-45 دقيقة'), color='white', fontsize=14, ha='center', va='center', weight='bold')
-        ax.text(34, 112, reshape_arabic_text(f'إجمالي التمريرات: {len(total_pass)} | الناجحة: {len(accrt_pass)} | الدقة: {accuracy}%'), color='white', fontsize=12, ha='center', va='center')
+        ax.text(34, 100, reshape_arabic_text('الشوط الأول: 0-45 دقيقة'), color='white', fontsize=14, ha='center', va='center', weight='bold')
+        ax.text(34, 97, reshape_arabic_text(f'إجمالي التمريرات: {len(total_pass)} | الناجحة: {len(accrt_pass)} | الدقة: {accuracy}%'), color='white', fontsize=12, ha='center', va='center')
     elif phase_tag == 'Second Half':
-        ax.text(34, 115, reshape_arabic_text('الشوط الثاني: 45-90 دقيقة'), color='white', fontsize=14, ha='center', va='center', weight='bold')
-        ax.text(34, 112, reshape_arabic_text(f'إجمالي التمريرات: {len(total_pass)} | الناجحة: {len(accrt_pass)} | الدقة: {accuracy}%'), color='white', fontsize=12, ha='center', va='center')
+        ax.text(34, 100, reshape_arabic_text('الشوط الثاني: 45-90 دقيقة'), color='white', fontsize=14, ha='center', va='center', weight='bold')
+        ax.text(34, 97, reshape_arabic_text(f'إجمالي التمريرات: {len(total_pass)} | الناجحة: {len(accrt_pass)} | الدقة: {accuracy}%'), color='white', fontsize=12, ha='center', va='center')
     
-    ax.text(34, -6, reshape_arabic_text(f"على الكرة\nالتماسك العمودي (المنطقة المظللة): {v_comp}%"), color='white', fontsize=12, ha='center', va='center', weight='bold')
+    ax.text(34, -5, reshape_arabic_text(f"على الكرة\nالتماسك العمودي (المنطقة المظللة): {v_comp}%"), color='white', fontsize=12, ha='center', va='center', weight='bold')
     
     return pass_btn
 
