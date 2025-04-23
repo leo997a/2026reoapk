@@ -1021,7 +1021,9 @@ def attack_zones_analysis(fig, ax, hteamName, ateamName, hcol, acol):
         try:
             teamID_fotmob = fotmob_team_ids.get(team_name, team_id)
             logo_url = f"https://images.fotmob.com/image_resources/logo/teamlogo/{teamID_fotmob}.png"
-            logo = Image.open(urlopen(logo_url)).resize((50, 50), Image.Resampling.LANCZOS)
+            response = requests.get(logo_url)
+            response.raise_for_status()
+            logo = Image.open(BytesIO(response.content)).resize((50, 50), Image.Resampling.LANCZOS)
             logo_ax = ax.inset_axes([0.85, 0.85, 0.1, 0.1], transform=ax.transAxes)
             logo_ax.imshow(logo)
             logo_ax.axis('off')
