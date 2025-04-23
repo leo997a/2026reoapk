@@ -1323,7 +1323,30 @@ if st.session_state.analysis_triggered and not st.session_state.df.empty and st.
             st.subheader('إحصائيات مناطق الهجوم')
             st.dataframe(attack_summary, hide_index=True)
 
-        
+        elif an_tp == reshape_arabic_text('Team Domination Zones'):
+            st.subheader(reshape_arabic_text('مناطق سيطرة الفريق'))
+            phase_tag = st.selectbox(
+                'اختر الفترة:', ['Full Time', 'First Half', 'Second Half'], key='phase_tag_domination')
+            fig, ax = plt.subplots(figsize=(12, 8), facecolor=bg_color)
+            team_domination_zones(
+                ax,
+                phase_tag,
+                hteamName,
+                ateamName,
+                hcol,
+                acol,
+                bg_color,
+                line_color,
+                gradient_colors)
+            # إضافة عنوان أعلى الرسم
+            fig.text(
+                0.5, 0.98,
+                reshape_arabic_text(f'{hteamName} {hgoal_count} - {agoal_count} {ateamName}'),
+                fontsize=16, fontweight='bold', ha='center', va='center', color='white')
+            fig.text(0.5, 0.94, reshape_arabic_text('مناطق السيطرة'),
+                     fontsize=14, ha='center', va='center', color='white')
+            st.pyplot(fig)
+
         elif an_tp == reshape_arabic_text('PPDA'):
             st.subheader(reshape_arabic_text('معدل الضغط (PPDA)'))
             try:
@@ -1348,30 +1371,5 @@ if st.session_state.analysis_triggered and not st.session_state.df.empty and st.
            st.pyplot(fig)
        except Exception as e:
            st.error(f"خطأ في حساب PPDA: {str(e)}")
-        
-        
-        elif an_tp == reshape_arabic_text('Team Domination Zones'):
-            st.subheader(reshape_arabic_text('مناطق سيطرة الفريق'))
-            phase_tag = st.selectbox(
-                'اختر الفترة:', ['Full Time', 'First Half', 'Second Half'], key='phase_tag_domination')
-            fig, ax = plt.subplots(figsize=(12, 8), facecolor=bg_color)
-            team_domination_zones(
-                ax,
-                phase_tag,
-                hteamName,
-                ateamName,
-                hcol,
-                acol,
-                bg_color,
-                line_color,
-                gradient_colors)
-            # إضافة عنوان أعلى الرسم
-            fig.text(
-                0.5, 0.98,
-                reshape_arabic_text(f'{hteamName} {hgoal_count} - {agoal_count} {ateamName}'),
-                fontsize=16, fontweight='bold', ha='center', va='center', color='white')
-            fig.text(0.5, 0.94, reshape_arabic_text('مناطق السيطرة'),
-                     fontsize=14, ha='center', va='center', color='white')
-            st.pyplot(fig)
 else:
     st.warning("يرجى تحميل بيانات المباراة والنقر على 'تحليل المباراة' لعرض التحليلات.")
