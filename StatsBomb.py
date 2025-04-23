@@ -119,8 +119,8 @@ def extract_match_dict_from_html(uploaded_file):
             st.error("لم يتم العثور على matchCentreData في ملف HTML")
             return None
         
-        # تعبير منتظم محسّن لالتقاط كائن JSON الكامل
-        pattern = r'matchCentreData:\s*(\{.*?\})(?=\s*,?\s*matchCentreEventTypeJson|\s*;)'
+        # تعبير منتظم محسّن لالتقاط كائن JSON مع الأقواس المتداخلة
+        pattern = r'matchCentreData:\s*(\{(?:[^{}]|\{[^{}]*\})*\})'
         match = re.search(pattern, script.text, re.DOTALL)
         
         if not match:
@@ -138,12 +138,12 @@ def extract_match_dict_from_html(uploaded_file):
         st.write("JSON string preview (first 500 chars):", json_str[:500])
         st.write("JSON string preview (last 500 chars):", json_str[-500:])
         
-        # التحقق من الأقواس المتداخلة لضمان JSON صالح
-        def is_valid_json(json_str):
+        # التحقق من اكتمال JSON (الأقواس المتداخلة)
+        def is_valid_json_structure(json_str):
             brace_count = 0
             in_string = False
-            for char in json_str:
-                if char == '"' and json_str[json_str.index(char)-1] != '\\':
+            for i, char in enumerate(json_str):
+                if char == '"' and (i == 0 or json_str[i-1] != '\\'):
                     in_string = not in_string
                 if not in_string:
                     if char == '{':
@@ -151,11 +151,14 @@ def extract_match_dict_from_html(uploaded_file):
                     elif char == '}':
                         brace_count -= 1
                 if brace_count < 0:
+                    st.error(f"JSON غير صالح: إغلاق قوس زائد عند الموضع {i}")
                     return False
-            return brace_count == 0
+            if brace_count != 0:
+                st.error(f"JSON غير مكتمل: عدد الأقواس غير متطابق ({brace_count})")
+                return False
+            return True
         
-        if not is_valid_json(json_str):
-            st.error("سلسلة JSON غير مكتملة (مشكلة في الأقواس المتداخلة)")
+        if not is_valid_json_structure(json_str):
             with open("failed_json.txt", "w", encoding="utf-8") as f:
                 f.write(json_str)
             st.write("تم حفظ النص المستخرج في failed_json.txt للتحقق")
