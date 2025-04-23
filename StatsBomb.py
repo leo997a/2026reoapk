@@ -1120,14 +1120,14 @@ def calculate_ppda(events_df, attacking_third_threshold=80):
     """
     # Filter successful passes in the attacking third
     passes = events_df[
-        (events_df['type_name'] == 'Pass') &
-        (events_df['outcomeType'] == 'Successful') &  # Assuming 'outcomeType' indicates success
+        (events_df['type'] == 'Pass') &  # تغيير 'type_name' إلى 'type'
+        (events_df['outcomeType'] == 'Successful') &
         (events_df['x'].apply(lambda x: x >= attacking_third_threshold))
     ]
     
     # Filter defensive actions (tackles, interceptions, blocks) in the attacking third
     defensive_actions = events_df[
-        (events_df['type_name'].isin(['Tackle', 'Interception', 'Block'])) &
+        (events_df['type'].isin(['Tackle', 'Interception', 'Block'])) &  # تغيير 'type_name' إلى 'type'
         (events_df['x'].apply(lambda x: x >= attacking_third_threshold))
     ]
     
@@ -1350,6 +1350,9 @@ if st.session_state.analysis_triggered and not st.session_state.df.empty and st.
         elif an_tp == reshape_arabic_text('PPDA'):
             st.subheader(reshape_arabic_text('معدل الضغط (PPDA)'))
             try:
+                # طباعة الأعمدة للتصحيح
+                st.write("أعمدة DataFrame:", st.session_state.df.columns.tolist())
+                
                 # استدعاء دالة calculate_ppda باستخدام st.session_state.df
                 ppda_results = calculate_ppda(st.session_state.df)
         
