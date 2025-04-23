@@ -920,7 +920,7 @@ def team_domination_zones(
         [path_effects.withStroke(linewidth=2, foreground='black')])
 
 
-def attack_zones_analysis(fig, ax, hteamName, ateamName, hcol, acol):
+def attack_zones_analysis(fig, ax, hteamName, ateamName, hcol, acol, hteamID, ateamID):
     # استخراج الأحداث الهجومية في الثلث الأخير (x >= 70)
     attack_events = st.session_state.df[
         (st.session_state.df['type'].isin(['Pass', 'Goal', 'MissedShots', 'SavedShot', 'ShotOnPost', 'TakeOn', 'Carry'])) &
@@ -954,9 +954,15 @@ def attack_zones_analysis(fig, ax, hteamName, ateamName, hcol, acol):
     # إعداد التدرج اللوني
     gradient = LinearSegmentedColormap.from_list("pitch_gradient", ['#003087', '#d00000'], N=100)
     
-    # عرض الفريقين معًا أو بشكل منفصل
-    axes = [ax1, ax2] if display_together else [ax1]
-    teams = [(hteamName, hcol, hteamID), (ateamName, acol, ateamID)] if display_together else [(hteamName, hcol, hteamID)]
+    # عرض فريق واحد فقط (يمكن تغيير ذلك لاحقًا)
+    display_together = False
+    if display_together:
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 10), facecolor=bg_color)
+        axes = [ax1, ax2]
+        teams = [(hteamName, hcol, hteamID), (ateamName, acol, ateamID)]
+    else:
+        axes = [ax]
+        teams = [(hteamName, hcol, hteamID)]  # عرض الفريق المضيف فقط
     
     for ax, (team_name, team_color, team_id) in zip(axes, teams):
         pitch.draw(ax=ax)
