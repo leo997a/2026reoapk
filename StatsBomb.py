@@ -515,8 +515,8 @@ def pass_network(ax, team_name, col, phase_tag, hteamName, ateamName, hgoal_coun
     
     # التعامل مع قيم NaN في isFirstEleven
     avg_locs_df['isFirstEleven'] = avg_locs_df['isFirstEleven'].fillna(False)
-    avg_locs_df['shirtNo'] = avg_locs_df['shirtNo'].fillna(0)  # تعبئة shirtNo بـ 0 إذا كانت مفقودة
-    avg_locs_df['position'] = avg_locs_df['position'].fillna('Unknown')  # تعبئة position بـ 'Unknown' إذا كانت مفقودة
+    avg_locs_df['shirtNo'] = avg_locs_df['shirtNo'].fillna(0)
+    avg_locs_df['position'] = avg_locs_df['position'].fillna('Unknown')
     
     df_pass = df_pass[(df_pass['type'] == 'Pass') & (df_pass['outcomeType'] == 'Successful') & (df_pass['teamName'] == team_name) & (~df_pass['qualifiers'].str.contains('Corner|Freekick'))]
     df_pass = df_pass[['type', 'name', 'pass_receiver']].reset_index(drop=True)
@@ -584,7 +584,6 @@ def pass_network(ax, team_name, col, phase_tag, hteamName, ateamName, hgoal_coun
     center_backs_height = avg_locs_df[avg_locs_df['position'] == 'DC']
     def_line_h = round(center_backs_height['avg_x'].median(), 2) if not center_backs_height.empty else avgph
     
-    # التعامل مع تصفية Forwards_height
     Forwards_height = avg_locs_df[avg_locs_df['isFirstEleven'] == True].sort_values(by='avg_x', ascending=False).head(2)
     fwd_line_h = round(Forwards_height['avg_x'].mean(), 2) if not Forwards_height.empty else avgph
     
@@ -597,40 +596,32 @@ def pass_network(ax, team_name, col, phase_tag, hteamName, ateamName, hgoal_coun
     score_text = reshape_arabic_text(f"{hteamName} {hgoal_count} - {agoal_count} {ateamName}")
     ax.text(34, 120, score_text, color='white', fontsize=16, ha='center', va='center', weight='bold')
     
-    # إضافة شعاري الفريقين من FotMob
+    # إضافة أسماء الفريقين أعلى الرسم بدلاً من الشعارات
+    ax.text(5, 115, reshape_arabic_text(hteamName), color='white', fontsize=12, ha='left', va='center')
+    ax.text(63, 115, reshape_arabic_text(ateamName), color='white', fontsize=12, ha='right', va='center')
+    
+    # إضافة شعار الفريق المختار أسفل الرسم
     try:
-    # استخدام معرفات FotMob
-        hteamID_fotmob = fotmob_team_ids.get(hteamName, hteamID)
-        ateamID_fotmob = fotmob_team_ids.get(ateamName, ateamID)
-    
-        home_logo_url = f"https://images.fotmob.com/image_resources/logo/teamlogo/{hteamID_fotmob}.png"
-        away_logo_url = f"https://images.fotmob.com/image_resources/logo/teamlogo/{ateamID_fotmob}.png"
-    
-    # تحميل شعار الفريق المضيف
-        response = requests.get(home_logo_url)
+        teamID_fotmob = fotmob_team_ids.get(team_name, hteamID if team_name == hteamName else ateamID)
+        logo_url = f"https://images.fotmob.com/image_resources/logo/teamlogo/{teamID_fotmob}.png"
+        response = requests.get(logo_url)
         response.raise_for_status()
-        home_logo = Image.open(BytesIO(response.content))
-        home_logo = home_logo.resize((50, 50), Image.Resampling.LANCZOS)
-    
-    # تحميل شعار الفريق الضيف
-        response = requests.get(away_logo_url)
-        response.raise_for_status()
-        away_logo = Image.open(BytesIO(response.content))
-        away_logo = away_logo.resize((50, 50), Image.Resampling.LANCZOS)
-    
-    # إضافة شعار الفريق المضيف
-        home_logo_ax = ax.inset_axes([0.05, 0.95, 0.07, 0.07], transform=ax.transAxes)
-        home_logo_ax.imshow(home_logo)
-        home_logo_ax.axis('off')
-    
-    # إضافة شعار الفريق الضيف
-        away_logo_ax = ax.inset_axes([0.88, 0.95, 0.07, 0.07], transform=ax.transAxes)
-        away_logo_ax.imshow(away_logo)
-        away_logo_ax.axis('off')
+        logo = Image.open(BytesIO(response.content))
+        logo = logo.resize((50, 50), Image.Resampling.LANCZOS)
+        
+        # إضافة شعار الفريق المختار أسفل الرسم
+        logo_ax = ax.inset_axes([0.45, -0.1, 0.1, 0.1], transform=ax.transAxes)
+        logo_ax.imshow(logo)
+        logo_ax.axis('off')
+        
+        # إضافة نص توضيحي بجوار الشعار
+        ax.text(34, -10, reshape_arabic_text(f"شبكة تمريرات {team_name}"), 
+                color='white', fontsize=12, ha='center', va='center', weight='bold')
     except Exception as e:
-        st.warning(f"فشل في تحميل شعارات الفريقين من FotMob: {str(e)}")
-        ax.text(5, 115, reshape_arabic_text(hteamName), color='white', fontsize=12, ha='left', va='center')
-        ax.text(63, 115, reshape_arabic_text(ateamName), color='white', fontsize=12, ha='right', va='center')
+        st.warning(f"فشل في تحميل شعار {team_name} من FotMob: {str(e)}")
+        # إضافة اسم الفريق كنص بديل أسفل الرسم
+        ax.text(34, -10, reshape_arabic_text(f"شبكة تمريرات {team_name}"), 
+                color='white', fontsize=12, ha='center', va='center', weight='bold')
     
     if phase_tag == 'Full Time':
         ax.text(34, 115, reshape_arabic_text('الوقت بالكامل: 0-90 دقيقة'), color='white', fontsize=14, ha='center', va='center', weight='bold')
