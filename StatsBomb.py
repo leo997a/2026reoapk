@@ -34,7 +34,7 @@ warnings.filterwarnings("ignore", category=DeprecationWarning)
 url = "https://raw.githubusercontent.com/leo997a/2026reoapk/refs/heads/main/teams_name_and_id.csv"
 try:
     response = requests.get(url)
-    response.raise_for_status()  # التحقق من نجاح الطلب
+    response.raise_for_status()
     teams_df = pd.read_csv(StringIO(response.text))
     fotmob_team_ids = dict(zip(teams_df['teamName'], teams_df['teamId']))
 except requests.exceptions.RequestException as e:
