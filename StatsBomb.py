@@ -1419,20 +1419,20 @@ with tab1:
         ppda_df = pd.DataFrame.from_dict(ppda_results, orient='index')
         
         # تصحيح أخطاء: عرض معلومات البيانات
-        st.subheader(reshape_arabic_text('معلومات البيانات'))
+        st.subheader(reshape_arabic_text('معلومات البيانات للتحقق'))
         st.write("أعمدة DataFrame:", st.session_state.df.columns.tolist())
         st.write("عدد الأحداث الكلي:", len(st.session_state.df))
+        st.write("أنواع الأحداث المتوفرة:", st.session_state.df['type'].unique().tolist())
         st.write("عدد التمريرات الناجحة في الثلث الهجومي:", len(st.session_state.df[
             (st.session_state.df['type'] == 'Pass') &
             (st.session_state.df['outcomeType'] == 'Successful') &
-            (st.session_state.df['x'].apply(lambda x: x >= 80))
+            (st.session_state.df['x'].apply(lambda x: x >= 80 if pd.notna(x) else False))
         ]))
-        st.write("عدد الأفعال الدفاعية في الثلث الهجومي:", len(st.session_state.df[
-            (st.session_state.df['type'].isin(['Tackle', 'Interception', 'Block', 'Ball Recovery', 'Pressure'])) &
-            (st.session_state.df['x'].apply(lambda x: x >= 80)) &
+        st.write("عدد الأفعال الدفاعية الناجحة في الثلث الهجومي:", len(st.session_state.df[
+            (st.session_state.df['type'].isin(['Tackle', 'Interception', 'Block', 'Ball Recovery', 'Pressure', 'Foul Committed'])) &
+            (st.session_state.df['x'].apply(lambda x: x >= 80 if pd.notna(x) else False)) &
             (st.session_state.df['outcomeType'] == 'Successful')
         ]))
-        st.write("أنواع الأحداث المتوفرة:", st.session_state.df['type'].unique().tolist())
         
         # عرض الجدول الرئيسي
         st.subheader(reshape_arabic_text('نتائج PPDA'))
@@ -1492,3 +1492,4 @@ with tab1:
     
     except Exception as e:
         st.error(f"خطأ في حساب PPDA: {str(e)}")
+        st.write("يرجى التحقق من البيانات المحملة. تأكد من أنها تحتوي على الأعمدة: type, outcomeType, x, teamName.")
