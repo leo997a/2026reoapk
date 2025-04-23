@@ -117,19 +117,32 @@ def extract_match_dict_from_html(uploaded_file):
         script = soup.find(lambda tag: tag.name == 'script' and 'matchCentreData' in tag.text)
         if not script:
             st.error("لم يتم العثور على matchCentreData في ملف HTML")
+            # تسجيل أول 1000 حرف من HTML للتحقق
+            with open("html_content.txt", "w", encoding="utf-8") as f:
+                f.write(html_content[:1000])
+            st.write("تم حفظ أول 1000 حرف من HTML في html_content.txt")
             return None
         
+        # تسجيل أول 1000 وآخر 1000 حرف من نص <script> للتحقق
+        st.write("Script content preview (first 1000 chars):", script.text[:1000])
+        st.write("Script content preview (last 1000 chars):", script.text[-1000:])
+        with open("script_content.txt", "w", encoding="utf-8") as f:
+            f.write(script.text)
+        st.write("تم حفظ نص <script> الكامل في script_content.txt")
+        
         # تعبير منتظم محسّن لالتقاط كائن JSON مع الأقواس المتداخلة
-        pattern = r'matchCentreData:\s*(\{(?:[^{}]|\{[^{}]*\})*\})'
+        pattern = r'matchCentreData:\s*(\{(?:[^{}]|\{(?:[^{}]|\{[^{}]*\})*\})*\})\s*(?:,|\s*;|$)'
         match = re.search(pattern, script.text, re.DOTALL)
         
         if not match:
-            st.error("فشل في استخراج بيانات JSON من matchCentreData")
-            # تسجيل النص الكامل للتحقق
-            with open("script_content.txt", "w", encoding="utf-8") as f:
-                f.write(script.text)
-            st.write("تم حفظ النص المستخرج في script_content.txt للتحقق")
-            return None
+            # تجربة تعبير منتظم بديل أبسط
+            pattern_fallback = r'matchCentreData:\s*(\{.*?\})\s*(?:,|\s*;|$)'
+            match = re.search(pattern_fallback, script.text, re.DOTALL)
+            if not match:
+                st.error("فشل في استخراج بيانات JSON من matchCentreData بكلا التعبيرين المنتظمين")
+                return None
+            else:
+                st.warning("تم استخدام تعبير منتظم بديل لاستخراج JSON")
         
         # استخراج سلسلة JSON
         json_str = match.group(1)
@@ -171,7 +184,7 @@ def extract_match_dict_from_html(uploaded_file):
             st.error(f"خطأ في تحليل JSON: {str(json_err)}")
             with open("failed_json.txt", "w", encoding="utf-8") as f:
                 f.write(json_str)
-            st.write("تم حفظ النص المستخرج في failed_json.txt للتحقق")
+           =st.write("تم حفظ النص المستخرج في failed_json.txt للتحقق")
             return None
         
         return matchdict
