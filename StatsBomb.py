@@ -487,27 +487,12 @@ def get_event_data(json_data):
     return df, teams_dict, players_df
 
 # دالة شبكة التمريرات
-import logging
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__)
-
-
-
-
-import logging
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__)
-
-
-import logging
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__)
-
 def pass_network(ax, team_name, col, phase_tag, hteamName, ateamName, hgoal_count, agoal_count, hteamID, ateamID):
     logger.debug(f"Starting pass_network for team: {team_name}, phase: {phase_tag}")
     logger.debug(f"Unique periods in df: {st.session_state.df['period'].unique()}")
     
     try:
+        # تصفية البيانات بناءً على phase_tag
         if phase_tag == 'Full Time':
             df_pass = st.session_state.df.copy()
             df_pass = df_pass.reset_index(drop=True)
@@ -522,12 +507,14 @@ def pass_network(ax, team_name, col, phase_tag, hteamName, ateamName, hgoal_coun
         else:
             raise ValueError(f"Invalid phase_tag: {phase_tag}")
         
+        # التحقق من وجود بيانات
         if len(df_pass) == 0:
             ax.text(34, 60, reshape_arabic_text(f"لا توجد بيانات لـ {phase_tag}"), 
                     color='white', fontsize=14, ha='center', va='center', weight='bold')
             logger.warning(f"No data available for {phase_tag}")
             return pd.DataFrame()
         
+        # تصفية التمريرات
         total_pass = df_pass[(df_pass['teamName'] == team_name) & (df_pass['type'] == 'Pass')]
         accrt_pass = df_pass[(df_pass['teamName'] == team_name) & (df_pass['type'] == 'Pass') & (df_pass['outcomeType'] == 'Successful')]
         logger.debug(f"Total passes: {len(total_pass)}, Successful passes: {len(accrt_pass)}")
@@ -536,11 +523,14 @@ def pass_network(ax, team_name, col, phase_tag, hteamName, ateamName, hgoal_coun
                     color='white', fontsize=14, ha='center', va='center', weight='bold')
             return pd.DataFrame()
         
+        # حساب دقة التمريرات
         accuracy = round((len(accrt_pass) / len(total_pass)) * 100, 2) if len(total_pass) != 0 else 0
         
+        # إضافة عمود pass_receiver
         df_pass['pass_receiver'] = df_pass.loc[(df_pass['type'] == 'Pass') & (df_pass['outcomeType'] == 'Successful') & (df_pass['teamName'].shift(-1) == team_name), 'name'].shift(-1)
         df_pass['pass_receiver'] = df_pass['pass_receiver'].fillna('No')
         
+        # تصفية الأحداث الهجومية
         off_acts_df = df_pass[(df_pass['teamName'] == team_name) & (df_pass['type'].isin(['Pass', 'Goal', 'MissedShots', 'SavedShot', 'ShotOnPost', 'TakeOn', 'BallTouch', 'KeeperPickup']))]
         off_acts_df = off_acts_df[['name', 'x', 'y']].reset_index(drop=True)
         if off_acts_df.empty:
@@ -548,6 +538,7 @@ def pass_network(ax, team_name, col, phase_tag, hteamName, ateamName, hgoal_coun
                     color='white', fontsize=14, ha='center', va='center', weight='bold')
             return pd.DataFrame()
         
+        # حساب متوسط المواقع
         avg_locs_df = off_acts_df.groupby('name').agg(avg_x=('x', 'median'), avg_y=('y', 'median')).reset_index()
         team_pdf = st.session_state.players_df[['name', 'shirtNo', 'position', 'isFirstEleven']].copy()
         if team_pdf.empty:
@@ -555,11 +546,13 @@ def pass_network(ax, team_name, col, phase_tag, hteamName, ateamName, hgoal_coun
                     color='white', fontsize=14, ha='center', va='center', weight='bold')
             return pd.DataFrame()
         
+        # دمج بيانات اللاعبين
         avg_locs_df = avg_locs_df.merge(team_pdf, on='name', how='left')
         avg_locs_df['isFirstEleven'] = avg_locs_df['isFirstEleven'].fillna(False)
         avg_locs_df['shirtNo'] = avg_locs_df['shirtNo'].fillna(0)
         avg_locs_df['position'] = avg_locs_df['position'].fillna('Unknown')
         
+        # تصفية التمريرات الناجحة (باستثناء الركنيات والركلات الحرة)
         df_pass = df_pass[(df_pass['type'] == 'Pass') & (df_pass['outcomeType'] == 'Successful') & (df_pass['teamName'] == team_name) & (~df_pass['qualifiers'].str.contains('Corner|Freekick', na=False))]
         logger.debug(f"Passes after filtering qualifiers: {len(df_pass)}")
         if len(df_pass) == 0:
@@ -571,6 +564,7 @@ def pass_network(ax, team_name, col, phase_tag, hteamName, ateamName, hgoal_coun
         pass_count_df = df_pass.groupby(['name', 'pass_receiver']).size().reset_index(name='pass_count').sort_values(by='pass_count', ascending=False)
         pass_count_df = pass_count_df.reset_index(drop=True)
         
+        # إنشاء إطار بيانات التمريرات
         pass_counts_df = pd.merge(pass_count_df, avg_locs_df, on='name', how='left')
         pass_counts_df.rename(columns={'avg_x': 'pass_avg_x', 'avg_y': 'pass_avg_y'}, inplace=True)
         pass_counts_df = pd.merge(pass_counts_df, avg_locs_df, left_on='pass_receiver', right_on='name', how='left', suffixes=('', '_receiver'))
@@ -584,9 +578,11 @@ def pass_network(ax, team_name, col, phase_tag, hteamName, ateamName, hgoal_coun
                     color='white', fontsize=14, ha='center', va='center', weight='bold')
             return pd.DataFrame()
         
+        # إنشاء إطار بيانات pass_btn
         pass_btn = pass_counts_df[['name', 'shirtNo', 'pass_receiver', 'shirtNo_receiver', 'pass_count']]
         pass_btn['shirtNo_receiver'] = pass_btn['shirtNo_receiver'].astype(float).astype(int)
         
+        # إعداد الرسم
         MAX_LINE_WIDTH = 8
         MIN_LINE_WIDTH = 0.5
         MIN_TRANSPARENCY = 0.2
@@ -609,6 +605,7 @@ def pass_network(ax, team_name, col, phase_tag, hteamName, ateamName, hgoal_coun
         ax.imshow(Z, extent=[0, 68, 0, 105], cmap=gradient, alpha=0.8, aspect='auto', zorder=0)
         pitch.draw(ax=ax)
         
+        # رسم خطوط التمريرات
         for idx in range(len(pass_counts_df)):
             pitch.lines(
                 pass_counts_df['pass_avg_x'].iloc[idx],
@@ -621,19 +618,23 @@ def pass_network(ax, team_name, col, phase_tag, hteamName, ateamName, hgoal_coun
                 ax=ax
             )
         
+        # رسم مواقع اللاعبين
         for index, row in avg_locs_df.iterrows():
             if row['isFirstEleven']:
                 pitch.scatter(row['avg_x'], row['avg_y'], s=800, marker='o', color=col, edgecolor=line_color, linewidth=1.5, alpha=0.9, ax=ax)
             else:
                 pitch.scatter(row['avg_x'], row['avg_y'], s=800, marker='s', color=col, edgecolor=line_color, linewidth=1.5, alpha=0.7, ax=ax)
         
+        # إضافة أرقام القمصان
         for index, row in avg_locs_df.iterrows():
             player_initials = row["shirtNo"]
             pitch.annotate(player_initials, xy=(row.avg_x, row.avg_y), c='white', ha='center', va='center', size=14, weight='bold', ax=ax)
         
+        # إضافة خط متوسط المواقع
         avgph = round(avg_locs_df['avg_x'].median(), 2)
         ax.axhline(y=avgph, color='white', linestyle='--', alpha=0.5, linewidth=1.5)
         
+        # حساب خط الدفاع والهجوم
         center_backs_height = avg_locs_df[avg_locs_df['position'] == 'DC']
         def_line_h = round(center_backs_height['avg_x'].median(), 2) if not center_backs_height.empty else avgph
         
@@ -645,37 +646,31 @@ def pass_network(ax, team_name, col, phase_tag, hteamName, ateamName, hgoal_coun
         ax.fill(ymid, xmid, col, alpha=0.2)
         v_comp = round((1 - ((fwd_line_h - def_line_h) / 105)) * 100, 2)
         
+        # إضافة النتيجة
         score_text = reshape_arabic_text(f"{hteamName} {hgoal_count} - {agoal_count} {ateamName}")
         ax.text(34, 120, score_text, color='white', fontsize=16, ha='center', va='center', weight='bold')
         
+        # إضافة شعار الفريق (مطابق للكود الثاني)
         try:
-            hteamID_fotmob = fotmob_team_ids.get(hteamName, hteamID)
-            ateamID_fotmob = fotmob_team_ids.get(ateamName, ateamID)
-            home_logo_url = f"https://images.fotmob.com/image_resources/logo/teamlogo/{hteamID_fotmob}.png"
-            away_logo_url = f"https://images.fotmob.com/image_resources/logo/teamlogo/{ateamID_fotmob}.png"
-            
-            response = requests.get(home_logo_url)
+            teamID_fotmob = fotmob_team_ids.get(team_name, hteamID if team_name == hteamName else ateamID)
+            logo_url = f"https://images.fotmob.com/image_resources/logo/teamlogo/{teamID_fotmob}.png"
+            response = requests.get(logo_url)
             response.raise_for_status()
-            home_logo = Image.open(BytesIO(response.content))
-            home_logo = home_logo.resize((50, 50), Image.Resampling.LANCZOS)
+            logo = Image.open(BytesIO(response.content))
+            logo = logo.resize((50, 50), Image.Resampling.LANCZOS)
             
-            response = requests.get(away_logo_url)
-            response.raise_for_status()
-            away_logo = Image.open(BytesIO(response.content))
-            away_logo = away_logo.resize((50, 50), Image.Resampling.LANCZOS)
+            logo_ax = ax.inset_axes([0.45, -0.15, 0.1, 0.1], transform=ax.transAxes)
+            logo_ax.imshow(logo)
+            logo_ax.axis('off')
             
-            home_logo_ax = ax.inset_axes([0.05, 0.95, 0.07, 0.07], transform=ax.transAxes)
-            home_logo_ax.imshow(home_logo)
-            home_logo_ax.axis('off')
-            
-            away_logo_ax = ax.inset_axes([0.88, 0.95, 0.07, 0.07], transform=ax.transAxes)
-            away_logo_ax.imshow(away_logo)
-            away_logo_ax.axis('off')
+            ax.text(34, 1, reshape_arabic_text(f"شبكة تمريرات {team_name}"), 
+                    color='white', fontsize=12, ha='center', va='center', weight='bold')
         except Exception as e:
-            logger.warning(f"Failed to load team logos: {str(e)}")
-            ax.text(5, 115, reshape_arabic_text(hteamName), color='white', fontsize=12, ha='left', va='center')
-            ax.text(63, 115, reshape_arabic_text(ateamName), color='white', fontsize=12, ha='right', va='center')
+            logger.warning(f"Failed to load logo for {team_name}: {str(e)}")
+            ax.text(34, 1, reshape_arabic_text(f"شبكة تمريرات {team_name}"), 
+                    color='white', fontsize=12, ha='center', va='center', weight='bold')
         
+        # إضافة نصوص الوقت والإحصائيات
         if phase_tag == 'Full Time':
             ax.text(34, 115, reshape_arabic_text('الوقت بالكامل: 0-90 دقيقة'), color='white', fontsize=14, ha='center', va='center', weight='bold')
             ax.text(34, 112, reshape_arabic_text(f'إجمالي التمريرات: {len(total_pass)} | الناجحة: {len(accrt_pass)} | الدقة: {accuracy}%'), color='white', fontsize=12, ha='center', va='center')
@@ -689,6 +684,13 @@ def pass_network(ax, team_name, col, phase_tag, hteamName, ateamName, hgoal_coun
         ax.text(34, -6, reshape_arabic_text(f"على الكرة\nالتماسك العمودي (المنطقة المظللة): {v_comp}%"), color='white', fontsize=12, ha='center', va='center', weight='bold')
         
         return pass_btn
+    
+    except Exception as e:
+        logger.error(f"Error in pass_network: {str(e)}")
+        ax.text(34, 60, reshape_arabic_text(f"خطأ: {str(e)}"), 
+                color='white', fontsize=14, ha='center', va='center', weight='bold')
+        st.error(f"خطأ في شبكة التمريرات: {str(e)}")
+        return pd.DataFrame()
     
     except Exception as e:
         logger.error(f"Error in pass_network: {str(e)}")
