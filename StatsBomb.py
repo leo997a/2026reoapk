@@ -30,6 +30,13 @@ import os
 import requests
 from io import StringIO, BytesIO
 
+# ضبط إعدادات الهوامش الافتراضية لجميع الأشكال
+plt.rcParams['figure.autolayout'] = True  # تمكين التخطيط التلقائي
+plt.rcParams['figure.subplot.left'] = 0.03
+plt.rcParams['figure.subplot.right'] = 0.97
+plt.rcParams['figure.subplot.top'] = 0.95
+plt.rcParams['figure.subplot.bottom'] = 0.05
+
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 # قراءة ملف الفرق من الرابط
