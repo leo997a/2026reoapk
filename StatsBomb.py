@@ -599,38 +599,25 @@ def pass_network(ax, team_name, col, phase_tag, hteamName, ateamName, hgoal_coun
     
     # إضافة شعاري الفريقين من FotMob
     try:
-    # استخدام معرفات FotMob
-        hteamID_fotmob = fotmob_team_ids.get(hteamName, hteamID)
-        ateamID_fotmob = fotmob_team_ids.get(ateamName, ateamID)
-    
-        home_logo_url = f"https://images.fotmob.com/image_resources/logo/teamlogo/{hteamID_fotmob}.png"
-        away_logo_url = f"https://images.fotmob.com/image_resources/logo/teamlogo/{ateamID_fotmob}.png"
-    
-    # تحميل شعار الفريق المضيف
-        response = requests.get(home_logo_url)
+        teamID_fotmob = fotmob_team_ids.get(team_name, hteamID if team_name == hteamName else ateamID)
+        logo_url = f"https://images.fotmob.com/image_resources/logo/teamlogo/{teamID_fotmob}.png"
+        response = requests.get(logo_url)
         response.raise_for_status()
-        home_logo = Image.open(BytesIO(response.content))
-        home_logo = home_logo.resize((50, 50), Image.Resampling.LANCZOS)
-    
-    # تحميل شعار الفريق الضيف
-        response = requests.get(away_logo_url)
-        response.raise_for_status()
-        away_logo = Image.open(BytesIO(response.content))
-        away_logo = away_logo.resize((50, 50), Image.Resampling.LANCZOS)
-    
-    # إضافة شعار الفريق المضيف
-        home_logo_ax = ax.inset_axes([0.05, 0.95, 0.07, 0.07], transform=ax.transAxes)
-        home_logo_ax.imshow(home_logo)
-        home_logo_ax.axis('off')
-    
-    # إضافة شعار الفريق الضيف
-        away_logo_ax = ax.inset_axes([0.88, 0.95, 0.07, 0.07], transform=ax.transAxes)
-        away_logo_ax.imshow(away_logo)
-        away_logo_ax.axis('off')
+        logo = Image.open(BytesIO(response.content))
+        logo = logo.resize((50, 50), Image.Resampling.LANCZOS)
+        
+        logo_ax = ax.inset_axes([0.45, -0.02, 0.1, 0.1], transform=ax.transAxes)
+        logo_ax.imshow(logo)
+        logo_ax.axis('off')
+        
+        # إضافة نص توضيحي بجوار الشعار (داخل حدود الشكل)
+        ax.text(34, 1, reshape_arabic_text(f"شبكة تمريرات {team_name}"), 
+                color='white', fontsize=12, ha='center', va='center', weight='bold')
     except Exception as e:
-        st.warning(f"فشل في تحميل شعارات الفريقين من FotMob: {str(e)}")
-        ax.text(5, 115, reshape_arabic_text(hteamName), color='white', fontsize=12, ha='left', va='center')
-        ax.text(63, 115, reshape_arabic_text(ateamName), color='white', fontsize=12, ha='right', va='center')
+        st.warning(f"فشل في تحميل شعار {team_name} من FotMob: {str(e)}")
+        ax.text(34, 1, reshape_arabic_text(f"شبكة تمريرات {team_name}"), 
+                color='white', fontsize=12, ha='center', va='center', weight='bold')
+    
     
     if phase_tag == 'Full Time':
         ax.text(34, 115, reshape_arabic_text('الوقت بالكامل: 0-90 دقيقة'), color='white', fontsize=14, ha='center', va='center', weight='bold')
