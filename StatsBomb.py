@@ -184,7 +184,7 @@ def extract_match_dict_from_html(uploaded_file):
             st.error(f"خطأ في تحليل JSON: {str(json_err)}")
             with open("failed_json.txt", "w", encoding="utf-8") as f:
                 f.write(json_str)
-            =st.write("تم حفظ النص المستخرج في failed_json.txt للتحقق")
+            st.write("تم حفظ النص المستخرج في failed_json.txt للتحقق")
             return None
         
         return matchdict
