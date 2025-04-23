@@ -1313,7 +1313,7 @@ if st.session_state.analysis_triggered and not st.session_state.df.empty and st.
             phase_tag = st.selectbox('اختر الفترة:', ['Full Time', 'First Half', 'Second Half'], key='phase_tag')
             
             # إنشاء الرسم
-            fig, ax = plt.subplots(figsize=(10, 10), facecolor=bg_color)
+            fig, ax = plt.subplots(figsize=(10, 10), facecolor=bg_color, dpi=150)
             
             # استدعاء pass_network
             try:
