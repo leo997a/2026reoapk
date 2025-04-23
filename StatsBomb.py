@@ -1349,30 +1349,63 @@ if st.session_state.analysis_triggered and not st.session_state.df.empty and st.
 
         elif an_tp == reshape_arabic_text('PPDA'):
             st.subheader(reshape_arabic_text('معدل الضغط (PPDA)'))
+            st.write(reshape_arabic_text("PPDA: عدد التمريرات الناجحة التي يسمح بها الفريق مقابل كل فعل دفاعي. القيمة الأقل تشير إلى ضغط دفاعي أقوى."))
+            
             try:
+
+                # استدعاء دالة calculate_ppda
+                ppda_results = calculate_ppda(st.session_state.df)
+                ppda_df = pd.DataFrame.from_dict(ppda_results, orient='index')
+                
                 # طباعة الأعمدة للتصحيح
                 st.write("أعمدة DataFrame:", st.session_state.df.columns.tolist())
                 
-                # استدعاء دالة calculate_ppda باستخدام st.session_state.df
-                ppda_results = calculate_ppda(st.session_state.df)
-        
-                # تحويل النتائج إلى DataFrame للعرض
-                ppda_df = pd.DataFrame.from_dict(ppda_results, orient='index')
-        
                 # عرض الجدول
                 st.dataframe(ppda_df, use_container_width=True)
         
-                # عرض رسم بياني شريطي (اختياري)
-                fig, ax = plt.subplots(figsize=(8, 6), facecolor=bg_color)
-                ppda_df['PPDA'].plot(kind='bar', ax=ax, color=[hcol, acol])
-                ax.set_title(reshape_arabic_text('PPDA لكل فريق'), fontsize=14, color='white')
+                # إعداد الرسم البياني
+                fig, ax = plt.subplots(figsize=(10, 6), facecolor='none')  # خلفية شفافة
+                ax.set_facecolor('#1a1a1a')  # خلفية داكنة عصرية
+
+                # إعداد تدرج لوني
+                colors = sns.color_palette("husl", len(ppda_df))  # تدرج لوني جذاب
+                bars = ax.bar(ppda_df.index, ppda_df['PPDA'], color=colors, edgecolor='white', linewidth=1.5, alpha=0.9)
+        
+                # إضافة تسميات القيم على الأعمدة
+                for bar in bars:
+                    height = bar.get_height()
+                    ax.text(
+                        bar.get_x() + bar.get_width() / 2, height + 0.5,
+                        f'{height:.2f}', ha='center', va='bottom', color='white',
+                        fontsize=12, fontweight='bold',
+                        path_effects=[path_effects.withStroke(linewidth=2, foreground='black')]
+                        )
+                # تحسين العنوان والتسميات
+                ax.set_title(
+                    reshape_arabic_text('معدل الضغط (PPDA) لكل فريق'),
+                    fontsize=16, color='white', pad=20, fontweight='bold'
+                )
                 ax.set_xlabel(reshape_arabic_text('الفريق'), fontsize=12, color='white')
                 ax.set_ylabel('PPDA', fontsize=12, color='white')
-                ax.set_facecolor(bg_color)
-                fig.patch.set_facecolor(bg_color)
-                ax.tick_params(colors='white')
-                st.pyplot(fig)
-            except Exception as e:
-                st.error(f"خطأ في حساب PPDA: {str(e)}")
+
+
+               # تحسين المحاور
+               ax.spines['top'].set_visible(False)
+               ax.spines['right'].set_visible(False)
+               ax.spines['left'].set_color('white')
+               ax.spines['bottom'].set_color('white')
+               ax.tick_params(colors='white', labelsize=10)
+
+               # إضافة شبكة خفيفة لتحسين القراءة
+               ax.grid(True, axis='y', linestyle='--', alpha=0.3, color='white')
+ 
+               # تحسين التباعد
+               plt.tight_layout()
+
+               # عرض الرسم في Streamlit
+               st.pyplot(fig)
+        except Exception as e:
+               st.error(f"خطأ في حساب PPDA: {str(e)}")
+
 else:
     st.warning("يرجى تحميل بيانات المباراة والنقر على 'تحليل المباراة' لعرض التحليلات.")
