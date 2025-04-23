@@ -1,1 +1,3 @@
+fonts-tajawal
+fonts-cairo
 fonts-noto
