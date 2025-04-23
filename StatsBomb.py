@@ -1139,7 +1139,7 @@ if st.button("تحليل المباراة"):
     with st.spinner("جارٍ استخراج بيانات المباراة..."):
         st.session_state.json_data = None
         st.session_state.df = pd.DataFrame({
-            'period': ['FirstHalf', 'FirstHalf', 'SecondHalf', 'SecondHalf', 'FirstHalf', 'SecondHalf']
+            'period': ['FirstHalf', 'FirstHalf', 'SecondHalf', 'SecondHalf', 'FirstHalf', 'SecondHalf'],
             'teamName': ['TeamA', 'TeamA', 'TeamA', 'TeamB', 'TeamB', 'TeamA'],
             'type': ['Pass', 'Pass', 'Pass', 'Goal', 'Pass', 'Carry'],
             'outcomeType': ['Successful', 'Successful', 'Successful', 'Successful', 'Successful', 'Successful'],
@@ -1148,14 +1148,21 @@ if st.button("تحليل المباراة"):
             'y': [10, 20, 30, 34, 40, 50],
             'endX': [20, 30, 40, np.nan, 60, 50],
             'endY': [20, 30, 40, np.nan, 50, 60],
-            'qualifiers': ['', '', '', 'Goal', '', '']
+            'qualifiers': ['', '', '', 'Goal', '', ''],
             'shirtNo': [1, 2, 1, 3, 4, 2],
             'position': ['DC', 'DC', 'DC', 'FW', 'MC', 'DC'],
             'isFirstEleven': [True, True, True, True, True, True],
             'playerId': [101, 102, 101, 103, 104, 102],
             'isTouch': [True, True, True, True, True, True],
             'cumulative_mins': [5, 10, 50, 60, 20, 70]
-         })
+        })
+        st.session_state.players_df = pd.DataFrame({
+            'name': ['Player1', 'Player2', 'Player3', 'Player4'],
+            'shirtNo': [1, 2, 3, 4],
+            'position': ['DC', 'DC', 'FW', 'MC'],
+            'isFirstEleven': [True, True, True, True],
+            'playerId': [101, 102, 103, 104]
+        })
         st.session_state.teams_dict = {1: 'TeamA', 2: 'TeamB'}
         st.session_state.analysis_triggered = True
         st.success("تم تحميل البيانات التجريبية بنجاح!")
