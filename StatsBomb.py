@@ -129,13 +129,13 @@ def extract_match_dict_from_html(uploaded_file):
             f.write(script.text)
         st.write("تم حفظ نص <script> الكامل في script_content.txt")
         
-        # تعبير منتظم لالتقاط كائن JSON
-        pattern = r'matchCentreData:\s*(\{.*\})\s*(?:,|\s*;|matchCentreEventTypeJson|$)'
+        # تعبير منتظم لالتقاط كائن JSON مع التعامل مع الأقواس المتداخلة
+        pattern = r'matchCentreData:\s*(\{(?:[^{}]|\{(?:[^{}]|\{[^{}]*\})*\})*\})\s*(?:,|\s*;|matchCentreEventTypeJson|$)'
         match = re.search(pattern, script.text, re.DOTALL)
         
         if not match:
-            # تعبير منتظم بديل للتعامل مع الحالات المعقدة
-            pattern_fallback = r'matchCentreData:\s*(\{(?:[^{}]|\{(?:[^{}]|\{[^{}]*\})*\})*\})\s*(?:,|\s*;|matchCentreEventTypeJson|$)'
+            # تعبير منتظم بديل أبسط
+            pattern_fallback = r'matchCentreData:\s*(\{.*?\})\s*(?:,|\s*;|matchCentreEventTypeJson|$)'
             match = re.search(pattern_fallback, script.text, re.DOTALL)
             if not match:
                 st.error("فشل في استخراج بيانات JSON من matchCentreData بجميع التعابير المنتظمة")
@@ -175,17 +175,20 @@ def extract_match_dict_from_html(uploaded_file):
                     start = max(0, i - 50)
                     end = min(len(json_str), i + 50)
                     st.write("النص المحيط بالموضع:", json_str[start:end])
+                    with open("failed_json.txt", "w", encoding="utf-8") as f:
+                        f.write(json_str)
+                    st.write("تم حفظ النص المستخرج في failed_json.txt للتحقق")
                     return False
                 escape = False
             if brace_count != 0:
                 st.error(f"JSON غير مكتمل: عدد الأقواس غير متطابق ({brace_count})")
+                with open("failed_json.txt", "w", encoding="utf-8") as f:
+                    f.write(json_str)
+                st.write("تم حفظ النص المستخرج في failed_json.txt للتحقق")
                 return False
             return True
         
         if not is_valid_json_structure(json_str):
-            with open("failed_json.txt", "w", encoding="utf-8") as f:
-                f.write(json_str)
-            st.write("تم حفظ النص المستخرج في failed_json.txt للتحقق")
             return None
         
         # محاولة تحليل JSON
