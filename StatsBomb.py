@@ -30,10 +30,15 @@ import os
 import requests
 from io import StringIO, BytesIO
 import matplotlib.font_manager as fm
-fm.rebuild()  # إعادة بناء ذاكرة التخزين المؤقت للخطوط
 
+# تهيئة الخطوط لدعم العربية
 plt.rcParams['font.family'] = 'sans-serif'
-plt.rcParams['font.sans-serif'] = ['Noto Sans Arabic', 'DejaVu Sans']
+plt.rcParams['font.sans-serif'] = ['Noto Sans Arabic', 'DejaVu Sans', 'Arial']
+plt.rcParams['axes.unicode_minus'] = False
+
+# اختياري: طباعة الخطوط المتوفرة للتصحيح (أزل في الإنتاج)
+# available_fonts = [f.name for f in fm.fontManager.ttflist]
+# print("الخطوط المتوفرة:", available_fonts)
 
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
