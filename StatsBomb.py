@@ -1109,10 +1109,10 @@ def attack_zones_analysis(fig, ax, hteamName, ateamName, hcol, acol, hteamID, at
 
 def calculate_ppda(events_df, attacking_third_threshold=80, period=None, include_pressure=True):
     """
-    Calculate PPDA (Passes Per Defensive Action) with enhanced error handling and flexibility.
+    Calculate PPDA (Passes Per Defensive Action) with high accuracy for a given match.
     
     Parameters:
-    - events_df: DataFrame containing match events.
+    - events_df: DataFrame containing match events (e.g., StatsBomb data).
     - attacking_third_threshold: x-coordinate threshold for the attacking third (default: 80).
     - period: Filter events by period ('FirstHalf', 'SecondHalf', or None for full match).
     - include_pressure: Include 'Pressure' events as defensive actions if available (default: True).
@@ -1126,10 +1126,10 @@ def calculate_ppda(events_df, attacking_third_threshold=80, period=None, include
     if missing_columns:
         raise ValueError(f"الأعمدة المطلوبة مفقودة: {missing_columns}")
     
-    # نسخة من DataFrame لتجنب التعديل
+    # نسخة من DataFrame
     df = events_df.copy()
     
-    # تصفية الأحداث حسب الفترة إذا تم تحديدها
+    # تصفية الأحداث حسب الفترة
     if period and 'period' in df.columns:
         df = df[df['period'] == period]
     elif period and 'period' not in df.columns:
@@ -1142,11 +1142,9 @@ def calculate_ppda(events_df, attacking_third_threshold=80, period=None, include
         (df['x'].apply(lambda x: x >= attacking_third_threshold))
     )
     
-    # استبعاد التمريرات الطويلة إذا كان العمود موجودًا
+    # استبعاد التمريرات الطويلة والمواقف الثابتة إذا كانت الأعمدة متوفرة
     if 'pass_length' in df.columns:
-        pass_filter &= ~df['pass_length'].gt(30)
-    
-    # استبعاد المواقف الثابتة إذا كان العمود موجودًا
+        pass_filter &= ~df['pass_length'].gt(25)  # خفضت العتبة إلى 25 مترًا لتكون أكثر دقة
     if 'play_pattern' in df.columns:
         pass_filter &= ~df['play_pattern'].str.contains('From', na=False)
     
@@ -1163,7 +1161,7 @@ def calculate_ppda(events_df, attacking_third_threshold=80, period=None, include
         (df['x'].apply(lambda x: x >= attacking_third_threshold))
     ]
     
-    # الحصول على الفرق المشاركة
+    # الحصول على الفرق
     teams = df['teamName'].unique()
     
     # حساب PPDA لكل فريق
