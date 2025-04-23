@@ -1048,158 +1048,64 @@ def team_domination_zones(
 
 
 def attack_zones_analysis(fig, ax, hteamName, ateamName, hcol, acol, hteamID, ateamID):
-    # استخراج الأحداث الهجومية في الثلث الأخير (x >= 70)
-    attack_events = st.session_state.df[
-        (st.session_state.df['type'].isin(['Pass', 'Goal', 'MissedShots', 'SavedShot', 'ShotOnPost', 'TakeOn', 'Carry'])) &
-        (st.session_state.df['outcomeType'] == 'Successful') &
-        (st.session_state.df['x'] >= 70)
-    ].copy()
+    # تصفية الأحداث للفريق المحدد
+    team_events = data[data['team_name'] == team_name]
     
-    # تصنيف الأحداث حسب المنطقة بناءً على إحداثي y
-    def classify_zone(y):
-        if y < 22.67:
-            return 'اليسار'
-        elif y <= 45.33:
-            return 'العمق'
-        else:
-            return 'اليمين'
+    # تصفية التمريرات التي تنتهي في الثلث الأخير (x >= 80)
+    passes = team_events[team_events['type_name'] == 'Pass']
+    final_third_passes = passes[passes['pass_end_location'].apply(lambda loc: loc[0] >= 80 if isinstance(loc, list) else False)]
     
-    attack_events['zone'] = attack_events['y'].apply(classify_zone)
-    # تجميع الأحداث حسب الفريق والمنطقة
-    attack_summary = attack_events.groupby(['teamName', 'zone']).size().unstack(fill_value=0).reset_index()
-    attack_summary = attack_summary.reindex(columns=['teamName', 'اليسار', 'العمق', 'اليمين'], fill_value=0)
+    # تقسيم الثلث الأخير إلى 3 مناطق عرضية (يسار، وسط، يمين)
+    left_zone = final_third_passes[final_third_passes['pass_end_location'].apply(lambda loc: loc[1] < 26.67)]
+    center_zone = final_third_passes[final_third_passes['pass_end_location'].apply(lambda loc: 26.67 <= loc[1] < 53.33)]
+    right_zone = final_third_passes[final_third_passes['pass_end_location'].apply(lambda loc: loc[1] >= 53.33)]
     
-    # حساب النسب المئوية
-    attack_summary['مجموع'] = attack_summary[['اليسار', 'العمق', 'اليمين']].sum(axis=1)
-    attack_summary['اليسار_%'] = (attack_summary['اليسار'] / attack_summary['مجموع'] * 100).round(1)
-    attack_summary['العمق_%'] = (attack_summary['العمق'] / attack_summary['مجموع'] * 100).round(1)
-    attack_summary['اليمين_%'] = (attack_summary['اليمين'] / attack_summary['مجموع'] * 100).round(1)
+    # حساب عدد التمريرات في كل منطقة
+    zones = {
+        'يسار': len(left_zone),
+        'وسط': len(center_zone),
+        'يمين': len(right_zone)
+    }
     
-    # إعداد الملعب
-    pitch = VerticalPitch(pitch_type='uefa', corner_arcs=True, linewidth=1.5, line_color='#ffffff', half=True)
+    # تحديد المنطقة الأكثر هجومًا
+    most_attacked_zone = max(zones, key=zones.get)
+    max_attacks = zones[most_attacked_zone]
     
-    # إعداد التدرج اللوني
-    gradient = LinearSegmentedColormap.from_list("pitch_gradient", ['#003087', '#d00000'], N=100)
+    # ألوان مختلفة لكل منطقة
+    zone_colors = {
+        'يسار': 'red',
+        'وسط': 'green',
+        'يمين': 'blue'
+    }
     
-    # عرض فريق واحد فقط (يمكن تغيير ذلك لاحقًا)
-    display_together = False
-    if display_together:
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 10), facecolor=bg_color)
-        axes = [ax1, ax2]
-        teams = [(hteamName, hcol, hteamID), (ateamName, acol, ateamID)]
-    else:
-        axes = [ax]
-        teams = [(hteamName, hcol, hteamID)]  # عرض الفريق المضيف فقط
+    # مركز كل منطقة (لتحديد نقطة بداية السهم)
+    zone_centers = {
+        'يسار': (100, 13.33),
+        'وسط': (100, 40),
+        'يمين': (100, 66.67)
+    }
     
-    for ax, (team_name, team_color, team_id) in zip(axes, teams):
-        pitch.draw(ax=ax)
-        
-        # خلفية التدرج
-        x = np.linspace(0, 1, 100)
-        y = np.linspace(0, 1, 100)
-        X, Y = np.meshgrid(x, y)
-        Z = Y
-        ax.imshow(Z, extent=[0, 68, 52.5, 105], cmap=gradient, alpha=0.8, aspect='auto', zorder=0)
-        pitch.draw(ax=ax)
-        
-        # استخراج بيانات الفريق
-        team_events = attack_events[attack_events['teamName'] == team_name]
-        team_summary = attack_summary[attack_summary['teamName'] == team_name]
-        
-        if not team_events.empty:
-            # حساب عدد الأحداث في كل منطقة
-            left_count = team_summary['اليسار'].iloc[0] if not team_summary.empty else 0
-            center_count = team_summary['العمق'].iloc[0] if not team_summary.empty else 0
-            right_count = team_summary['اليمين'].iloc[0] if not team_summary.empty else 0
+    # رسم الأسهم لكل منطقة
+    for zone, count in zones.items():
+        if count > 0:  # رسم السهم فقط إذا كان هناك تمريرات
+            center_x, center_y = zone_centers[zone]
+            arrow_length = (count / max_attacks) * 15  # تكبير السهم بنسبة عدد التمريرات
+            arrow_props = dict(facecolor=zone_colors[zone], edgecolor='black', width=2, headwidth=6, headlength=6)
+            arrow = ax.add_patch(Arrow(center_x, center_y, arrow_length, 0, **arrow_props))
+            # إضافة ظل للسهم
+            arrow.set_path_effects([withStroke(linewidth=4, foreground='black', alpha=0.3)])
             
-            # إحداثيات مركز كل منطقة للأسهم
-            zones = {
-                'اليسار': {'x': 85, 'y': 11.335, 'count': left_count, 'dx': 0, 'dy': 10},
-                'العمق': {'x': 85, 'y': 34, 'count': center_count, 'dx': 0, 'dy': 10},
-                'اليمين': {'x': 85, 'y': 56.665, 'count': right_count, 'dx': 0, 'dy': 10}
-            }
-            
-            # رسم الأسهم
-            max_count = max(left_count, center_count, right_count, 1)  # تجنب القسمة على صفر
-            for zone, info in zones.items():
-                if info['count'] > 0:
-                    arrow_width = (info['count'] / max_count) * 0.01  # تحجيم السهم بناءً على العدد
-                    ax.arrow(
-                        info['y'], info['x'], info['dy'], info['dx'],
-                        width=arrow_width, head_width=arrow_width*2, head_length=2,
-                        fc=team_color, ec='white', alpha=0.9, zorder=2
-                    )
-            
-            # إضافة النسب المئوية كنصوص
-            left_pct = team_summary['اليسار_%'].iloc[0] if not team_summary.empty else 0
-            center_pct = team_summary['العمق_%'].iloc[0] if not team_summary.empty else 0
-            right_pct = team_summary['اليمين_%'].iloc[0] if not team_summary.empty else 0
-            
-            ax.text(11.335, 95, f'{left_pct}%', color='white', fontsize=12, ha='center', va='center', weight='bold', bbox=dict(facecolor=team_color, alpha=0.5, edgecolor='none'))
-            ax.text(34, 95, f'{center_pct}%', color='white', fontsize=12, ha='center', va='center', weight='bold', bbox=dict(facecolor=team_color, alpha=0.5, edgecolor='none'))
-            ax.text(56.665, 95, f'{right_pct}%', color='white', fontsize=12, ha='center', va='center', weight='bold', bbox=dict(facecolor=team_color, alpha=0.5, edgecolor='none'))
-        
-        # إضافة خطوط تقسيم المناطق
-        ax.axvline(x=22.67, color='white', linestyle='--', alpha=0.5)
-        ax.axvline(x=45.33, color='white', linestyle='--', alpha=0.5)
-        
-        # إضافة تسميات المناطق
-        ax.text(11.335, 100, reshape_arabic_text('اليسار'), color='white', fontsize=10, ha='center', va='center')
-        ax.text(34, 100, reshape_arabic_text('العمق'), color='white', fontsize=10, ha='center', va='center')
-        ax.text(56.665, 100, reshape_arabic_text('اليمين'), color='white', fontsize=10, ha='center', va='center')
-        
-        # إضافة عنوان
-        ax.text(34, 110, reshape_arabic_text(f'مناطق الهجوم: {team_name}'), 
-                color='white', fontsize=14, ha='center', va='center', weight='bold')
-        
-        # إضافة شعار الفريق من FotMob
-        try:
-            teamID_fotmob = fotmob_team_ids.get(team_name, team_id)
-            logo_url = f"https://images.fotmob.com/image_resources/logo/teamlogo/{teamID_fotmob}.png"
-            response = requests.get(logo_url)
-            response.raise_for_status()
-            logo = Image.open(BytesIO(response.content)).resize((50, 50), Image.Resampling.LANCZOS)
-            logo_ax = ax.inset_axes([0.85, 0.85, 0.1, 0.1], transform=ax.transAxes)
-            logo_ax.imshow(logo)
-            logo_ax.axis('off')
-        except Exception as e:
-            st.warning(f"فشل في تحميل شعار {team_name} من FotMob: {str(e)}")
-            ax.text(63, 105, reshape_arabic_text(team_name), color='white', fontsize=12, ha='right', va='center')
+            # إضافة نص يوضح عدد التمريرات
+            text = ax.text(center_x, center_y + 5, f"{count} تمريرة", color='white', fontsize=12, ha='center',
+                           bbox=dict(facecolor='black', alpha=0.5, edgecolor='none'))
+            text.set_path_effects([withStroke(linewidth=2, foreground='white', alpha=0.5)])
     
-    # إنشاء رسم بياني شريطي للمقارنة
-    fig_bar, ax_bar = plt.subplots(figsize=(8, 6), facecolor=bg_color)
-    ax_bar.set_facecolor(bg_color)
+    # عنوان الرسم
+    title = reshape_arabic_text(f"مناطق الهجوم لفريق {team_name}")
+    title_text = ax.text(60, 130, title, color='white', fontsize=16, ha='center', weight='bold')
+    title_text.set_path_effects([withStroke(linewidth=3, foreground='black', alpha=0.7)])
     
-    zones = ['اليسار', 'العمق', 'اليمين']
-    hteam_counts = attack_summary[attack_summary['teamName'] == hteamName][zones].iloc[0] if hteamName in attack_summary['teamName'].values else [0, 0, 0]
-    ateam_counts = attack_summary[attack_summary['teamName'] == ateamName][zones].iloc[0] if ateamName in attack_summary['teamName'].values else [0, 0, 0]
-    
-    bar_width = 0.35
-    x = np.arange(len(zones))
-    
-    ax_bar.bar(x - bar_width/2, hteam_counts, bar_width, label=reshape_arabic_text(hteamName), color=hcol)
-    ax_bar.bar(x + bar_width/2, ateam_counts, bar_width, label=reshape_arabic_text(ateamName), color=acol)
-    
-    ax_bar.set_xlabel(reshape_arabic_text('المنطقة'), color='white', fontsize=12)
-    ax_bar.set_ylabel(reshape_arabic_text('عدد الأحداث الهجومية'), color='white', fontsize=12)
-    ax_bar.set_title(reshape_arabic_text('توزيع الأحداث الهجومية حسب المنطقة'), color='white', fontsize=14)
-    ax_bar.set_xticks(x)
-    ax_bar.set_xticklabels([reshape_arabic_text(z) for z in zones], color='white')
-    ax_bar.tick_params(axis='y', colors='white')
-    ax_bar.legend()
-    
-    # إرجاع الجدول والرسومات
-    attack_summary = attack_summary.rename(columns={
-        'teamName': 'الفريق',
-        'اليسار': 'اليسار',
-        'العمق': 'العمق',
-        'اليمين': 'اليمين',
-        'اليسار_%': 'اليسار (%)',
-        'العمق_%': 'العمق (%)',
-        'اليمين_%': 'اليمين (%)'
-    })
-    
-    return attack_summary, fig, fig_bar
+    return zones, most_attacked_zone
 
 # واجهة Streamlit
 st.title("تحليل مباراة كرة القدم")
