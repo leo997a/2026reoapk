@@ -383,6 +383,18 @@ def get_event_data(json_data):
     df['endX'] = df['endX'] * 1.05
     df['endY'] = df['endY'] * 0.68
     df['goalMouthY'] = df['goalMouthY'] * 0.68
+    # تنظيف الإحداثيات
+    for col in ['x', 'y', 'endX', 'endY', 'goalMouthY']:
+        df[col] = pd.to_numeric(df[col], errors='coerce')
+        if col in ['x', 'endX']:
+            df[col] = df[col].clip(0, 105)  # تحديد النطاق بين 0 و105
+        elif col in ['y', 'endY', 'goalMouthY']:
+            df[col] = df[col].clip(0, 68)   # تحديد النطاق بين 0 و68
+    
+    # تسجيل الإحداثيات بعد التنظيف
+    st.write("إحصائيات الإحداثيات بعد التنظيف:")
+    for col in ['x', 'y', 'endX', 'endY']:
+        st.write(f"{col} - min: {df[col].min()}, max: {df[col].max()}, NaN count: {df[col].isna().sum()}")    
     
     columns_to_drop = [
         'height', 'weight', 'age', 'isManOfTheMatch', 'field', 'stats', 'subbedInPlayerId', 'subbedOutPeriod',
@@ -521,18 +533,17 @@ def pass_network(ax, team_name, col, phase_tag, hteamName, ateamName, hgoal_coun
         # تصفية البيانات بناءً على phase_tag
         if phase_tag == 'Full Time':
             df_pass = st.session_state.df.copy()
-            df_pass = df_pass.reset_index(drop=True)
         elif phase_tag == 'First Half':
-            df_pass = st.session_state.df[st.session_state.df['period'] == 'FirstHalf']
-            df_pass = df_pass.reset_index(drop=True)
+            df_pass = st.session_state.df[st.session_state.df['period'].isin(['FirstHalf', 1])]
         elif phase_tag == 'Second Half':
-            df_pass = st.session_state.df[st.session_state.df['period'] == 'SecondHalf']
-            df_pass = df_pass.reset_index(drop=True)
+            df_pass = st.session_state.df[st.session_state.df['period'].isin(['SecondHalf', 2])]
         else:
             raise ValueError(f"Invalid phase_tag: {phase_tag}")
         
+        df_pass = df_pass.reset_index(drop=True)
+        
         # التحقق من وجود بيانات
-        if len(df_pass) == 0:
+        if df_pass.empty:
             ax.text(34, 60, reshape_arabic_text(f"لا توجد بيانات لـ {phase_tag}"), 
                     color='white', fontsize=14, ha='center', va='center', weight='bold')
             st.warning(f"لا توجد بيانات لـ {phase_tag}. تحقق من قيم عمود 'period'.")
