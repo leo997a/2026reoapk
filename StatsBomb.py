@@ -519,62 +519,62 @@ def pass_network(ax, team_name, col):
     pass_counts_df.rename(columns={'avg_x_receiver': 'receiver_avg_x', 'avg_y_receiver': 'receiver_avg_y'}, inplace=True)
     pass_counts_df = pass_counts_df.sort_values(by='pass_count', ascending=False).reset_index(drop=True)
             
-            # avg_locs_df['shortName'] = avg_locs_df['name'].apply(get_short_name)
-            avg_locs_df['short_name'] = avg_locs_df['name'].apply(lambda x: ''.join([name[0] + '' for name in x.split()]))
+    # avg_locs_df['shortName'] = avg_locs_df['name'].apply(get_short_name)
+    avg_locs_df['short_name'] = avg_locs_df['name'].apply(lambda x: ''.join([name[0] + '' for name in x.split()]))
         
-            MAX_LINE_WIDTH = 15
-            MAX_MARKER_SIZE = 3000
-            pass_counts_df['width'] = (pass_counts_df.pass_count / pass_counts_df.pass_count.max() *MAX_LINE_WIDTH)
-            # avg_locs_df['marker_size'] = (avg_locs_df['count']/ avg_locs_df['count'].max() * MAX_MARKER_SIZE) #You can plot variable size of each player's node according to their passing volume, in the plot using this
-            MIN_TRANSPARENCY = 0.05
-            MAX_TRANSPARENCY = 0.85
-            color = np.array(to_rgba(col))
-            color = np.tile(color, (len(pass_counts_df), 1))
-            c_transparency = pass_counts_df.pass_count / pass_counts_df.pass_count.max()
-            c_transparency = (c_transparency * (MAX_TRANSPARENCY - MIN_TRANSPARENCY)) + MIN_TRANSPARENCY
-            color[:, 3] = c_transparency
+    MAX_LINE_WIDTH = 15
+    MAX_MARKER_SIZE = 3000
+    pass_counts_df['width'] = (pass_counts_df.pass_count / pass_counts_df.pass_count.max() *MAX_LINE_WIDTH)
+    # avg_locs_df['marker_size'] = (avg_locs_df['count']/ avg_locs_df['count'].max() * MAX_MARKER_SIZE) #You can plot variable size of each player's node according to their passing volume, in the plot using this
+    MIN_TRANSPARENCY = 0.05
+    MAX_TRANSPARENCY = 0.85
+    color = np.array(to_rgba(col))
+    color = np.tile(color, (len(pass_counts_df), 1))
+    c_transparency = pass_counts_df.pass_count / pass_counts_df.pass_count.max()
+    c_transparency = (c_transparency * (MAX_TRANSPARENCY - MIN_TRANSPARENCY)) + MIN_TRANSPARENCY
+    color[:, 3] = c_transparency
         
-            pitch = Pitch(pitch_type='uefa', line_color=line_color, pitch_color=bg_color, linewidth=2)
-            pitch.draw(ax=ax)
-            ax.set_xlim(-0.5, 105.5)
-            # ax.set_ylim(-0.5, 68.5)
+    pitch = Pitch(pitch_type='uefa', line_color=line_color, pitch_color=bg_color, linewidth=2)
+    pitch.draw(ax=ax)
+    ax.set_xlim(-0.5, 105.5)
+    # ax.set_ylim(-0.5, 68.5)
         
-            # Plotting those lines between players
-            pass_lines = pitch.lines(pass_counts_df.avg_x, pass_counts_df.avg_y, pass_counts_df.receiver_avg_x, pass_counts_df.receiver_avg_y,
-                                     lw=pass_counts_df.width, color=color, zorder=2, ax=ax)
+    # Plotting those lines between players
+    pass_lines = pitch.lines(pass_counts_df.avg_x, pass_counts_df.avg_y, pass_counts_df.receiver_avg_x, pass_counts_df.receiver_avg_y,
+                                lw=pass_counts_df.width, color=color, zorder=2, ax=ax)
             
-            # Plotting the player nodes
-            sub_list = df[(df['type']=='SubstitutionOn') & (df['teamName']==team_name)].name.to_list()
-            for index, row in avg_locs_df.iterrows():
-                if row['name'] in sub_list:
-                    pass_nodes = pitch.scatter(row['avg_x'], row['avg_y'], s=750, marker='s', color=bg_color, edgecolor=line_color, zorder=3, linewidth=2, ax=ax)
-                else:
-                    pass_nodes = pitch.scatter(row['avg_x'], row['avg_y'], s=1000, marker='o', color=bg_color, edgecolor=line_color, zorder=3, linewidth=2, ax=ax)
+    # Plotting the player nodes
+    sub_list = df[(df['type']=='SubstitutionOn') & (df['teamName']==team_name)].name.to_list()
+    for index, row in avg_locs_df.iterrows():
+        if row['name'] in sub_list:
+            pass_nodes = pitch.scatter(row['avg_x'], row['avg_y'], s=750, marker='s', color=bg_color, edgecolor=line_color, zorder=3, linewidth=2, ax=ax)
+        else:
+            pass_nodes = pitch.scatter(row['avg_x'], row['avg_y'], s=1000, marker='o', color=bg_color, edgecolor=line_color, zorder=3, linewidth=2, ax=ax)
         
-            # Plotting the shirt no. of each player
-            for index, row in avg_locs_df.iterrows():
-                player_initials = row["short_name"]
-                pitch.annotate(player_initials, xy=(row.avg_x, row.avg_y), c=col, ha='center', va='center', size=10, ax=ax)
+    # Plotting the shirt no. of each player
+    for index, row in avg_locs_df.iterrows():
+        player_initials = row["short_name"]
+        pitch.annotate(player_initials, xy=(row.avg_x, row.avg_y), c=col, ha='center', va='center', size=10, ax=ax)
         
-            # Plotting a vertical line to show the median vertical position of all passes
-            avgph = round(avg_locs_df['avg_x'].median(), 2)
-            # avgph_show = round((avgph*1.05),2)
-            avgph_show = avgph
-            ax.vlines(x=avgph, ymin=0, ymax=68, color='gray', linestyle='--', zorder=1, alpha=0.75, linewidth=2)
+    # Plotting a vertical line to show the median vertical position of all passes
+    avgph = round(avg_locs_df['avg_x'].median(), 2)
+    # avgph_show = round((avgph*1.05),2)
+    avgph_show = avgph
+    ax.vlines(x=avgph, ymin=0, ymax=68, color='gray', linestyle='--', zorder=1, alpha=0.75, linewidth=2)
         
-            if team_name == hteamName:
-                ax.text(52.5, -5, f"avg. passing height: {avgph_show}m", fontsize=15, color=line_color, ha='center')
+    if team_name == hteamName:
+        ax.text(52.5, -5, f"avg. passing height: {avgph_show}m", fontsize=15, color=line_color, ha='center')
         
-            else:
-                ax.invert_xaxis()
-                ax.invert_yaxis()
-                ax.text(52.5, 73, f"avg. passing height: {avgph_show}m", fontsize=15, color=line_color, ha='center')
+    else:
+        ax.invert_xaxis()
+        ax.invert_yaxis()
+        ax.text(52.5, 73, f"avg. passing height: {avgph_show}m", fontsize=15, color=line_color, ha='center')
         
-            # ax.text(2,66, "circle = starter\nbox = sub", color=col, size=12, ha='left', va='top')
-            ax.set_title(f"{team_name}\nPassing Network", color=line_color, size=25, fontweight='bold')
+    # ax.text(2,66, "circle = starter\nbox = sub", color=col, size=12, ha='left', va='top')
+    ax.set_title(f"{team_name}\nPassing Network", color=line_color, size=25, fontweight='bold')
         
             
-            return 
+    return 
 # دالة مناطق السيطرة
 
 
