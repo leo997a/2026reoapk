@@ -1387,28 +1387,36 @@ with tab1:
     elif an_tp == reshape_arabic_text('PPDA'):
         st.subheader(reshape_arabic_text('معدل الضغط (PPDA)'))
         st.write(reshape_arabic_text("PPDA: عدد التمريرات الناجحة التي يسمح بها الفريق مقابل كل فعل دفاعي. القيمة الأقل تشير إلى ضغط دفاعي أقوى."))
-
-
-        # إضافة خيار لاختيار الفترة
-        period_choice = st.selectbox(
+    # إضافة خيار لاختيار الفترة
+    period_choice = st.selectbox(
         reshape_arabic_text('اختر الفترة:'),
         ['Full Match', 'First Half', 'Second Half'],
         key='ppda_period'
-        )
-        period_map = {
+    )
+    period_map = {
         'Full Match': None,
         'First Half': 'FirstHalf',
         'Second Half': 'SecondHalf'
-        }
-        selected_period = period_map[period_choice]
-        
+    }
+    selected_period = period_map[period_choice]
+    
     try:
-        # استدعاء دالة calculate_ppda المحسنة
+        # استدعاء دالة calculate_ppda
         ppda_results = calculate_ppda(st.session_state.df, period=selected_period)
         ppda_df = pd.DataFrame.from_dict(ppda_results, orient='index')
         
-        # طباعة الأعمدة للتصحيح
+        # تصحيح أخطاء: عرض معلومات البيانات
         st.write("أعمدة DataFrame:", st.session_state.df.columns.tolist())
+        st.write("عدد الأحداث الكلي:", len(st.session_state.df))
+        st.write("عدد التمريرات الناجحة في الثلث الهجومي:", len(st.session_state.df[
+            (st.session_state.df['type'] == 'Pass') &
+            (st.session_state.df['outcomeType'] == 'Successful') &
+            (st.session_state.df['x'].apply(lambda x: x >= 80))
+        ]))
+        st.write("عدد الأفعال الدفاعية في الثلث الهجومي:", len(st.session_state.df[
+            (st.session_state.df['type'].isin(['Tackle', 'Interception', 'Block', 'Pressure'])) &
+            (st.session_state.df['x'].apply(lambda x: x >= 80))
+        ]))
         
         # عرض الجدول الرئيسي
         st.subheader(reshape_arabic_text('نتائج PPDA'))
@@ -1464,6 +1472,3 @@ with tab1:
     
     except Exception as e:
         st.error(f"خطأ في حساب PPDA: {str(e)}")
-
-    else:
-        st.warning("يرجى تحميل بيانات المباراة والنقر على 'تحليل المباراة' لعرض التحليلات.")
