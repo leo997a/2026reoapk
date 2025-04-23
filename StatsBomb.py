@@ -485,12 +485,9 @@ def get_event_data(json_data):
     df = df[df['period'] != 'PenaltyShootout']
     df = df.reset_index(drop=True)
     return df, teams_dict, players_df
-
-# دالة شبكة التمريرات
-def pass_network(ax, team_name, col, phase_tag, hteamName, ateamName, hgoal_count, agoal_count, hteamID, ateamID):
-    logger.debug(f"Starting pass_network for team: {team_name}, phase: {phase_tag}")
-    logger.debug(f"Unique periods in df: {st.session_state.df['period'].unique()}")
     
+# دالة لإعادة تشكيل النصوص العربية
+def pass_network(ax, team_name, col, phase_tag, hteamName, ateamName, hgoal_count, agoal_count, hteamID, ateamID):
     try:
         # تصفية البيانات بناءً على phase_tag
         if phase_tag == 'Full Time':
@@ -498,11 +495,9 @@ def pass_network(ax, team_name, col, phase_tag, hteamName, ateamName, hgoal_coun
             df_pass = df_pass.reset_index(drop=True)
         elif phase_tag == 'First Half':
             df_pass = st.session_state.df[st.session_state.df['period'] == 'FirstHalf']
-            logger.debug(f"First Half rows: {len(df_pass)}")
             df_pass = df_pass.reset_index(drop=True)
         elif phase_tag == 'Second Half':
             df_pass = st.session_state.df[st.session_state.df['period'] == 'SecondHalf']
-            logger.debug(f"Second Half rows: {len(df_pass)}")
             df_pass = df_pass.reset_index(drop=True)
         else:
             raise ValueError(f"Invalid phase_tag: {phase_tag}")
@@ -511,13 +506,11 @@ def pass_network(ax, team_name, col, phase_tag, hteamName, ateamName, hgoal_coun
         if len(df_pass) == 0:
             ax.text(34, 60, reshape_arabic_text(f"لا توجد بيانات لـ {phase_tag}"), 
                     color='white', fontsize=14, ha='center', va='center', weight='bold')
-            logger.warning(f"No data available for {phase_tag}")
             return pd.DataFrame()
         
         # تصفية التمريرات
         total_pass = df_pass[(df_pass['teamName'] == team_name) & (df_pass['type'] == 'Pass')]
         accrt_pass = df_pass[(df_pass['teamName'] == team_name) & (df_pass['type'] == 'Pass') & (df_pass['outcomeType'] == 'Successful')]
-        logger.debug(f"Total passes: {len(total_pass)}, Successful passes: {len(accrt_pass)}")
         if len(total_pass) == 0:
             ax.text(34, 60, reshape_arabic_text(f"لا توجد تمريرات لـ {team_name} في {phase_tag}"), 
                     color='white', fontsize=14, ha='center', va='center', weight='bold')
@@ -554,7 +547,6 @@ def pass_network(ax, team_name, col, phase_tag, hteamName, ateamName, hgoal_coun
         
         # تصفية التمريرات الناجحة (باستثناء الركنيات والركلات الحرة)
         df_pass = df_pass[(df_pass['type'] == 'Pass') & (df_pass['outcomeType'] == 'Successful') & (df_pass['teamName'] == team_name) & (~df_pass['qualifiers'].str.contains('Corner|Freekick', na=False))]
-        logger.debug(f"Passes after filtering qualifiers: {len(df_pass)}")
         if len(df_pass) == 0:
             ax.text(34, 60, reshape_arabic_text(f"لا توجد تمريرات ناجحة لـ {team_name} في {phase_tag}"), 
                     color='white', fontsize=14, ha='center', va='center', weight='bold')
@@ -666,7 +658,7 @@ def pass_network(ax, team_name, col, phase_tag, hteamName, ateamName, hgoal_coun
             ax.text(34, 1, reshape_arabic_text(f"شبكة تمريرات {team_name}"), 
                     color='white', fontsize=12, ha='center', va='center', weight='bold')
         except Exception as e:
-            logger.warning(f"Failed to load logo for {team_name}: {str(e)}")
+            st.warning(f"فشل في تحميل شعار {team_name} من FotMob: {str(e)}")
             ax.text(34, 1, reshape_arabic_text(f"شبكة تمريرات {team_name}"), 
                     color='white', fontsize=12, ha='center', va='center', weight='bold')
         
@@ -686,14 +678,6 @@ def pass_network(ax, team_name, col, phase_tag, hteamName, ateamName, hgoal_coun
         return pass_btn
     
     except Exception as e:
-        logger.error(f"Error in pass_network: {str(e)}")
-        ax.text(34, 60, reshape_arabic_text(f"خطأ: {str(e)}"), 
-                color='white', fontsize=14, ha='center', va='center', weight='bold')
-        st.error(f"خطأ في شبكة التمريرات: {str(e)}")
-        return pd.DataFrame()
-    
-    except Exception as e:
-        logger.error(f"Error in pass_network: {str(e)}")
         ax.text(34, 60, reshape_arabic_text(f"خطأ: {str(e)}"), 
                 color='white', fontsize=14, ha='center', va='center', weight='bold')
         st.error(f"خطأ في شبكة التمريرات: {str(e)}")
