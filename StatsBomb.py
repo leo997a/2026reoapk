@@ -28,6 +28,7 @@ from bs4 import BeautifulSoup
 import warnings
 import os
 import requests
+from io import StringIO, BytesIO
 
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
