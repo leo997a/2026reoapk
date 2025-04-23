@@ -103,6 +103,8 @@ gradient_colors = [gradient_start, gradient_end]
 line_color = st.sidebar.color_picker(
     'لون الخطوط', '#ffffff', key='line_color_picker')
 
+
+
 # دالة استخراج البيانات من WhoScored
 
 
@@ -171,60 +173,62 @@ def extract_match_dict_from_html(uploaded_file):
         st.error(f"خطأ أثناء استخراج البيانات من HTML: {str(e)}")
         return None
 def get_event_data(json_data):
-    events_dict = json_data["events"]
-    teams_dict = {json_data['home']['teamId']: json_data['home']['name'],
-                  json_data['away']['teamId']: json_data['away']['name']}
-    players_dict = json_data["playerIdNameDictionary"]
-    
-    # إنشاء إطار بيانات اللاعبين
-    players_home_df = pd.DataFrame(json_data['home']['players'])
-    players_home_df["teamId"] = json_data['home']['teamId']
-    players_away_df = pd.DataFrame(json_data['away']['players'])
-    players_away_df["teamId"] = json_data['away']['teamId']
-    players_df = pd.concat([players_home_df, players_away_df])
-    players_df['name'] = players_df['name'].astype(str)
-    players_df['name'] = players_df['name'].apply(unidecode)
-    
+    events_dict, players_df, teams_dict = extract_data_from_dict(json_data)
     df = pd.DataFrame(events_dict)
     dfp = pd.DataFrame(players_df)
-    
-    # استخراج displayName من الأنواع
-    df['type'] = df['type'].apply(lambda x: x.get('displayName') if isinstance(x, dict) else str(x))
-    df['outcomeType'] = df['outcomeType'].apply(lambda x: x.get('displayName') if isinstance(x, dict) else str(x))
-    df['period'] = df['period'].apply(lambda x: x.get('displayName') if isinstance(x, dict) else str(x))
-    
+
+    df['type'] = df['type'].apply(
+        lambda x: x.get('displayName') if isinstance(
+            x, dict) else str(x))
+    df['outcomeType'] = df['outcomeType'].apply(
+        lambda x: x.get('displayName') if isinstance(
+            x, dict) else str(x))
+    df['period'] = df['period'].apply(
+        lambda x: x.get('displayName') if isinstance(
+            x, dict) else str(x))
     df['period'] = df['period'].replace({
         'FirstHalf': 1, 'SecondHalf': 2, 'FirstPeriodOfExtraTime': 3,
         'SecondPeriodOfExtraTime': 4, 'PenaltyShootout': 5, 'PostGame': 14, 'PreMatch': 16
     })
-    
+
     def cumulative_match_mins(events_df):
         events_out = pd.DataFrame()
         match_events = events_df.copy()
-        match_events['cumulative_mins'] = match_events['minute'] + (1/60) * match_events['second']
+        match_events['cumulative_mins'] = match_events['minute'] + \
+            (1 / 60) * match_events['second']
         for period in np.arange(1, match_events['period'].max() + 1, 1):
             if period > 1:
-                t_delta = match_events[match_events['period'] == period - 1]['cumulative_mins'].max() - \
-                          match_events[match_events['period'] == period]['cumulative_mins'].min()
+                t_delta = match_events[match_events['period'] == period - 1]['cumulative_mins'].max(
+                ) - match_events[match_events['period'] == period]['cumulative_mins'].min()
             else:
                 t_delta = 0
-            match_events.loc[match_events['period'] == period, 'cumulative_mins'] += t_delta
+            match_events.loc[match_events['period'] ==
+                             period, 'cumulative_mins'] += t_delta
         events_out = pd.concat([events_out, match_events])
         return events_out
-    
+
     df = cumulative_match_mins(df)
-    
-    def insert_ball_carries(events_df, min_carry_length=3, max_carry_length=100, min_carry_duration=1, max_carry_duration=50):
+
+    def insert_ball_carries(
+            events_df,
+            min_carry_length=3,
+            max_carry_length=100,
+            min_carry_duration=1,
+            max_carry_duration=50):
         events_out = pd.DataFrame()
         min_carry_length = 3.0
         max_carry_length = 100.0
         min_carry_duration = 1.0
         max_carry_duration = 50.0
         match_events = events_df.reset_index()
-        match_events.loc[match_events['type'] == 'BallRecovery', 'endX'] = match_events.loc[match_events['type'] == 'BallRecovery', 'endX'].fillna(match_events['x'])
-        match_events.loc[match_events['type'] == 'BallRecovery', 'endY'] = match_events.loc[match_events['type'] == 'BallRecovery', 'endY'].fillna(match_events['y'])
+        match_events.loc[match_events['type'] == 'BallRecovery',
+                         'endX'] = match_events.loc[match_events['type'] == 'BallRecovery',
+                                                    'endX'].fillna(match_events['x'])
+        match_events.loc[match_events['type'] == 'BallRecovery',
+                         'endY'] = match_events.loc[match_events['type'] == 'BallRecovery',
+                                                    'endY'].fillna(match_events['y'])
         match_carries = pd.DataFrame()
-        
+
         for idx, match_event in match_events.iterrows():
             if idx < len(match_events) - 1:
                 prev_evt_team = match_event['teamId']
@@ -251,7 +255,8 @@ def get_event_data(json_data):
                 dy = 68 * (match_event['endY'] - next_evt['y']) / 100
                 far_enough = dx ** 2 + dy ** 2 >= min_carry_length ** 2
                 not_too_far = dx ** 2 + dy ** 2 <= max_carry_length ** 2
-                dt = 60 * (next_evt['cumulative_mins'] - match_event['cumulative_mins'])
+                dt = 60 * (next_evt['cumulative_mins'] -
+                           match_event['cumulative_mins'])
                 min_time = dt >= min_carry_duration
                 same_phase = dt < max_carry_duration
                 same_period = match_event['period'] == next_evt['period']
@@ -268,13 +273,22 @@ def get_event_data(json_data):
                     carry['teamId'] = nex['teamId']
                     carry['x'] = prev['endX']
                     carry['y'] = prev['endY']
-                    carry['expandedMinute'] = np.floor(((init_next_evt['expandedMinute'] * 60 + init_next_evt['second']) + (
-                        prev['expandedMinute'] * 60 + prev['second'])) / (2 * 60))
+                    carry['expandedMinute'] = np.floor(
+                        ((init_next_evt['expandedMinute'] * 60 + init_next_evt['second']) + (
+                            prev['expandedMinute'] * 60 + prev['second'])) / (
+                            2 * 60))
                     carry['period'] = nex['period']
                     carry['type'] = 'Carry'
                     carry['outcomeType'] = 'Successful'
-                    carry['qualifiers'] = carry.apply(lambda x: {'type': {'value': 999, 'displayName': 'takeOns'}, 'value': str(take_ons)}, axis=1)
-                    carry['satisfiedEventsTypes'] = carry.apply(lambda x: [], axis=1)
+                    carry['qualifiers'] = carry.apply(
+                        lambda x: {
+                            'type': {
+                                'value': 999,
+                                'displayName': 'takeOns'},
+                            'value': str(take_ons)},
+                        axis=1)
+                    carry['satisfiedEventsTypes'] = carry.apply(
+                        lambda x: [], axis=1)
                     carry['isTouch'] = True
                     carry['playerId'] = nex['playerId']
                     carry['endX'] = nex['x']
@@ -289,76 +303,122 @@ def get_event_data(json_data):
                     carry['isGoal'] = np.nan
                     carry['cardType'] = np.nan
                     carry['isOwnGoal'] = np.nan
-                    carry['cumulative_mins'] = (prev['cumulative_mins'] + init_next_evt['cumulative_mins']) / 2
-                    match_carries = pd.concat([match_carries, carry], ignore_index=True, sort=False)
-        match_events_and_carries = pd.concat([match_carries, match_events], ignore_index=True, sort=False)
-        match_events_and_carries = match_events_and_carries.sort_values(['period', 'cumulative_mins']).reset_index(drop=True)
+                    carry['cumulative_mins'] = (
+                        prev['cumulative_mins'] + init_next_evt['cumulative_mins']) / 2
+                    match_carries = pd.concat(
+                        [match_carries, carry], ignore_index=True, sort=False)
+        match_events_and_carries = pd.concat(
+            [match_carries, match_events], ignore_index=True, sort=False)
+        match_events_and_carries = match_events_and_carries.sort_values(
+            ['period', 'cumulative_mins']).reset_index(drop=True)
         events_out = pd.concat([events_out, match_events_and_carries])
         return events_out
-    
-    df = insert_ball_carries(df, min_carry_length=3, max_carry_length=100, min_carry_duration=1, max_carry_duration=50)
+
+    df = insert_ball_carries(
+        df,
+        min_carry_length=3,
+        max_carry_length=100,
+        min_carry_duration=1,
+        max_carry_duration=50)
     df = df.reset_index(drop=True)
     df['index'] = range(1, len(df) + 1)
     df = df[['index'] + [col for col in df.columns if col != 'index']]
-    
-    # Assign xT values
+
     df_base = df
     dfxT = df_base.copy()
     dfxT['qualifiers'] = dfxT['qualifiers'].astype(str)
     dfxT = dfxT[(~dfxT['qualifiers'].str.contains('Corner'))]
-    dfxT = dfxT[(dfxT['type'].isin(['Pass', 'Carry'])) & (dfxT['outcomeType'] == 'Successful')]
-    
-    # تحميل xT_Grid.csv
-    xT = pd.read_csv("https://raw.githubusercontent.com/adnaaan433/Post-Match-Report-2.0/refs/heads/main/xT_Grid.csv", header=None)
+    dfxT = dfxT[(dfxT['type'].isin(['Pass', 'Carry'])) &
+                (dfxT['outcomeType'] == 'Successful')]
+
+    # التحقق من وجود ملف xT_Grid.csv
+    if not os.path.exists("xT_Grid.csv"):
+        st.error("ملف xT_Grid.csv غير موجود. يرجى توفير الملف لمتابعة التحليل.")
+        return None, None, None
+
+    xT = pd.read_csv("xT_Grid.csv", header=None)
     xT = np.array(xT)
     xT_rows, xT_cols = xT.shape
-    
+
     dfxT['x1_bin_xT'] = pd.cut(dfxT['x'], bins=xT_cols, labels=False)
     dfxT['y1_bin_xT'] = pd.cut(dfxT['y'], bins=xT_rows, labels=False)
     dfxT['x2_bin_xT'] = pd.cut(dfxT['endX'], bins=xT_cols, labels=False)
     dfxT['y2_bin_xT'] = pd.cut(dfxT['endY'], bins=xT_rows, labels=False)
-    
-    dfxT['start_zone_value_xT'] = dfxT[['x1_bin_xT', 'y1_bin_xT']].apply(lambda x: xT[x[1]][x[0]], axis=1)
-    dfxT['end_zone_value_xT'] = dfxT[['x2_bin_xT', 'y2_bin_xT']].apply(lambda x: xT[x[1]][x[0]], axis=1)
-    
+
+    dfxT['start_zone_value_xT'] = dfxT[['x1_bin_xT', 'y1_bin_xT']].apply(
+        lambda x: xT[x[1]][x[0]], axis=1)
+    dfxT['end_zone_value_xT'] = dfxT[['x2_bin_xT', 'y2_bin_xT']].apply(
+        lambda x: xT[x[1]][x[0]], axis=1)
+
     dfxT['xT'] = dfxT['end_zone_value_xT'] - dfxT['start_zone_value_xT']
     columns_to_drop = [
-        'eventId', 'minute', 'second', 'teamId', 'x', 'y', 'expandedMinute', 'period', 'outcomeType', 'qualifiers', 'type',
-        'satisfiedEventsTypes', 'isTouch', 'playerId', 'endX', 'endY', 'relatedEventId', 'relatedPlayerId', 'blockedX',
-        'blockedY', 'goalMouthZ', 'goalMouthY', 'isShot', 'cumulative_mins'
-    ]
+        'eventId',
+        'minute',
+        'second',
+        'teamId',
+        'x',
+        'y',
+        'expandedMinute',
+        'period',
+        'outcomeType',
+        'qualifiers',
+        'type',
+        'satisfiedEventsTypes',
+        'isTouch',
+        'playerId',
+        'endX',
+        'endY',
+        'relatedEventId',
+        'relatedPlayerId',
+        'blockedX',
+        'blockedY',
+        'goalMouthZ',
+        'goalMouthY',
+        'isShot',
+        'cumulative_mins']
     dfxT.drop(columns=columns_to_drop, inplace=True, errors='ignore')
-    
+
     df = df.merge(dfxT, on='index', how='left')
     df['teamName'] = df['teamId'].map(teams_dict)
     team_names = list(teams_dict.values())
-    opposition_dict = {team_names[i]: team_names[1-i] for i in range(len(team_names))}
+    opposition_dict = {team_names[i]: team_names[1 - i]
+                       for i in range(len(team_names))}
     df['oppositionTeamName'] = df['teamName'].map(opposition_dict)
-    
-    # تحجيم البيانات إلى 105x68
+
     df['x'] = df['x'] * 1.05
     df['y'] = df['y'] * 0.68
     df['endX'] = df['endX'] * 1.05
     df['endY'] = df['endY'] * 0.68
     df['goalMouthY'] = df['goalMouthY'] * 0.68
-    
+
     columns_to_drop = [
-        'height', 'weight', 'age', 'isManOfTheMatch', 'field', 'stats', 'subbedInPlayerId', 'subbedOutPeriod',
-        'subbedOutExpandedMinute', 'subbedInPeriod', 'subbedInExpandedMinute', 'subbedOutPlayerId', 'teamId'
-    ]
+        'height',
+        'weight',
+        'age',
+        'isManOfTheMatch',
+        'field',
+        'stats',
+        'subbedInPlayerId',
+        'subbedOutPeriod',
+        'subbedOutExpandedMinute',
+        'subbedInPeriod',
+        'subbedInExpandedMinute',
+        'subbedOutPlayerId',
+        'teamId']
     dfp.drop(columns=columns_to_drop, inplace=True, errors='ignore')
     df = df.merge(dfp, on='playerId', how='left')
-    
+
     df['qualifiers'] = df['qualifiers'].astype(str)
-    df['prog_pass'] = np.where((df['type'] == 'Pass'), 
-                               np.sqrt((105 - df['x'])**2 + (34 - df['y'])**2) - np.sqrt((105 - df['endX'])**2 + (34 - df['endY'])**2), 0)
-    df['prog_carry'] = np.where((df['type'] == 'Carry'), 
-                                np.sqrt((105 - df['x'])**2 + (34 - df['y'])**2) - np.sqrt((105 - df['endX'])**2 + (34 - df['endY'])**2), 0)
-    df['pass_or_carry_angle'] = np.degrees(np.arctan2(df['endY'] - df['y'], df['endX'] - df['x']))
-    
+    df['prog_pass'] = np.where((df['type'] == 'Pass'), np.sqrt(
+        (105 - df['x'])**2 + (34 - df['y'])**2) - np.sqrt((105 - df['endX'])**2 + (34 - df['endY'])**2), 0)
+    df['prog_carry'] = np.where((df['type'] == 'Carry'), np.sqrt(
+        (105 - df['x'])**2 + (34 - df['y'])**2) - np.sqrt((105 - df['endX'])**2 + (34 - df['endY'])**2), 0)
+    df['pass_or_carry_angle'] = np.degrees(
+        np.arctan2(df['endY'] - df['y'], df['endX'] - df['x']))
+
     df['name'] = df['name'].astype(str)
     df['name'] = df['name'].apply(unidecode)
-    
+
     def get_short_name(full_name):
         if pd.isna(full_name):
             return full_name
@@ -368,13 +428,12 @@ def get_event_data(json_data):
         elif len(parts) == 2:
             return parts[0][0] + ". " + parts[1]
         else:
-            return parts[0][0] + ". " + parts[1][0] + ". " + " ".join(parts[2:])
-    
+            return parts[0][0] + ". " + parts[1][0] + \
+                ". " + " ".join(parts[2:])
+
     df['shortName'] = df['name'].apply(get_short_name)
     columns_to_drop2 = ['id']
     df.drop(columns=columns_to_drop2, inplace=True, errors='ignore')
-    
-    return df, teams_dict, players_df
 
     def get_possession_chains(events_df, chain_check, suc_evts_in_chain):
         events_out = pd.DataFrame()
@@ -581,35 +640,117 @@ def pass_network(ax, team_name, col, phase_tag, hteamName, ateamName, hgoal_coun
     score_text = reshape_arabic_text(f"{hteamName} {hgoal_count} - {agoal_count} {ateamName}")
     ax.text(34, 120, score_text, color='white', fontsize=16, ha='center', va='center', weight='bold')
     
-    # إضافة شعاري الفريقين من FotMob
+   teams_df = pd.read_csv('teams_name_and_id.csv')
+fotmob_team_ids = dict(zip(teams_df['teamName'], teams_df['teamId']))
+
+def normalize_team_name(team_name):
+    name_mapping = {
+        "Man United": "Man Utd",
+        "Manchester United": "Man Utd",
+        "Man City": "Man City",
+        "Atlético Madrid": "Atletico",
+        "Athletic Bilbao": "Athletic Club",
+        # أضف المزيد من التحويلات إذا لزم الأمر
+    }
+    return name_mapping.get(team_name, team_name)
+
+def plot_pass_map(match_id, team_name, player_name=None):
+    team_name = normalize_team_name(team_name)
+    
+    # جلب بيانات المباراة للحصول على الفريقين
+    match_data = sb.matches(competition_id=2, season_id=27)  # قم بتعديل competition_id وseason_id حسب الحاجة
+    match = match_data[match_data['match_id'] == match_id]
+    if match.empty:
+        print(f"لم يتم العثور على مباراة بمعرف {match_id}")
+        return
+    
+    home_team = match['home_team'].iloc[0]
+    away_team = match['away_team'].iloc[0]
+    home_team = normalize_team_name(home_team)
+    away_team = normalize_team_name(away_team)
+    
+    # جلب بيانات الأحداث
+    events = sb.events(match_id=match_id)
+    team_events = events[events['team'] == team_name]
+    
+    # تصفية التمريرات
+    if player_name:
+        passes = team_events[(team_events['type'] == 'Pass') & (team_events['player'] == player_name)]
+    else:
+        passes = team_events[team_events['type'] == 'Pass']]
+    
+    # إعداد الملعب
+    fig, ax = plt.subplots(figsize=(10, 7))
+    ax.set_xlim(0, 120)
+    ax.set_ylim(0, 80)
+    
+    # رسم الملعب (أضف كود الملعب من الكود الأصلي إذا لزم الأمر)
+    # ... (أضف كود رسم الملعب هنا)
+    
+    # رسم التمريرات
+    for i, pass_event in passes.iterrows():
+        x_start, y_start = pass_event['location']
+        x_end, y_end = pass_event['pass_end_location']
+        outcome = pass_event['pass_outcome']
+        
+        if pd.isna(outcome):  # تمريرة ناجحة
+            ax.plot([x_start, x_end], [y_start, y_end], color='green', linewidth=2)
+            ax.scatter(x_end, y_end, color='green', s=50, zorder=5)
+        else:  # تمريرة فاشلة
+            ax.plot([x_start, x_end], [y_start, y_end], color='red', linestyle='--', linewidth=2)
+            ax.scatter(x_end, y_end, color='red', s=50, zorder=5)
+    
+    # تحميل شعار الفريق المضيف (home)
+    home_logo_url = None
+    if home_team in fotmob_team_ids:
+        home_logo_url = f"https://images.fotmob.com/image_resources/logo/teamlogo/{fotmob_team_ids[home_team]}.png"
+    else:
+        print(f"معرف الفريق {home_team} غير موجود في fotmob_team_ids. يتم استخدام شعار افتراضي.")
+        home_logo_url = "https://images.fotmob.com/image_resources/logo/teamlogo/default.png"
+    
     try:
-        # استخدام معرفات FotMob
-        hteamID_fotmob = fotmob_team_ids.get(hteamName, hteamID)
-        ateamID_fotmob = fotmob_team_ids.get(ateamName, ateamID)
-        
-        home_logo_url = f"https://images.fotmob.com/image_resources/logo/teamlogo/{hteamID_fotmob}.png"
-        away_logo_url = f"https://images.fotmob.com/image_resources/logo/teamlogo/{ateamID_fotmob}.png"
-        
-        home_logo = Image.open(urlopen(home_logo_url))
-        away_logo = Image.open(urlopen(away_logo_url))
-        
-        # تغيير حجم الصور
-        home_logo = home_logo.resize((50, 50), Image.Resampling.LANCZOS)
-        away_logo = away_logo.resize((50, 50), Image.Resampling.LANCZOS)
-        
-        # إضافة شعار الفريق المضيف
-        home_logo_ax = ax.inset_axes([0.05, 0.95, 0.07, 0.07], transform=ax.transAxes)
-        home_logo_ax.imshow(home_logo)
-        home_logo_ax.axis('off')
-        
-        # إضافة شعار الفريق الضيف
-        away_logo_ax = ax.inset_axes([0.88, 0.95, 0.07, 0.07], transform=ax.transAxes)
-        away_logo_ax.imshow(away_logo)
-        away_logo_ax.axis('off')
-    except Exception as e:
-        st.warning(f"فشل في تحميل شعارات الفريقين من FotMob: {str(e)}")
-        ax.text(5, 115, reshape_arabic_text(hteamName), color='white', fontsize=12, ha='left', va='center')
-        ax.text(63, 115, reshape_arabic_text(ateamName), color='white', fontsize=12, ha='right', va='center')
+        response = requests.get(home_logo_url)
+        response.raise_for_status()
+        home_logo = Image.open(BytesIO(response.content))
+        home_logo = home_logo.resize((100, 100))
+    except requests.exceptions.RequestException as e:
+        print(f"فشل تحميل شعار الفريق {home_team}: {e}")
+        home_logo = None
+    
+    # تحميل شعار الفريق الضيف (away)
+    away_logo_url = None
+    if away_team in fotmob_team_ids:
+        away_logo_url = f"https://images.fotmob.com/image_resources/logo/teamlogo/{fotmob_team_ids[away_team]}.png"
+    else:
+        print(f"معرف الفريق {away_team} غير موجود في fotmob_team_ids. يتم استخدام شعار افتراضي.")
+        away_logo_url = "https://images.fotmob.com/image_resources/logo/teamlogo/default.png"
+    
+    try:
+        response = requests.get(away_logo_url)
+        response.raise_for_status()
+        away_logo = Image.open(BytesIO(response.content))
+        away_logo = away_logo.resize((100, 100))
+    except requests.exceptions.RequestException as e:
+        print(f"فشل تحميل شعار الفريق {away_team}: {e}")
+        away_logo = None
+    
+    # إضافة شعار الفريق المضيف
+    if home_logo:
+        ax_himage = fig.add_axes([0.085, 0.85, 0.125, 0.125])  # تعديل الموقع حسب الكود المقترح
+        ax_himage.imshow(home_logo)
+        ax_himage.axis('off')
+    
+    # إضافة شعار الفريق الضيف
+    if away_logo:
+        ax_aimage = fig.add_axes([0.815, 0.85, 0.125, 0.125])  # تعديل الموقع حسب الكود المقترح
+        ax_aimage.imshow(away_logo)
+        ax_aimage.axis('off')
+    
+    # إضافة عنوان
+    title = f"Pass Map for {player_name if player_name else team_name}"
+    plt.title(title, fontsize=14)
+    
+    plt.show()
     
     if phase_tag == 'Full Time':
         ax.text(34, 115, reshape_arabic_text('الوقت بالكامل: 0-90 دقيقة'), color='white', fontsize=14, ha='center', va='center', weight='bold')
