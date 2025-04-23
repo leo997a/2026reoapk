@@ -30,6 +30,10 @@ import os
 import requests
 from io import StringIO, BytesIO
 
+# إعدادات الخطوط
+plt.rcParams['font.family'] = 'sans-serif'
+plt.rcParams['font.sans-serif'] = ['DejaVu Sans']  # خط افتراضي متاح
+
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 # قراءة ملف الفرق من الرابط
