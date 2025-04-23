@@ -1179,8 +1179,8 @@ with tab1:
         
         # إنشاء الرسم
         fig, ax = plt.subplots(figsize=(10, 10), facecolor=bg_color)
-        fig.tight_layout(pad=0.2)  # تقليل الهوامش
-        fig.subplots_adjust(left=0.03, right=0.97, top=0.95, bottom=0.05)  # ضبط حدود الشكل
+        fig.tight_layout(pad=0.1)  # تقليل الهوامش
+        fig.subplots_adjust(left=0.02, right=0.88, top=0.88, bottom=0.03)  # ضبط حدود الشكل
         # استدعاء pass_network مع جميع الوسائط المطلوبة
         pass_btn = pass_network(
             ax,
