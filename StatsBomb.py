@@ -134,7 +134,7 @@ def extract_match_dict_from_html(uploaded_file):
         match = re.search(pattern, script.text, re.DOTALL)
         
         if not match:
-            # تعبير منتظم بديل أكثر مرونة
+            # تعبير منتظم بديل بمطابقة جشعة
             pattern_fallback = r'matchCentreData:\s*(\{.*\})\s*(?:,|\s*;|matchCentreEventTypeJson|$)'
             match = re.search(pattern_fallback, script.text, re.DOTALL)
             if not match:
