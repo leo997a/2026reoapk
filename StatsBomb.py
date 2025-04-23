@@ -111,12 +111,26 @@ def extract_match_dict_from_html(uploaded_file):
     try:
         html_content = uploaded_file.read().decode('utf-8')
         soup = BeautifulSoup(html_content, 'html.parser')
-        element = soup.find(lambda tag: tag.name == 'script' and 'matchCentreData' in tag.text)
-        if not element:
+        script = soup.find(lambda tag: tag.name == 'script' and 'matchCentreData' in tag.text)
+        if not script:
             st.error("لم يتم العثور على matchCentreData في ملف HTML")
             return None
-        matchdict = json.loads(element.text.split("matchCentreData: ")[1].split(',\n')[0])
-        return matchdict
+        
+        # محاولة استخراج JSON بطرق متعددة
+        text = script.text
+        try:
+            # الطريقة الأولى: تقسيم بسيط
+            json_str = text.split("matchCentreData: ")[1].split(',\n')[0]
+            return json.loads(json_str)
+        except:
+            # الطريقة الثانية: تعبير منتظم
+            pattern = r'matchCentreData:\s*(\{.*?\})(?=\s*,\s*matchCentreEventTypeJson|\s*;)'
+            match = re.search(pattern, text, re.DOTALL)
+            if match:
+                return json.loads(match.group(1))
+            else:
+                st.error("فشل في استخراج بيانات JSON")
+                return None
     except Exception as e:
         st.error(f"خطأ أثناء استخراج البيانات من HTML: {str(e)}")
         return None
