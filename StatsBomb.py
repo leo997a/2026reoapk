@@ -1185,156 +1185,132 @@ if st.button("تحليل المباراة"):
             st.error("فشل في جلب بيانات المباراة.")
 
 # عرض التحليل فقط إذا تم استخراج البيانات
-if st.session_state.analysis_triggered and st.session_state.df is not None and st.session_state.teams_dict and st.session_state.players_df is not None:
+# عرض التحليل فقط إذا تم استخراج البيانات
+if st.session_state.analysis_triggered and not st.session_state.df.empty and st.session_state.teams_dict and not st.session_state.players_df.empty:
     hteamID = list(st.session_state.teams_dict.keys())[0]
     ateamID = list(st.session_state.teams_dict.keys())[1]
     hteamName = st.session_state.teams_dict[hteamID]
     ateamName = st.session_state.teams_dict[ateamID]
 
-    homedf = st.session_state.df[(
-        st.session_state.df['teamName'] == hteamName)]
-    awaydf = st.session_state.df[(
-        st.session_state.df['teamName'] == ateamName)]
-    hxT = homedf['xT'].sum().round(2)
-    axT = awaydf['xT'].sum().round(2)
+    homedf = st.session_state.df[(st.session_state.df['teamName'] == hteamName)]
+    awaydf = st.session_state.df[(st.session_state.df['teamName'] == ateamName)]
+    hxT = homedf['xT'].sum().round(2) if 'xT' in homedf.columns else 0
+    axT = awaydf['xT'].sum().round(2) if 'xT' in awaydf.columns else 0
 
-    hgoal_count = len(homedf[(homedf['teamName'] == hteamName) & (
-        homedf['type'] == 'Goal') & (~homedf['qualifiers'].str.contains('OwnGoal'))])
-    agoal_count = len(awaydf[(awaydf['teamName'] == ateamName) & (
-        awaydf['type'] == 'Goal') & (~awaydf['qualifiers'].str.contains('OwnGoal'))])
-    hgoal_count += len(awaydf[(awaydf['teamName'] == ateamName) & (
-        awaydf['type'] == 'Goal') & (awaydf['qualifiers'].str.contains('OwnGoal'))])
-    agoal_count += len(homedf[(homedf['teamName'] == hteamName) & (
-        homedf['type'] == 'Goal') & (homedf['qualifiers'].str.contains('OwnGoal'))])
+    hgoal_count = len(homedf[(homedf['teamName'] == hteamName) & 
+                             (homedf['type'] == 'Goal') & 
+                             (~homedf['qualifiers'].str.contains('OwnGoal', na=False))])
+    agoal_count = len(awaydf[(awaydf['teamName'] == ateamName) & 
+                             (awaydf['type'] == 'Goal') & 
+                             (~awaydf['qualifiers'].str.contains('OwnGoal', na=False))])
+    hgoal_count += len(awaydf[(awaydf['teamName'] == ateamName) & 
+                              (awaydf['type'] == 'Goal') & 
+                              (awaydf['qualifiers'].str.contains('OwnGoal', na=False))])
+    agoal_count += len(homedf[(homedf['teamName'] == hteamName) & 
+                              (homedf['type'] == 'Goal') & 
+                              (homedf['qualifiers'].str.contains('OwnGoal', na=False))])
 
-    # التحقق من وجود ملف teams_name_and_id.csv
-    # استخدام fotmob_team_ids المعرف مسبقًا
     hftmb_tid = fotmob_team_ids.get(hteamName, 0)
     aftmb_tid = fotmob_team_ids.get(ateamName, 0)
 
     st.header(f'{hteamName} {hgoal_count} - {agoal_count} {ateamName}')
 
     # علامات التبويب
-    tab1, tab2, tab3, tab4 = st.tabs(
-        ['تحليل الفريق', 'تحليل اللاعبين', 'إحصائيات المباراة', 'أفضل اللاعبين'])
+    try:
+        tab1, tab2, tab3, tab4 = st.tabs(
+            ['تحليل الفريق', 'تحليل اللاعبين', 'إحصائيات المباراة', 'أفضل اللاعبين'])
+    except Exception as e:
+        st.error(f"خطأ في إنشاء التبويبات: {str(e)}")
+        st.stop()
 
-# التأكد من تهيئة st.session_state
-if 'analysis_triggered' not in st.session_state:
-    st.session_state.analysis_triggered = False
-if 'df' not in st.session_state:
-    st.session_state.df = pd.DataFrame()
-if 'players_df' not in st.session_state:
-    st.session_state.players_df = pd.DataFrame()
-if 'teams_dict' not in st.session_state:
-    st.session_state.teams_dict = {}
-
-with tab1:
-    an_tp = st.selectbox('نوع التحليل:', [
-        'شبكة التمريرات',
-        'مناطق الهجوم',
-        'Defensive Actions Heatmap',
-        'Progressive Passes',
-        'Progressive Carries',
-        'Shotmap',
-        'إحصائيات الحراس',
-        'Match Momentum',
-        reshape_arabic_text('Zone14 & Half-Space Passes'),
-        reshape_arabic_text('Final Third Entries'),
-        reshape_arabic_text('Box Entries'),
-        reshape_arabic_text('High-Turnovers'),
-        reshape_arabic_text('Chances Creating Zones'),
-        reshape_arabic_text('Crosses'),
-        reshape_arabic_text('Team Domination Zones'),
-        reshape_arabic_text('Pass Target Zones'),
-        'Attacking Thirds'
-    ], index=0, key='analysis_type')
-    
-    if an_tp == 'شبكة التمريرات':
-        st.subheader('شبكة التمريرات')
-        team_choice = st.selectbox('اختر الفريق:', [hteamName, ateamName], key='team_choice')
-        phase_tag = st.selectbox('اختر الفترة:', ['Full Time', 'First Half', 'Second Half'], key='phase_tag')
+    with tab1:
+        an_tp = st.selectbox('نوع التحليل:', [
+            'شبكة التمريرات',
+            'مناطق الهجوم',
+            'Defensive Actions Heatmap',
+            'Progressive Passes',
+            'Progressive Carries',
+            'Shotmap',
+            'إحصائيات الحراس',
+            'Match Momentum',
+            reshape_arabic_text('Zone14 & Half-Space Passes'),
+            reshape_arabic_text('Final Third Entries'),
+            reshape_arabic_text('Box Entries'),
+            reshape_arabic_text('High-Turnovers'),
+            reshape_arabic_text('Chances Creating Zones'),
+            reshape_arabic_text('Crosses'),
+            reshape_arabic_text('Team Domination Zones'),
+            reshape_arabic_text('Pass Target Zones'),
+            'Attacking Thirds'
+        ], index=0, key='analysis_type')
         
-        # حساب عدد الأهداف
-        homedf = st.session_state.df[(st.session_state.df['teamName'] == hteamName)]
-        awaydf = st.session_state.df[(st.session_state.df['teamName'] == ateamName)]
-        hgoal_count = len(homedf[(homedf['teamName'] == hteamName) & (homedf['type'] == 'Goal') & (~homedf['qualifiers'].str.contains('OwnGoal', na=False))])
-        agoal_count = len(awaydf[(awaydf['teamName'] == ateamName) & (awaydf['type'] == 'Goal') & (~awaydf['qualifiers'].str.contains('OwnGoal', na=False))])
-        hgoal_count += len(awaydf[(awaydf['teamName'] == ateamName) & (awaydf['type'] == 'Goal') & (awaydf['qualifiers'].str.contains('OwnGoal', na=False))])
-        agoal_count += len(homedf[(homedf['teamName'] == hteamName) & (homedf['type'] == 'Goal') & (homedf['qualifiers'].str.contains('OwnGoal', na=False))])
+        if an_tp == 'شبكة التمريرات':
+            st.subheader('شبكة التمريرات')
+            team_choice = st.selectbox('اختر الفريق:', [hteamName, ateamName], key='team_choice')
+            phase_tag = st.selectbox('اختر الفترة:', ['Full Time', 'First Half', 'Second Half'], key='phase_tag')
+            
+            # إنشاء الرسم
+            fig, ax = plt.subplots(figsize=(10, 10), facecolor=bg_color)
+            
+            # استدعاء pass_network
+            try:
+                pass_btn = pass_network(
+                    ax,
+                    team_choice,
+                    hcol if team_choice == hteamName else acol,
+                    phase_tag,
+                    hteamName,
+                    ateamName,
+                    hgoal_count,
+                    agoal_count,
+                    hteamID,
+                    ateamID
+                )
+                st.pyplot(fig)
+                if pass_btn is not None and not pass_btn.empty:
+                    st.dataframe(pass_btn, hide_index=True)
+                else:
+                    st.warning("لا توجد بيانات تمريرات للعرض.")
+            except Exception as e:
+                st.error(f"خطأ في إنشاء شبكة التمريرات: {str(e)}")
         
-        # تحديد معرفات الفرق
-        hteamID = list(st.session_state.teams_dict.keys())[0]
-        ateamID = list(st.session_state.teams_dict.keys())[1]
+        elif an_tp == 'مناطق الهجوم':
+            st.subheader('تحليل مناطق الهجوم')
+            fig, ax = plt.subplots(figsize=(10, 10), facecolor=bg_color)
+            attack_summary, fig_heatmap, fig_bar = attack_zones_analysis(fig, ax, hteamName, ateamName, hcol, acol, hteamID, ateamID)
+            
+            # عرض خريطة حرارية
+            st.pyplot(fig_heatmap)
+            
+            # عرض الرسم البياني الشريطي
+            st.pyplot(fig_bar)
+            
+            # عرض الجدول الإحصائي
+            st.subheader('إحصائيات مناطق الهجوم')
+            st.dataframe(attack_summary, hide_index=True)
         
-        # تحديد اللون بناءً على اختيار الفريق
-        col = hcol if team_choice == hteamName else acol
-        
-        # إنشاء الرسم
-        fig, ax = plt.subplots(figsize=(10, 10), facecolor=bg_color)
-        
-        # استدعاء pass_network
-        try:
-            pass_btn = pass_network(
+        elif an_tp == reshape_arabic_text('Team Domination Zones'):
+            st.subheader(reshape_arabic_text('مناطق سيطرة الفريق'))
+            phase_tag = st.selectbox(
+                'اختر الفترة:', ['Full Time', 'First Half', 'Second Half'], key='phase_tag_domination')
+            fig, ax = plt.subplots(figsize=(12, 8), facecolor=bg_color)
+            team_domination_zones(
                 ax,
-                team_choice,
-                col,
                 phase_tag,
                 hteamName,
                 ateamName,
-                hgoal_count,
-                agoal_count,
-                hteamID,
-                ateamID
-            )
+                hcol,
+                acol,
+                bg_color,
+                line_color,
+                gradient_colors)
+            # إضافة عنوان أعلى الرسم
+            fig.text(
+                0.5, 0.98,
+                reshape_arabic_text(f'{hteamName} {hgoal_count} - {agoal_count} {ateamName}'),
+                fontsize=16, fontweight='bold', ha='center', va='center', color='white')
+            fig.text(0.5, 0.94, reshape_arabic_text('مناطق السيطرة'),
+                     fontsize=14, ha='center', va='center', color='white')
             st.pyplot(fig)
-            if pass_btn is not None and not pass_btn.empty:
-                st.dataframe(pass_btn, hide_index=True)
-            else:
-                st.warning("لا توجد بيانات تمريرات للعرض.")
-        except Exception as e:
-            st.error(f"خطأ في إنشاء شبكة التمريرات: {str(e)}")
-    
-    elif an_tp == 'مناطق الهجوم':
-        st.subheader('تحليل مناطق الهجوم')
-        fig, ax = plt.subplots(figsize=(10, 10), facecolor=bg_color)
-        attack_summary, fig_heatmap, fig_bar = attack_zones_analysis(fig, ax, hteamName, ateamName, hcol, acol)
-        
-        # عرض خريطة حرارية
-        st.pyplot(fig_heatmap)
-        
-        # عرض الرسم البياني الشريطي
-        st.pyplot(fig_bar)
-        
-        # عرض الجدول الإحصائي
-        st.subheader('إحصائيات مناطق الهجوم')
-        attack_summary = attack_summary.rename(columns={
-            'teamName': 'الفريق',
-            'اليسار': 'اليسار',
-            'العمق': 'العمق',
-            'اليمين': 'اليمين'
-        })
-        st.dataframe(attack_summary, hide_index=True)
-    
-    elif an_tp == reshape_arabic_text('Team Domination Zones'):
-        st.subheader(reshape_arabic_text('مناطق سيطرة الفريق'))
-        phase_tag = st.selectbox(
-            'اختر الفترة:', ['Full Time', 'First Half', 'Second Half'], key='phase_tag_domination')
-        fig, ax = plt.subplots(figsize=(12, 8), facecolor=bg_color)
-        team_domination_zones(
-            ax,
-            phase_tag,
-            hteamName,
-            ateamName,
-            hcol,
-            acol,
-            bg_color,
-            line_color,
-            gradient_colors)
-        # إضافة عنوان أعلى الرسم
-        fig.text(
-            0.5, 0.98,
-            reshape_arabic_text(f'{hteamName} {hgoal_count} - {agoal_count} {ateamName}'),
-            fontsize=16, fontweight='bold', ha='center', va='center', color='white')
-        fig.text(0.5, 0.94, reshape_arabic_text('مناطق السيطرة'),
-                 fontsize=14, ha='center', va='center', color='white')
-        st.pyplot(fig)
+else:
+    st.warning("يرجى تحميل بيانات المباراة والنقر على 'تحليل المباراة' لعرض التحليلات.")
