@@ -111,142 +111,61 @@ def extract_match_dict_from_html(uploaded_file):
     try:
         # قراءة محتوى ملف HTML
         html_content = uploaded_file.read().decode('utf-8')
-        soup = BeautifulSoup(html_content, 'html.parser')
         
-        # البحث عن العنصر <script> الذي يحتوي على matchCentreData
-        script = soup.find(lambda tag: tag.name == 'script' and 'matchCentreData' in tag.text)
-        if not script:
-            st.error("لم يتم العثور على matchCentreData في ملف HTML")
-            with open("html_content.txt", "w", encoding="utf-8") as f:
-                f.write(html_content[:1000])
-            st.write("تم حفظ أول 1000 حرف من HTML في html_content.txt")
+        # تسجيل أول 1000 وآخر 1000 حرف من HTML للتحقق
+        st.write("HTML content preview (first 1000 chars):", html_content[:1000])
+        st.write("HTML content preview (last 1000 chars):", html_content[-1000:])
+        with open("html_content.txt", "w", encoding="utf-8") as f:
+            f.write(html_content)
+        st.write("تم حفظ محتوى HTML الكامل في html_content.txt")
+        
+        # استخراج نص JSON باستخدام تعبير منتظم
+        regex_pattern = r'(?<=require\.config\.params\["args"\].=.)[\s\S]*?;'
+        match = re.search(regex_pattern, html_content)
+        if not match:
+            st.error("لم يتم العثور على require.config.params[\"args\"] في ملف HTML")
             return None
         
-        # تسجيل أول 1000 وآخر 1000 حرف من نص <script> للتحقق
-        st.write("Script content preview (first 1000 chars):", script.text[:1000])
-        st.write("Script content preview (last 1000 chars):", script.text[-1000:])
-        with open("script_content.txt", "w", encoding="utf-8") as f:
-            f.write(script.text)
-        st.write("تم حفظ نص <script> الكامل في script_content.txt")
+        data_txt = match.group(0)
         
-        # استخراج كائن matchCentreData يدويًا
-        start_marker = 'matchCentreData:'
-        end_markers = [',', ';', 'matchCentreEventTypeJson']
-        script_text = script.text
-        
-        # البحث عن بداية matchCentreData
-        start_idx = script_text.find(start_marker)
-        if start_idx == -1:
-            st.error("لم يتم العثور على matchCentreData في نص <script>")
-            return None
-        start_idx += len(start_marker)
-        
-        # العثور على أول قوس مفتوح بعد matchCentreData
-        while start_idx < len(script_text) and script_text[start_idx] != '{':
-            start_idx += 1
-        if start_idx >= len(script_text):
-            st.error("لم يتم العثور على بداية كائن JSON بعد matchCentreData")
-            return None
-        
-        # استخراج النص بتتبع الأقواس المتداخلة
-        json_str = ''
-        brace_count = 0
-        in_string = False
-        escape = False
-        i = start_idx
-        
-        while i < len(script_text):
-            char = script_text[i]
-            
-            if char == '\\' and not escape:
-                escape = True
-                json_str += char
-                i += 1
-                continue
-            if char == '"' and not escape:
-                in_string = not in_string
-            if not in_string:
-                if char == '{':
-                    brace_count += 1
-                elif char == '}':
-                    brace_count -= 1
-                if brace_count == 0:
-                    json_str += char
-                    break
-            json_str += char
-            escape = False
-            i += 1
-        
-        if brace_count != 0:
-            st.error(f"JSON غير مكتمل: عدد الأقواس غير متطابق ({brace_count})")
-            with open("failed_json.txt", "w", encoding="utf-8") as f:
-                f.write(json_str)
-            st.write("تم حفظ النص المستخرج في failed_json.txt للتحقق")
-            return None
+        # تنظيف النص لتحويله إلى JSON صالح
+        data_txt = data_txt.replace('matchId', '"matchId"')
+        data_txt = data_txt.replace('matchCentreData', '"matchCentreData"')
+        data_txt = data_txt.replace('matchCentreEventTypeJson', '"matchCentreEventTypeJson"')
+        data_txt = data_txt.replace('formationIdNameMappings', '"formationIdNameMappings"')
+        data_txt = data_txt.replace('};', '}')
         
         # تسجيل معاينة للنص المستخرج
-        st.write("JSON string preview (first 500 chars):", json_str[:500])
-        st.write("JSON string preview (last 500 chars):", json_str[-500:])
+        st.write("JSON string preview (first 500 chars):", data_txt[:500])
+        st.write("JSON string preview (last 500 chars):", data_txt[-500:])
+        with open("raw_json.txt", "w", encoding="utf-8") as f:
+            f.write(data_txt)
+        st.write("تم حفظ النص المستخرج الخام في raw_json.txt")
         
         # التحقق من وجود المفاتيح المتوقعة
-        if '"formationIdNameMappings"' not in json_str:
+        if '"formationIdNameMappings"' not in data_txt:
             st.error("النص المستخرج غير مكتمل: لا يحتوي على formationIdNameMappings")
             with open("failed_json.txt", "w", encoding="utf-8") as f:
-                f.write(json_str)
+                f.write(data_txt)
             st.write("تم حفظ النص المستخرج في failed_json.txt للتحقق")
-            return None
-        
-        # تنظيف النص من تعليقات JavaScript أو أحرف غير متوقعة
-        json_str = re.sub(r'//.*?\n|/\*.*?\*/', '', json_str, flags=re.DOTALL)
-        
-        # التحقق من اكتمال JSON (الأقواس المتداخلة)
-        def is_valid_json_structure(json_str):
-            brace_count = 0
-            in_string = False
-            escape = False
-            for i, char in enumerate(json_str):
-                if char == '\\' and not escape:
-                    escape = True
-                    continue
-                if char == '"' and not escape:
-                    in_string = not in_string
-                if not in_string:
-                    if char == '{':
-                        brace_count += 1
-                    elif char == '}':
-                        brace_count -= 1
-                if brace_count < 0:
-                    st.error(f"JSON غير صالح: إغلاق قوس زائد عند الموضع {i}")
-                    start = max(0, i - 50)
-                    end = min(len(json_str), i + 50)
-                    st.write("النص المحيط بالموضع:", json_str[start:end])
-                    with open("failed_json.txt", "w", encoding="utf-8") as f:
-                        f.write(json_str)
-                    st.write("تم حفظ النص المستخرج في failed_json.txt للتحقق")
-                    return False
-                escape = False
-            if brace_count != 0:
-                st.error(f"JSON غير مكتمل: عدد الأقواس غير متطابق ({brace_count})")
-                with open("failed_json.txt", "w", encoding="utf-8") as f:
-                    f.write(json_str)
-                st.write("تم حفظ النص المستخرج في failed_json.txt للتحقق")
-                return False
-            return True
-        
-        if not is_valid_json_structure(json_str):
             return None
         
         # محاولة تحليل JSON
         try:
-            matchdict = json.loads(json_str)
+            matchdict = json.loads(data_txt)
         except json.JSONDecodeError as json_err:
             st.error(f"خطأ في تحليل JSON: {str(json_err)}")
             with open("failed_json.txt", "w", encoding="utf-8") as f:
-                f.write(json_str)
+                f.write(data_txt)
             st.write("تم حفظ النص المستخرج في failed_json.txt للتحقق")
             return None
         
-        return matchdict
+        # استخراج matchCentreData فقط
+        if 'matchCentreData' not in matchdict:
+            st.error("لم يتم العثور على matchCentreData في البيانات المحللة")
+            return None
+        
+        return matchdict['matchCentreData']
     
     except Exception as e:
         st.error(f"خطأ أثناء استخراج البيانات من HTML: {str(e)}")
