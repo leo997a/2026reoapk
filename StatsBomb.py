@@ -1109,7 +1109,7 @@ def attack_zones_analysis(fig, ax, hteamName, ateamName, hcol, acol, hteamID, at
 
 def calculate_ppda(
     events_df: pd.DataFrame,
-    region: str = 'attacking_third',
+    region: str = 'whole',  # افتراضي: كامل الملعب لحساب PPDA الطبيعي
     custom_threshold: float = None,
     pitch_units: float = 120,
     period: str = None,
@@ -1120,7 +1120,12 @@ def calculate_ppda(
 
     Parameters:
     - events_df: DataFrame containing match events with columns ['type', 'outcomeType', 'x', 'teamName', ...].
-    - region: Which area to consider: 'whole', 'attacking_half', 'attacking_60', 'attacking_third', or 'custom'.
+    - region: Which area to consider:
+        * 'whole'           : الملعب كامل
+        * 'attacking_half'  : نصف ملعب الخصم
+        * 'attacking_60'    : 60% الأقرب للمرمى
+        * 'attacking_third' : الثلث الهجومي (33%)
+        * 'custom'          : حد مخصص عبر `custom_threshold`
     - custom_threshold: x-coordinate for 'custom' region (0 - pitch_units).
     - pitch_units: total pitch length units (default 120).
     - period: Filter events by period ('FirstHalf', 'SecondHalf', None).
@@ -1129,13 +1134,14 @@ def calculate_ppda(
     Returns:
     - Dictionary mapping team names to their PPDA stats.
     """
-    # Check required columns
+    # التحقق من الأعمدة الأساسية
     req = ['type', 'outcomeType', 'x', 'teamName']
     missing = [c for c in req if c not in events_df.columns]
     if missing:
         raise ValueError(f"Missing columns: {missing}")
 
     df = events_df.copy()
+    # فلترة حسب الفترة إن وُجد
     if period:
         if 'period' not in df.columns:
             raise ValueError("Column 'period' not found.")
@@ -1143,7 +1149,7 @@ def calculate_ppda(
         if df.empty:
             raise ValueError(f"No events in period: {period}")
 
-    # Determine threshold based on region
+    # تحديد عتبة x بناءً على المنطقة
     if region == 'whole':
         x_min = 0
     elif region == 'attacking_half':
@@ -1151,7 +1157,7 @@ def calculate_ppda(
     elif region == 'attacking_60':
         x_min = pitch_units * 0.4
     elif region == 'attacking_third':
-        x_min = pitch_units * (2/3)
+        x_min = pitch_units * (2 / 3)
     elif region == 'custom':
         if custom_threshold is None:
             raise ValueError("custom_threshold must be set when region='custom'.")
@@ -1159,19 +1165,19 @@ def calculate_ppda(
     else:
         raise ValueError(f"Unknown region: {region}")
 
-    # Filter successful passes in region
+    # تمريرات ناجحة داخل المنطقة المحددة
     passes = df[
         (df['type'] == 'Pass') &
         (df['outcomeType'] == 'Successful') &
         (df['x'].ge(x_min))
     ]
-    # Exclude long balls and set pieces if present
+    # استبعاد التمريرات الطويلة/الكرات الثابتة
     if 'pass_length' in df.columns:
         passes = passes[passes['pass_length'].le(25) | passes['pass_length'].isna()]
     if 'play_pattern' in df.columns:
         passes = passes[~passes['play_pattern'].str.contains('From', na=False)]
 
-    # Define defensive actions
+    # الأفعال الدفاعية داخل المنطقة
     defs = ['Tackle', 'Interception', 'Block', 'Ball Recovery', 'Foul Committed']
     if include_pressure and 'Pressure' in df['type'].unique():
         defs.append('Pressure')
@@ -1184,6 +1190,7 @@ def calculate_ppda(
     if len(teams) != 2:
         raise ValueError(f"Expected two teams, found: {teams}")
 
+    # الحساب لكل فريق
     results = {}
     for team in teams:
         passes_allowed = passes[passes['teamName'] != team]
@@ -1201,6 +1208,7 @@ def calculate_ppda(
             'Action Breakdown': breakdown
         }
     return results
+
 
 # واجهة Streamlit
 st.title("تحليل مباراة كرة القدم")
