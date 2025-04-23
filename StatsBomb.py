@@ -1143,7 +1143,7 @@ if st.button("تحليل المباراة"):
             'teamName': ['TeamA', 'TeamA', 'TeamA', 'TeamB', 'TeamB', 'TeamA'],
             'type': ['Pass', 'Pass', 'Pass', 'Goal', 'Pass', 'Carry'],
             'outcomeType': ['Successful', 'Successful', 'Successful', 'Successful', 'Successful', 'Successful'],
-            name': ['Player1', 'Player2', 'Player1', 'Player3', 'Player4', 'Player2'],
+            'name': ['Player1', 'Player2', 'Player1', 'Player3', 'Player4', 'Player2'],
             'x': [10, 20, 30, 90, 50, 40],
             'y': [10, 20, 30, 34, 40, 50],
             'endX': [20, 30, 40, np.nan, 60, 50],
