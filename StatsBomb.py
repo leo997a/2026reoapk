@@ -1143,7 +1143,6 @@ if st.session_state.analysis_triggered and st.session_state.df is not None and s
     # علامات التبويب
     tab1, tab2, tab3, tab4 = st.tabs(
         ['تحليل الفريق', 'تحليل اللاعبين', 'إحصائيات المباراة', 'أفضل اللاعبين'])
-
 with tab1:
     an_tp = st.selectbox('نوع التحليل:', [
         'شبكة التمريرات',
@@ -1182,9 +1181,11 @@ with tab1:
         
         col = hcol if team_choice == hteamName else acol
         
-        fig, ax = plt.subplots(figsize=(10, 6.8), facecolor=bg_color)  # نسبة 105:68
+        # زيادة الارتفاع قليلاً لاستيعاب النصوص
+        fig, ax = plt.subplots(figsize=(10, 7), facecolor=bg_color)  # زيادة الارتفاع من 6.8 إلى 7
         fig.tight_layout(pad=0.05)
-        fig.subplots_adjust(left=0.01, right=0.99, top=0.98, bottom=0.02)
+        # زيادة الهامش العلوي والسفلي لاستيعاب النصوص
+        fig.subplots_adjust(left=0.01, right=0.99, top=0.95, bottom=0.05)
         
         pass_btn = pass_network(
             ax,
@@ -1203,9 +1204,9 @@ with tab1:
         
     elif an_tp == 'مناطق الهجوم':
         st.subheader('تحليل مناطق الهجوم')
-        fig, ax = plt.subplots(figsize=(10, 6.8), facecolor=bg_color)
+        fig, ax = plt.subplots(figsize=(10, 7), facecolor=bg_color)
         fig.tight_layout(pad=0.05)
-        fig.subplots_adjust(left=0.01, right=0.99, top=0.98, bottom=0.02)
+        fig.subplots_adjust(left=0.01, right=0.99, top=0.95, bottom=0.05)
         
         attack_summary, fig_heatmap, fig_bar = attack_zones_analysis(fig, ax, hteamName, ateamName, hcol, acol, hteamID, ateamID)
         
@@ -1220,9 +1221,9 @@ with tab1:
         phase_tag = st.selectbox(
             'اختر الفترة:', ['Full Time', 'First Half', 'Second Half'], key='phase_tag_domination')
         
-        fig, ax = plt.subplots(figsize=(10, 6.8), facecolor=bg_color)
+        fig, ax = plt.subplots(figsize=(10, 7), facecolor=bg_color)
         fig.tight_layout(pad=0.05)
-        fig.subplots_adjust(left=0.01, right=0.99, top=0.98, bottom=0.02)
+        fig.subplots_adjust(left=0.01, right=0.99, top=0.95, bottom=0.05)
         
         team_domination_zones(
             ax,
