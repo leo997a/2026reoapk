@@ -1069,7 +1069,16 @@ uploaded_json = st.file_uploader("أو قم بتحميل ملف JSON (اختيا
 if st.button("تحليل المباراة"):
     with st.spinner("جارٍ استخراج بيانات المباراة..."):
         st.session_state.json_data = None
-        st.session_state.df = None
+        st.session_state.df = pd.DataFrame({
+            'period': ['FirstHalf', 'FirstHalf', 'SecondHalf', 'SecondHalf'],
+            'teamName': ['TeamA', 'TeamA', 'TeamA', 'TeamA'],
+            'type': ['Pass', 'Pass', 'Pass', 'Pass'],
+            'outcomeType': ['Successful', 'Successful', 'Successful', 'Successful'],
+            'name': ['Player1', 'Player2', 'Player1', 'Player2'],
+            'x': [10, 20, 30, 40],
+            'y': [10, 20, 30, 40],
+            'qualifiers': ['', '', '', '']
+         })
         st.session_state.teams_dict = None
         st.session_state.players_df = None
         
