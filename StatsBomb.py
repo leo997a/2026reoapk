@@ -1109,7 +1109,7 @@ def attack_zones_analysis(fig, ax, hteamName, ateamName, hcol, acol, hteamID, at
 
 def calculate_ppda(events_df, attacking_third_threshold=80, period=None, include_pressure=True):
     """
-    Calculate PPDA (Passes Per Defensive Action) with maximum accuracy for StatsBomb data.
+    Calculate PPDA (Passes Per Defensive Action) with high accuracy for any football match.
     
     Parameters:
     - events_df: DataFrame containing match events (e.g., StatsBomb data).
@@ -1118,20 +1118,25 @@ def calculate_ppda(events_df, attacking_third_threshold=80, period=None, include
     - include_pressure: Include 'Pressure' events as defensive actions (default: True).
     
     Returns:
-    - Dictionary with PPDA and detailed stats for each team, or raises an error if data is invalid.
+    - Dictionary with PPDA and detailed stats for each team.
     """
     # تحقق من وجود الأعمدة الأساسية
     required_columns = ['type', 'outcomeType', 'x', 'teamName']
     missing_columns = [col for col in required_columns if col not in events_df.columns]
     if missing_columns:
-        raise ValueError(f"الأعمدة المطلوبة مفقودة: {missing_columns}")
+        raise ValueError(f"الأعمدة المطلوبة مفقودة: {missing_columns}. الأعمدة المتوفرة: {events_df.columns.tolist()}")
     
-    # نسخة من DataFrame لتجنب التعديل
+    # نسخة من DataFrame
     df = events_df.copy()
     
     # تصحيح أخطاء: التحقق من حجم البيانات
     if len(df) < 100:
         raise ValueError(f"البيانات صغيرة جدًا ({len(df)} حدث). تأكد من تحميل بيانات المباراة الكاملة.")
+    
+    # التحقق من عدد الفرق
+    teams = df['teamName'].unique()
+    if len(teams) != 2:
+        raise ValueError(f"يجب أن تحتوي البيانات على فريقين بالضبط، وجدت: {teams}")
     
     # تصفية الأحداث حسب الفترة
     if period and 'period' in df.columns:
@@ -1157,23 +1162,19 @@ def calculate_ppda(events_df, attacking_third_threshold=80, period=None, include
     passes = df[pass_filter]
     
     # تحديد الأفعال الدفاعية
-    defensive_action_types = ['Tackle', 'Interception', 'Block', 'Ball Recovery']
+    defensive_action_types = ['Tackle', 'Interception', 'Block', 'Ball Recovery', 'Foul Committed']
     if include_pressure and 'Pressure' in df['type'].unique():
         defensive_action_types.append('Pressure')
-    else:
-        defensive_action_types.append('Foul Committed')  # إضافة الأخطاء كبديل إذا لم يكن Pressure متوفرًا
     
     # تصفية الأفعال الدفاعية في الثلث الهجومي
     defensive_actions = df[
         (df['type'].isin(defensive_action_types)) &
-        (df['x'].apply(lambda x: x >= attacking_third_threshold if pd.notna(x) else False)) &
-        (df['outcomeType'] == 'Successful')  # التأكد من نجاح الفعل الدفاعي
+        (df['x'].apply(lambda x: x >= attacking_third_threshold if pd.notna(x) else False))
     ]
     
-    # الحصول على الفرق
-    teams = df['teamName'].unique()
-    if len(teams) != 2:
-        raise ValueError(f"يجب أن تحتوي البيانات على فريقين بالضبط، وجدت: {teams}")
+    # إذا لم يكن هناك أفعال دفاعية، أضف تحذيرًا
+    if defensive_actions.empty:
+        raise ValueError("لا توجد أفعال دفاعية في الثلث الهجومي. تحقق من البيانات أو عتبة الثلث الهجومي.")
     
     # حساب PPDA لكل فريق
     ppda_results = {}
