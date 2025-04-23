@@ -490,15 +490,28 @@ def get_event_data(json_data):
 
 
 def pass_network(ax, team_name, col, phase_tag, hteamName, ateamName, hgoal_count, agoal_count, hteamID, ateamID):
+    print(f"Phase tag: {phase_tag}")
+    print(f"Unique periods in df: {st.session_state.df['period'].unique()}")
+    
     if phase_tag == 'Full Time':
         df_pass = st.session_state.df.copy()
         df_pass = df_pass.reset_index(drop=True)
     elif phase_tag == 'First Half':
         df_pass = st.session_state.df[st.session_state.df['period'] == 'FirstHalf']
+        print(f"First Half rows: {len(df_pass)}")
         df_pass = df_pass.reset_index(drop=True)
     elif phase_tag == 'Second Half':
         df_pass = st.session_state.df[st.session_state.df['period'] == 'SecondHalf']
+        print(f"Second Half rows: {len(df_pass)}")
         df_pass = df_pass.reset_index(drop=True)
+    else:
+        raise ValueError(f"Invalid phase_tag: {phase_tag}")
+    
+    if len(df_pass) == 0:
+        print(f"No data available for {phase_tag}")
+        ax.text(34, 60, reshape_arabic_text(f"لا توجد بيانات لـ {phase_tag}"), 
+                color='white', fontsize=14, ha='center', va='center', weight='bold')
+        return pd.DataFrame()
     
     total_pass = df_pass[(df_pass['teamName'] == team_name) & (df_pass['type'] == 'Pass')]
     accrt_pass = df_pass[(df_pass['teamName'] == team_name) & (df_pass['type'] == 'Pass') & (df_pass['outcomeType'] == 'Successful')]
