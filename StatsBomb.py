@@ -606,7 +606,7 @@ def pass_network(ax, team_name, col, phase_tag, hteamName, ateamName, hgoal_coun
         logo = Image.open(BytesIO(response.content))
         logo = logo.resize((50, 50), Image.Resampling.LANCZOS)
         
-        logo_ax = ax.inset_axes([0.45, -0.90, 0.1, 0.1], transform=ax.transAxes)
+        logo_ax = ax.inset_axes([0.45, -0.20, 0.1, 0.1], transform=ax.transAxes)
         logo_ax.imshow(logo)
         logo_ax.axis('off')
         
