@@ -678,7 +678,6 @@ def plot_pass_map(match_id, team_name, player_name=None):
         passes = team_events[(team_events['type'] == 'Pass') & (team_events['player'] == player_name)]
     else:
         passes = team_events[team_events['type'] == 'Pass']]
-    
     # إعداد الملعب
     fig, ax = plt.subplots(figsize=(10, 7))
     ax.set_xlim(0, 120)
