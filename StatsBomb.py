@@ -1398,7 +1398,7 @@ with tab1:
 
     elif an_tp == reshape_arabic_text('PPDA'):
         st.subheader(reshape_arabic_text('معدل الضغط (PPDA)'))
-        st.write(reshape_arabic_text("PPDA: عدد التمريرات الناجحة التي يسمح بها الفريق مقابل كل فعل دفاعي. القيمة الأقل تشير إلى ضغط دفاعي أقوى."))
+        st.write(reshape_arabic_text("PPDA: عدد التمريرات الناجحة التي يسمح بها الفريق مقابل كل فعل دفاعي في الثلث الهجومي. القيمة الأقل تشير إلى ضغط دفاعي أقوى (عادة 5-15)."))
 
 
         # إضافة خيار لاختيار الفترة
@@ -1429,10 +1429,9 @@ with tab1:
             (st.session_state.df['outcomeType'] == 'Successful') &
             (st.session_state.df['x'].apply(lambda x: x >= 80 if pd.notna(x) else False))
         ]))
-        st.write("عدد الأفعال الدفاعية الناجحة في الثلث الهجومي:", len(st.session_state.df[
-            (st.session_state.df['type'].isin(['Tackle', 'Interception', 'Block', 'Ball Recovery', 'Pressure', 'Foul Committed'])) &
-            (st.session_state.df['x'].apply(lambda x: x >= 80 if pd.notna(x) else False)) &
-            (st.session_state.df['outcomeType'] == 'Successful')
+        st.write("عدد الأفعال الدفاعية في الثلث الهجومي:", len(st.session_state.df[
+            (st.session_state.df['type'].isin(['Tackle', 'Interception', 'Block', 'Ball Recovery', 'Foul Committed', 'Pressure'])) &
+            (st.session_state.df['x'].apply(lambda x: x >= 80 if pd.notna(x) else False))
         ]))
         
         # عرض الجدول الرئيسي
@@ -1493,4 +1492,4 @@ with tab1:
     
     except Exception as e:
         st.error(f"خطأ في حساب PPDA: {str(e)}")
-        st.write("يرجى التحقق من البيانات المحملة. تأكد من أنها تحتوي على الأعمدة: type, outcomeType, x, teamName.")
+        st.write("يرجى التحقق من البيانات المحملة. تأكد من أنها تحتوي على الأعمدة: type, outcomeType, x, teamName، وأن الأحداث كافية.")
