@@ -600,7 +600,7 @@ def pass_network(ax, team_name, col, phase_tag, hteamName, ateamName, hgoal_coun
     ax.text(5, 115, reshape_arabic_text(hteamName), color='white', fontsize=12, ha='left', va='center')
     ax.text(63, 115, reshape_arabic_text(ateamName), color='white', fontsize=12, ha='right', va='center')
     
-    # إضافة شعار الفريق المختار أسفل الرسم
+    # إضافة شعار الفريق المختار أسفل الرسم (مرفوع أعلى لتجنب التداخل)
     try:
         teamID_fotmob = fotmob_team_ids.get(team_name, hteamID if team_name == hteamName else ateamID)
         logo_url = f"https://images.fotmob.com/image_resources/logo/teamlogo/{teamID_fotmob}.png"
@@ -609,18 +609,18 @@ def pass_network(ax, team_name, col, phase_tag, hteamName, ateamName, hgoal_coun
         logo = Image.open(BytesIO(response.content))
         logo = logo.resize((50, 50), Image.Resampling.LANCZOS)
         
-        # إضافة شعار الفريق المختار أسفل الرسم
-        logo_ax = ax.inset_axes([0.45, -0.1, 0.1, 0.1], transform=ax.transAxes)
+        # إضافة شعار الفريق المختار أسفل الرسم (مرفوع أعلى)
+        logo_ax = ax.inset_axes([0.45, -0.05, 0.1, 0.1], transform=ax.transAxes)
         logo_ax.imshow(logo)
         logo_ax.axis('off')
         
         # إضافة نص توضيحي بجوار الشعار
-        ax.text(34, -10, reshape_arabic_text(f"شبكة تمريرات {team_name}"), 
+        ax.text(34, -8, reshape_arabic_text(f"شبكة تمريرات {team_name}"), 
                 color='white', fontsize=12, ha='center', va='center', weight='bold')
     except Exception as e:
         st.warning(f"فشل في تحميل شعار {team_name} من FotMob: {str(e)}")
         # إضافة اسم الفريق كنص بديل أسفل الرسم
-        ax.text(34, -10, reshape_arabic_text(f"شبكة تمريرات {team_name}"), 
+        ax.text(34, -8, reshape_arabic_text(f"شبكة تمريرات {team_name}"), 
                 color='white', fontsize=12, ha='center', va='center', weight='bold')
     
     if phase_tag == 'Full Time':
