@@ -1107,6 +1107,55 @@ def attack_zones_analysis(fig, ax, hteamName, ateamName, hcol, acol, hteamID, at
     
     return zones, most_attacked_zone
 
+def calculate_ppda(events_df, attacking_third_threshold=80):
+    """
+    Calculate PPDA (Passes Per Defensive Action) for each team in a given match using a DataFrame.
+    
+    Parameters:
+    - events_df: DataFrame containing match events.
+    - attacking_third_threshold: x-coordinate threshold for the attacking third (default: 80).
+    
+    Returns:
+    - Dictionary with PPDA for each team.
+    """
+    # Filter successful passes in the attacking third
+    passes = events_df[
+        (events_df['type_name'] == 'Pass') &
+        (events_df['outcomeType'] == 'Successful') &  # Assuming 'outcomeType' indicates success
+        (events_df['x'].apply(lambda x: x >= attacking_third_threshold))
+    ]
+    
+    # Filter defensive actions (tackles, interceptions, blocks) in the attacking third
+    defensive_actions = events_df[
+        (events_df['type_name'].isin(['Tackle', 'Interception', 'Block'])) &
+        (events_df['x'].apply(lambda x: x >= attacking_third_threshold))
+    ]
+    
+    # Get unique teams in the match
+    teams = events_df['teamName'].unique()
+    
+    # Calculate PPDA for each team
+    ppda_results = {}
+    for team in teams:
+        # Count successful passes allowed by the opposing team (i.e., passes not by this team)
+        passes_allowed = passes[passes['teamName'] != team]
+        num_passes = len(passes_allowed)
+        
+        # Count defensive actions by this team
+        team_defensive_actions = defensive_actions[defensive_actions['teamName'] == team]
+        num_defensive_actions = len(team_defensive_actions)
+        
+        # Calculate PPDA (avoid division by zero)
+        ppda = num_passes / num_defensive_actions if num_defensive_actions > 0 else float('inf')
+        
+        ppda_results[team] = {
+            'Passes Allowed': num_passes,
+            'Defensive Actions': num_defensive_actions,
+            'PPDA': round(ppda, 2)
+        }
+    
+    return ppda_results
+
 # واجهة Streamlit
 st.title("تحليل مباراة كرة القدم")
 uploaded_html = st.file_uploader("قم برفع ملف HTML للمباراة:", type=["html"])
@@ -1225,7 +1274,8 @@ if st.session_state.analysis_triggered and not st.session_state.df.empty and st.
             reshape_arabic_text('Crosses'),
             reshape_arabic_text('Team Domination Zones'),
             reshape_arabic_text('Pass Target Zones'),
-            'Attacking Thirds'
+            'Attacking Thirds',
+            reshape_arabic_text('PPDA')  # أضف هذا الخيار
         ], index=0, key='analysis_type')
         
         if an_tp == 'شبكة التمريرات':
@@ -1272,6 +1322,33 @@ if st.session_state.analysis_triggered and not st.session_state.df.empty and st.
             # عرض الجدول الإحصائي
             st.subheader('إحصائيات مناطق الهجوم')
             st.dataframe(attack_summary, hide_index=True)
+
+        
+        elif an_tp == reshape_arabic_text('PPDA'):
+            st.subheader(reshape_arabic_text('معدل الضغط (PPDA)'))
+            try:
+            # استدعاء دالة calculate_ppda باستخدام st.session_state.df
+            ppda_results = calculate_ppda(st.session_state.df)
+        
+            # تحويل النتائج إلى DataFrame للعرض
+            ppda_df = pd.DataFrame.from_dict(ppda_results, orient='index')
+        
+            # عرض الجدول
+            st.dataframe(ppda_df, use_container_width=True)
+        
+           # عرض رسم بياني شريطي (اختياري)
+           fig, ax = plt.subplots(figsize=(8, 6), facecolor=bg_color)
+           ppda_df['PPDA'].plot(kind='bar', ax=ax, color=[hcol, acol])
+           ax.set_title(reshape_arabic_text('PPDA لكل فريق'), fontsize=14, color='white')
+           ax.set_xlabel(reshape_arabic_text('الفريق'), fontsize=12, color='white')
+           ax.set_ylabel('PPDA', fontsize=12, color='white')
+           ax.set_facecolor(bg_color)
+           fig.patch.set_facecolor(bg_color)
+           ax.tick_params(colors='white')
+           st.pyplot(fig)
+       except Exception as e:
+           st.error(f"خطأ في حساب PPDA: {str(e)}")
+        
         
         elif an_tp == reshape_arabic_text('Team Domination Zones'):
             st.subheader(reshape_arabic_text('مناطق سيطرة الفريق'))
