@@ -545,7 +545,7 @@ def pass_network(ax, team_name, col, phase_tag, hteamName, ateamName, hgoal_coun
         
         # دمج بيانات اللاعبين
         avg_locs_df = avg_locs_df.merge(team_pdf, on='name', how='left')
-        avg_locs_df['isFirstEleven'] = avg_locs_df['isFirstEleven'].fillna(False)
+        avg_locs_df['isFirstEleven'] = avg_locs_df['isFirstEleven'].fillna(False).infer_objects(copy=False)
         avg_locs_df['shirtNo'] = avg_locs_df['shirtNo'].fillna(0)
         avg_locs_df['position'] = avg_locs_df['position'].fillna('Unknown')
         
@@ -576,7 +576,7 @@ def pass_network(ax, team_name, col, phase_tag, hteamName, ateamName, hgoal_coun
         
         # إنشاء إطار بيانات pass_btn
         pass_btn = pass_counts_df[['name', 'shirtNo', 'pass_receiver', 'shirtNo_receiver', 'pass_count']]
-        pass_btn['shirtNo_receiver'] = pass_btn['shirtNo_receiver'].astype(float).astype(int)
+        pass_btn.loc[:, 'shirtNo_receiver'] = pass_btn['shirtNo_receiver'].astype(float).astype(int)
         
         # إعداد الرسم
         MAX_LINE_WIDTH = 8
