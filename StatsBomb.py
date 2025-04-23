@@ -119,8 +119,8 @@ def extract_match_dict_from_html(uploaded_file):
             st.error("لم يتم العثور على matchCentreData في ملف HTML")
             return None
         
-        # تعبير منتظم لاستخراج كائن JSON الخاص بـ matchCentreData
-        pattern = r'matchCentreData:\s*(\{.*?\})\s*(?:,|\s*;)'
+        # تعبير منتظم محسّن لالتقاط كائن JSON الكامل
+        pattern = r'matchCentreData:\s*(\{.*?\})(?=\s*,?\s*matchCentreEventTypeJson|\s*;)'
         match = re.search(pattern, script.text, re.DOTALL)
         
         if not match:
@@ -134,16 +134,38 @@ def extract_match_dict_from_html(uploaded_file):
         # استخراج سلسلة JSON
         json_str = match.group(1)
         
-        # تسجيل معاينة للنص المستخرج (أول 500 حرف وآخر 500 حرف)
+        # تسجيل معاينة للنص المستخرج
         st.write("JSON string preview (first 500 chars):", json_str[:500])
         st.write("JSON string preview (last 500 chars):", json_str[-500:])
+        
+        # التحقق من الأقواس المتداخلة لضمان JSON صالح
+        def is_valid_json(json_str):
+            brace_count = 0
+            in_string = False
+            for char in json_str:
+                if char == '"' and json_str[json_str.index(char)-1] != '\\':
+                    in_string = not in_string
+                if not in_string:
+                    if char == '{':
+                        brace_count += 1
+                    elif char == '}':
+                        brace_count -= 1
+                if brace_count < 0:
+                    return False
+            return brace_count == 0
+        
+        if not is_valid_json(json_str):
+            st.error("سلسلة JSON غير مكتملة (مشكلة في الأقواس المتداخلة)")
+            with open("failed_json.txt", "w", encoding="utf-8") as f:
+                f.write(json_str)
+            st.write("تم حفظ النص المستخرج في failed_json.txt للتحقق")
+            return None
         
         # محاولة تحليل JSON
         try:
             matchdict = json.loads(json_str)
         except json.JSONDecodeError as json_err:
             st.error(f"خطأ في تحليل JSON: {str(json_err)}")
-            # حفظ النص المستخرج للتحقق
             with open("failed_json.txt", "w", encoding="utf-8") as f:
                 f.write(json_str)
             st.write("تم حفظ النص المستخرج في failed_json.txt للتحقق")
@@ -154,7 +176,6 @@ def extract_match_dict_from_html(uploaded_file):
     except Exception as e:
         st.error(f"خطأ أثناء استخراج البيانات من HTML: {str(e)}")
         return None
-
 @st.cache_data
 def get_event_data(json_data):
     events_dict, players_df, teams_dict = extract_data_from_dict(json_data)
