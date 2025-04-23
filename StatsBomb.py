@@ -1112,10 +1112,10 @@ def calculate_ppda(events_df, attacking_third_threshold=80, period=None, include
     Calculate PPDA (Passes Per Defensive Action) with high accuracy for a given match.
     
     Parameters:
-    - events_df: DataFrame containing match events (e.g., StatsBomb data).
+    - events_df: DataFrame containing StatsBomb match events.
     - attacking_third_threshold: x-coordinate threshold for the attacking third (default: 80).
     - period: Filter events by period ('FirstHalf', 'SecondHalf', or None for full match).
-    - include_pressure: Include 'Pressure' events as defensive actions if available (default: True).
+    - include_pressure: Include 'Pressure' events as defensive actions (default: True).
     
     Returns:
     - Dictionary with PPDA and detailed stats for each team.
@@ -1142,23 +1142,24 @@ def calculate_ppda(events_df, attacking_third_threshold=80, period=None, include
         (df['x'].apply(lambda x: x >= attacking_third_threshold))
     )
     
-    # استبعاد التمريرات الطويلة والمواقف الثابتة إذا كانت الأعمدة متوفرة
+    # استبعاد التمريرات الطويلة والمواقف الثابتة
     if 'pass_length' in df.columns:
-        pass_filter &= ~df['pass_length'].gt(25)  # خفضت العتبة إلى 25 مترًا لتكون أكثر دقة
+        pass_filter &= df['pass_length'].apply(lambda x: x <= 25 or pd.isna(x))  # التمريرات القصيرة فقط
     if 'play_pattern' in df.columns:
-        pass_filter &= ~df['play_pattern'].str.contains('From', na=False)
+        pass_filter &= ~df['play_pattern'].str.contains('From', na=False)  # استبعاد الركلات الثابتة
     
     passes = df[pass_filter]
     
     # تحديد الأفعال الدفاعية
-    defensive_action_types = ['Tackle', 'Interception', 'Block']
+    defensive_action_types = ['Tackle', 'Interception', 'Block', 'Ball Recovery']
     if include_pressure and 'Pressure' in df['type'].unique():
         defensive_action_types.append('Pressure')
     
     # تصفية الأفعال الدفاعية في الثلث الهجومي
     defensive_actions = df[
         (df['type'].isin(defensive_action_types)) &
-        (df['x'].apply(lambda x: x >= attacking_third_threshold))
+        (df['x'].apply(lambda x: x >= attacking_third_threshold)) &
+        (df['outcomeType'] == 'Successful')  # التأكد من نجاح الفعل الدفاعي
     ]
     
     # الحصول على الفرق
@@ -1387,36 +1388,28 @@ with tab1:
     elif an_tp == reshape_arabic_text('PPDA'):
         st.subheader(reshape_arabic_text('معدل الضغط (PPDA)'))
         st.write(reshape_arabic_text("PPDA: عدد التمريرات الناجحة التي يسمح بها الفريق مقابل كل فعل دفاعي. القيمة الأقل تشير إلى ضغط دفاعي أقوى."))
-    # إضافة خيار لاختيار الفترة
-    period_choice = st.selectbox(
+
+
+        # إضافة خيار لاختيار الفترة
+        period_choice = st.selectbox(
         reshape_arabic_text('اختر الفترة:'),
         ['Full Match', 'First Half', 'Second Half'],
         key='ppda_period'
-    )
-    period_map = {
+        )
+        period_map = {
         'Full Match': None,
         'First Half': 'FirstHalf',
         'Second Half': 'SecondHalf'
-    }
-    selected_period = period_map[period_choice]
-    
+        }
+        selected_period = period_map[period_choice]
+        
     try:
-        # استدعاء دالة calculate_ppda
+        # استدعاء دالة calculate_ppda المحسنة
         ppda_results = calculate_ppda(st.session_state.df, period=selected_period)
         ppda_df = pd.DataFrame.from_dict(ppda_results, orient='index')
         
-        # تصحيح أخطاء: عرض معلومات البيانات
+        # طباعة الأعمدة للتصحيح
         st.write("أعمدة DataFrame:", st.session_state.df.columns.tolist())
-        st.write("عدد الأحداث الكلي:", len(st.session_state.df))
-        st.write("عدد التمريرات الناجحة في الثلث الهجومي:", len(st.session_state.df[
-            (st.session_state.df['type'] == 'Pass') &
-            (st.session_state.df['outcomeType'] == 'Successful') &
-            (st.session_state.df['x'].apply(lambda x: x >= 80))
-        ]))
-        st.write("عدد الأفعال الدفاعية في الثلث الهجومي:", len(st.session_state.df[
-            (st.session_state.df['type'].isin(['Tackle', 'Interception', 'Block', 'Pressure'])) &
-            (st.session_state.df['x'].apply(lambda x: x >= 80))
-        ]))
         
         # عرض الجدول الرئيسي
         st.subheader(reshape_arabic_text('نتائج PPDA'))
@@ -1472,3 +1465,6 @@ with tab1:
     
     except Exception as e:
         st.error(f"خطأ في حساب PPDA: {str(e)}")
+
+    else:
+        st.warning("يرجى تحميل بيانات المباراة والنقر على 'تحليل المباراة' لعرض التحليلات.")
