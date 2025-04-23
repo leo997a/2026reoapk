@@ -129,13 +129,13 @@ def extract_match_dict_from_html(uploaded_file):
             f.write(script.text)
         st.write("تم حفظ نص <script> الكامل في script_content.txt")
         
-        # تعبير منتظم لالتقاط كائن JSON مع التعامل مع الأقواس المتداخلة
-        pattern = r'matchCentreData:\s*(\{(?:[^{}]|\{(?:[^{}]|\{[^{}]*\})*\})*\})\s*(?:,|\s*;|matchCentreEventTypeJson|$)'
+        # تعبير منتظم لالتقاط كائن JSON الكامل
+        pattern = r'matchCentreData:\s*(\{.*?\}(?=\s*(?:,|\s*;|matchCentreEventTypeJson|$)))'
         match = re.search(pattern, script.text, re.DOTALL)
         
         if not match:
-            # تعبير منتظم بديل أبسط
-            pattern_fallback = r'matchCentreData:\s*(\{.*?\})\s*(?:,|\s*;|matchCentreEventTypeJson|$)'
+            # تعبير منتظم بديل للتعامل مع التداخل العميق
+            pattern_fallback = r'matchCentreData:\s*(\{(?:[^{}]|\{(?:[^{}]|\{[^{}]*\})*\})*\})\s*(?:,|\s*;|matchCentreEventTypeJson|$)'
             match = re.search(pattern_fallback, script.text, re.DOTALL)
             if not match:
                 st.error("فشل في استخراج بيانات JSON من matchCentreData بجميع التعابير المنتظمة")
@@ -149,6 +149,14 @@ def extract_match_dict_from_html(uploaded_file):
         # تسجيل معاينة للنص المستخرج
         st.write("JSON string preview (first 500 chars):", json_str[:500])
         st.write("JSON string preview (last 500 chars):", json_str[-500:])
+        
+        # التحقق من وجود المفاتيح المتوقعة
+        if '"formationIdNameMappings"' not in json_str:
+            st.error("النص المستخرج غير مكتمل: لا يحتوي على formationIdNameMappings")
+            with open("failed_json.txt", "w", encoding="utf-8") as f:
+                f.write(json_str)
+            st.write("تم حفظ النص المستخرج في failed_json.txt للتحقق")
+            return None
         
         # تنظيف النص من تعليقات JavaScript أو أحرف غير متوقعة
         json_str = re.sub(r'//.*?\n|/\*.*?\*/', '', json_str, flags=re.DOTALL)
@@ -171,7 +179,6 @@ def extract_match_dict_from_html(uploaded_file):
                         brace_count -= 1
                 if brace_count < 0:
                     st.error(f"JSON غير صالح: إغلاق قوس زائد عند الموضع {i}")
-                    # تسجيل الجزء المحيط بالموضع للتحقق
                     start = max(0, i - 50)
                     end = min(len(json_str), i + 50)
                     st.write("النص المحيط بالموضع:", json_str[start:end])
@@ -206,7 +213,6 @@ def extract_match_dict_from_html(uploaded_file):
     except Exception as e:
         st.error(f"خطأ أثناء استخراج البيانات من HTML: {str(e)}")
         return None
-@st.cache_data
 def get_event_data(json_data):
     events_dict, players_df, teams_dict = extract_data_from_dict(json_data)
     df = pd.DataFrame(events_dict)
