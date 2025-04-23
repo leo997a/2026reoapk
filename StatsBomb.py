@@ -27,6 +27,8 @@ from webdriver_manager.chrome import ChromeDriverManager
 from bs4 import BeautifulSoup
 import warnings
 import os
+from io import BytesIO
+from statsbombpy import sb
 
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
