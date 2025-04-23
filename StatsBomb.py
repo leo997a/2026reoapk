@@ -129,22 +129,60 @@ def extract_match_dict_from_html(uploaded_file):
             f.write(script.text)
         st.write("تم حفظ نص <script> الكامل في script_content.txt")
         
-        # تعبير منتظم لالتقاط كائن JSON مع التعامل مع التداخل العميق
-        pattern = r'matchCentreData:\s*(\{(?:[^{}]|\{(?:[^{}]|\{[^{}]*\})*\})*\})\s*(?:,|\s*;|matchCentreEventTypeJson|$)'
-        match = re.search(pattern, script.text, re.DOTALL)
+        # استخراج كائن matchCentreData يدويًا
+        start_marker = 'matchCentreData:'
+        end_markers = [',', ';', 'matchCentreEventTypeJson']
+        script_text = script.text
         
-        if not match:
-            # تعبير منتظم بديل بمطابقة جشعة
-            pattern_fallback = r'matchCentreData:\s*(\{.*\})\s*(?:,|\s*;|matchCentreEventTypeJson|$)'
-            match = re.search(pattern_fallback, script.text, re.DOTALL)
-            if not match:
-                st.error("فشل في استخراج بيانات JSON من matchCentreData بجميع التعابير المنتظمة")
-                return None
-            else:
-                st.warning("تم استخدام تعبير منتظم بديل لاستخراج JSON")
+        # البحث عن بداية matchCentreData
+        start_idx = script_text.find(start_marker)
+        if start_idx == -1:
+            st.error("لم يتم العثور على matchCentreData في نص <script>")
+            return None
+        start_idx += len(start_marker)
         
-        # استخراج سلسلة JSON
-        json_str = match.group(1)
+        # العثور على أول قوس مفتوح بعد matchCentreData
+        while start_idx < len(script_text) and script_text[start_idx] != '{':
+            start_idx += 1
+        if start_idx >= len(script_text):
+            st.error("لم يتم العثور على بداية كائن JSON بعد matchCentreData")
+            return None
+        
+        # استخراج النص بتتبع الأقواس المتداخلة
+        json_str = ''
+        brace_count = 0
+        in_string = False
+        escape = False
+        i = start_idx
+        
+        while i < len(script_text):
+            char = script_text[i]
+            
+            if char == '\\' and not escape:
+                escape = True
+                json_str += char
+                i += 1
+                continue
+            if char == '"' and not escape:
+                in_string = not in_string
+            if not in_string:
+                if char == '{':
+                    brace_count += 1
+                elif char == '}':
+                    brace_count -= 1
+                if brace_count == 0:
+                    json_str += char
+                    break
+            json_str += char
+            escape = False
+            i += 1
+        
+        if brace_count != 0:
+            st.error(f"JSON غير مكتمل: عدد الأقواس غير متطابق ({brace_count})")
+            with open("failed_json.txt", "w", encoding="utf-8") as f:
+                f.write(json_str)
+            st.write("تم حفظ النص المستخرج في failed_json.txt للتحقق")
+            return None
         
         # تسجيل معاينة للنص المستخرج
         st.write("JSON string preview (first 500 chars):", json_str[:500])
