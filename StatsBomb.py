@@ -117,7 +117,6 @@ def extract_match_dict_from_html(uploaded_file):
         script = soup.find(lambda tag: tag.name == 'script' and 'matchCentreData' in tag.text)
         if not script:
             st.error("لم يتم العثور على matchCentreData في ملف HTML")
-            # تسجيل أول 1000 حرف من HTML للتحقق
             with open("html_content.txt", "w", encoding="utf-8") as f:
                 f.write(html_content[:1000])
             st.write("تم حفظ أول 1000 حرف من HTML في html_content.txt")
@@ -130,13 +129,13 @@ def extract_match_dict_from_html(uploaded_file):
             f.write(script.text)
         st.write("تم حفظ نص <script> الكامل في script_content.txt")
         
-        # تعبير منتظم محسّن لالتقاط كائن JSON مع تداخل عميق
-        pattern = r'matchCentreData:\s*(\{(?:[^{}]|\{(?:[^{}]|\{[^{}]*\})*\})*\})\s*(?:,|\s*;|matchCentreEventTypeJson|$)'
+        # تعبير منتظم لالتقاط كائن JSON
+        pattern = r'matchCentreData:\s*(\{.*\})\s*(?:,|\s*;|matchCentreEventTypeJson|$)'
         match = re.search(pattern, script.text, re.DOTALL)
         
         if not match:
-            # تعبير منتظم بديل أكثر مرونة
-            pattern_fallback = r'matchCentreData:\s*(\{.*\})\s*(?:,|\s*;|matchCentreEventTypeJson|$)'
+            # تعبير منتظم بديل للتعامل مع الحالات المعقدة
+            pattern_fallback = r'matchCentreData:\s*(\{(?:[^{}]|\{(?:[^{}]|\{[^{}]*\})*\})*\})\s*(?:,|\s*;|matchCentreEventTypeJson|$)'
             match = re.search(pattern_fallback, script.text, re.DOTALL)
             if not match:
                 st.error("فشل في استخراج بيانات JSON من matchCentreData بجميع التعابير المنتظمة")
@@ -151,12 +150,19 @@ def extract_match_dict_from_html(uploaded_file):
         st.write("JSON string preview (first 500 chars):", json_str[:500])
         st.write("JSON string preview (last 500 chars):", json_str[-500:])
         
+        # تنظيف النص من تعليقات JavaScript أو أحرف غير متوقعة
+        json_str = re.sub(r'//.*?\n|/\*.*?\*/', '', json_str, flags=re.DOTALL)
+        
         # التحقق من اكتمال JSON (الأقواس المتداخلة)
         def is_valid_json_structure(json_str):
             brace_count = 0
             in_string = False
+            escape = False
             for i, char in enumerate(json_str):
-                if char == '"' and (i == 0 or json_str[i-1] != '\\'):
+                if char == '\\' and not escape:
+                    escape = True
+                    continue
+                if char == '"' and not escape:
                     in_string = not in_string
                 if not in_string:
                     if char == '{':
@@ -165,7 +171,12 @@ def extract_match_dict_from_html(uploaded_file):
                         brace_count -= 1
                 if brace_count < 0:
                     st.error(f"JSON غير صالح: إغلاق قوس زائد عند الموضع {i}")
+                    # تسجيل الجزء المحيط بالموضع للتحقق
+                    start = max(0, i - 50)
+                    end = min(len(json_str), i + 50)
+                    st.write("النص المحيط بالموضع:", json_str[start:end])
                     return False
+                escape = False
             if brace_count != 0:
                 st.error(f"JSON غير مكتمل: عدد الأقواس غير متطابق ({brace_count})")
                 return False
