@@ -1231,7 +1231,7 @@ with tab1:
         'اختر الفترة:', ['Full Time', 'First Half', 'Second Half'], key='phase_tag_domination')
         
         fig, ax = plt.subplots(figsize=(12, 8), facecolor=bg_color)
-        fig.subplots_adjust(left=0.03, right=0.97, top=0.95, bottom=0.05)  # ضبط حدود الشكل
+        fig.tight_layout(pad=0.1)  # تقليل الهوامش
         fig.subplots_adjust(left=0.03, right=0.97, top=0.95, bottom=0.05)  # ضبط حدود الشكل
         
         team_domination_zones(
