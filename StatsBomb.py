@@ -493,6 +493,7 @@ logger = logging.getLogger(__name__)
 
 
 
+
 def pass_network(ax, team_name, col, phase_tag, hteamName, ateamName, hgoal_count, agoal_count, hteamID, ateamID):
     if phase_tag == 'Full Time':
         df_pass = st.session_state.df.copy()
@@ -603,31 +604,26 @@ def pass_network(ax, team_name, col, phase_tag, hteamName, ateamName, hgoal_coun
     
     # إضافة شعاري الفريقين من FotMob
     try:
-    # استخدام معرفات FotMob
+        # استخدام معرفات FotMob
         hteamID_fotmob = fotmob_team_ids.get(hteamName, hteamID)
         ateamID_fotmob = fotmob_team_ids.get(ateamName, ateamID)
-    
+        
         home_logo_url = f"https://images.fotmob.com/image_resources/logo/teamlogo/{hteamID_fotmob}.png"
         away_logo_url = f"https://images.fotmob.com/image_resources/logo/teamlogo/{ateamID_fotmob}.png"
-    
-    # تحميل شعار الفريق المضيف
-        response = requests.get(home_logo_url)
-        response.raise_for_status()
-        home_logo = Image.open(BytesIO(response.content))
+        
+        home_logo = Image.open(urlopen(home_logo_url))
+        away_logo = Image.open(urlopen(away_logo_url))
+        
+        # تغيير حجم الصور
         home_logo = home_logo.resize((50, 50), Image.Resampling.LANCZOS)
-    
-    # تحميل شعار الفريق الضيف
-        response = requests.get(away_logo_url)
-        response.raise_for_status()
-        away_logo = Image.open(BytesIO(response.content))
         away_logo = away_logo.resize((50, 50), Image.Resampling.LANCZOS)
-    
-    # إضافة شعار الفريق المضيف
+        
+        # إضافة شعار الفريق المضيف
         home_logo_ax = ax.inset_axes([0.05, 0.95, 0.07, 0.07], transform=ax.transAxes)
         home_logo_ax.imshow(home_logo)
         home_logo_ax.axis('off')
-    
-    # إضافة شعار الفريق الضيف
+        
+        # إضافة شعار الفريق الضيف
         away_logo_ax = ax.inset_axes([0.88, 0.95, 0.07, 0.07], transform=ax.transAxes)
         away_logo_ax.imshow(away_logo)
         away_logo_ax.axis('off')
