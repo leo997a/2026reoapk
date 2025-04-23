@@ -1107,103 +1107,100 @@ def attack_zones_analysis(fig, ax, hteamName, ateamName, hcol, acol, hteamID, at
     
     return zones, most_attacked_zone
 
-def calculate_ppda(events_df, attacking_third_threshold=80, period=None, include_pressure=True):
+def calculate_ppda(
+    events_df: pd.DataFrame,
+    region: str = 'attacking_third',
+    custom_threshold: float = None,
+    pitch_units: float = 120,
+    period: str = None,
+    include_pressure: bool = True
+) -> dict:
     """
-    Calculate PPDA (Passes Per Defensive Action) with high accuracy for any football match.
-    
+    Calculate PPDA (Passes Per Defensive Action) for any football match over different pitch regions.
+
     Parameters:
-    - events_df: DataFrame containing match events (e.g., StatsBomb data).
-    - attacking_third_threshold: x-coordinate threshold for the attacking third (default: 80 for 120-unit pitch).
-    - period: Filter events by period ('FirstHalf', 'SecondHalf', or None for full match).
-    - include_pressure: Include 'Pressure' events as defensive actions (default: True).
-    
+    - events_df: DataFrame containing match events with columns ['type', 'outcomeType', 'x', 'teamName', ...].
+    - region: Which area to consider: 'whole', 'attacking_half', 'attacking_60', 'attacking_third', or 'custom'.
+    - custom_threshold: x-coordinate for 'custom' region (0 - pitch_units).
+    - pitch_units: total pitch length units (default 120).
+    - period: Filter events by period ('FirstHalf', 'SecondHalf', None).
+    - include_pressure: Include 'Pressure' as defensive action.
+
     Returns:
-    - Dictionary with PPDA and detailed stats for each team.
+    - Dictionary mapping team names to their PPDA stats.
     """
-    # تحقق من وجود الأعمدة الأساسية
-    required_columns = ['type', 'outcomeType', 'x', 'teamName']
-    missing_columns = [col for col in required_columns if col not in events_df.columns]
-    if missing_columns:
-        raise ValueError(f"الأعمدة المطلوبة مفقودة: {missing_columns}. الأعمدة المتوفرة: {events_df.columns.tolist()}")
-    
-    # نسخة من DataFrame
+    # Check required columns
+    req = ['type', 'outcomeType', 'x', 'teamName']
+    missing = [c for c in req if c not in events_df.columns]
+    if missing:
+        raise ValueError(f"Missing columns: {missing}")
+
     df = events_df.copy()
-    
-    # تصحيح أخطاء: التحقق من حجم البيانات
-    if len(df) < 100:
-        raise ValueError(f"البيانات صغيرة جدًا ({len(df)} حدث). تأكد من تحميل بيانات المباراة الكاملة.")
-    
-    # التحقق من عدد الفرق
-    teams = df['teamName'].unique()
-    if len(teams) != 2:
-        raise ValueError(f"يجب أن تحتوي البيانات على فريقين بالضبط، وجدت: {teams}")
-    
-    # تصفية الأحداث حسب الفترة
-    if period and 'period' in df.columns:
+    if period:
+        if 'period' not in df.columns:
+            raise ValueError("Column 'period' not found.")
         df = df[df['period'] == period]
         if df.empty:
-            raise ValueError(f"لا توجد أحداث في الفترة المحددة: {period}")
-    elif period and 'period' not in df.columns:
-        raise ValueError("عمود 'period' غير موجود في البيانات")
-    
-    # تصفية التمريرات الناجحة في الثلث الهجومي
-    pass_filter = (
+            raise ValueError(f"No events in period: {period}")
+
+    # Determine threshold based on region
+    if region == 'whole':
+        x_min = 0
+    elif region == 'attacking_half':
+        x_min = pitch_units / 2
+    elif region == 'attacking_60':
+        x_min = pitch_units * 0.4
+    elif region == 'attacking_third':
+        x_min = pitch_units * (2/3)
+    elif region == 'custom':
+        if custom_threshold is None:
+            raise ValueError("custom_threshold must be set when region='custom'.")
+        x_min = custom_threshold
+    else:
+        raise ValueError(f"Unknown region: {region}")
+
+    # Filter successful passes in region
+    passes = df[
         (df['type'] == 'Pass') &
         (df['outcomeType'] == 'Successful') &
-        (df['x'].apply(lambda x: x >= attacking_third_threshold if pd.notna(x) else False))
-    )
-    
-    # استبعاد التمريرات الطويلة والمواقف الثابتة
-    if 'pass_length' in df.columns:
-        pass_filter &= df['pass_length'].apply(lambda x: x <= 25 or pd.isna(x))  # تمريرات قصيرة/متوسطة
-    if 'play_pattern' in df.columns:
-        pass_filter &= ~df['play_pattern'].str.contains('From', na=False)  # استبعاد الركلات الثابتة
-    
-    passes = df[pass_filter]
-    
-    # تحديد الأفعال الدفاعية
-    defensive_action_types = ['Tackle', 'Interception', 'Block', 'Ball Recovery', 'Foul Committed']
-    if include_pressure and 'Pressure' in df['type'].unique():
-        defensive_action_types.append('Pressure')
-    
-    # تصفية الأفعال الدفاعية في الثلث الهجومي
-    defensive_actions = df[
-        (df['type'].isin(defensive_action_types)) &
-        (df['x'].apply(lambda x: x >= attacking_third_threshold if pd.notna(x) else False))
+        (df['x'].ge(x_min))
     ]
-    
-    # إذا لم يكن هناك أفعال دفاعية، أضف تحذيرًا
+    # Exclude long balls and set pieces if present
+    if 'pass_length' in df.columns:
+        passes = passes[passes['pass_length'].le(25) | passes['pass_length'].isna()]
+    if 'play_pattern' in df.columns:
+        passes = passes[~passes['play_pattern'].str.contains('From', na=False)]
+
+    # Define defensive actions
+    defs = ['Tackle', 'Interception', 'Block', 'Ball Recovery', 'Foul Committed']
+    if include_pressure and 'Pressure' in df['type'].unique():
+        defs.append('Pressure')
+
+    defensive_actions = df[df['type'].isin(defs) & df['x'].ge(x_min)]
     if defensive_actions.empty:
-        raise ValueError("لا توجد أفعال دفاعية في الثلث الهجومي. تحقق من البيانات أو عتبة الثلث الهجومي.")
-    
-    # حساب PPDA لكل فريق
-    ppda_results = {}
+        raise ValueError("No defensive actions in specified region.")
+
+    teams = df['teamName'].unique()
+    if len(teams) != 2:
+        raise ValueError(f"Expected two teams, found: {teams}")
+
+    results = {}
     for team in teams:
-        # عدد التمريرات المسموح بها (تمريرات الفريق المنافس)
         passes_allowed = passes[passes['teamName'] != team]
         num_passes = len(passes_allowed)
-        
-        # عدد الأفعال الدفاعية للفريق
-        team_defensive_actions = defensive_actions[defensive_actions['teamName'] == team]
-        num_defensive_actions = len(team_defensive_actions)
-        
-        # حساب PPDA
-        ppda = num_passes / num_defensive_actions if num_defensive_actions > 0 else None
-        
-        # تفاصيل الأفعال الدفاعية
-        action_breakdown = {
-            action: len(team_defensive_actions[team_defensive_actions['type'] == action])
-            for action in defensive_action_types
-        }
-        
-        ppda_results[team] = {
+        team_defs = defensive_actions[defensive_actions['teamName'] == team]
+        num_defs = len(team_defs)
+        ppda = round(num_passes / num_defs, 2) if num_defs > 0 else None
+        breakdown = {a: int((team_defs['type'] == a).sum()) for a in defs}
+        results[team] = {
+            'Region': region,
+            'Threshold_x': x_min,
             'Passes Allowed': num_passes,
-            'Defensive Actions': num_defensive_actions,
-            'PPDA': round(ppda, 2) if ppda is not None else None,
-            'Action Breakdown': action_breakdown
+            'Defensive Actions': num_defs,
+            'PPDA': ppda,
+            'Action Breakdown': breakdown
         }
-    
-    return ppda_results
+    return results
 
 # واجهة Streamlit
 st.title("تحليل مباراة كرة القدم")
