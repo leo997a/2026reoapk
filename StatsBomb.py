@@ -1256,153 +1256,156 @@ if st.session_state.analysis_triggered and not st.session_state.df.empty and st.
         st.error(f"خطأ في إنشاء التبويبات: {str(e)}")
         st.stop()
 
-    with tab1:
-        an_tp = st.selectbox('نوع التحليل:', [
-            'شبكة التمريرات',
-            'مناطق الهجوم',
-            'Defensive Actions Heatmap',
-            'Progressive Passes',
-            'Progressive Carries',
-            'Shotmap',
-            'إحصائيات الحراس',
-            'Match Momentum',
-            reshape_arabic_text('Zone14 & Half-Space Passes'),
-            reshape_arabic_text('Final Third Entries'),
-            reshape_arabic_text('Box Entries'),
-            reshape_arabic_text('High-Turnovers'),
-            reshape_arabic_text('Chances Creating Zones'),
-            reshape_arabic_text('Crosses'),
-            reshape_arabic_text('Team Domination Zones'),
-            reshape_arabic_text('Pass Target Zones'),
-            'Attacking Thirds',
-            reshape_arabic_text('PPDA')  # أضف هذا الخيار
-        ], index=0, key='analysis_type')
-        
-        if an_tp == 'شبكة التمريرات':
-            st.subheader('شبكة التمريرات')
-            team_choice = st.selectbox('اختر الفريق:', [hteamName, ateamName], key='team_choice')
-            phase_tag = st.selectbox('اختر الفترة:', ['Full Time', 'First Half', 'Second Half'], key='phase_tag')
-            
-            # إنشاء الرسم
-            fig, ax = plt.subplots(figsize=(10, 10), facecolor=bg_color, dpi=150)
-            
-            # استدعاء pass_network
-            try:
-                pass_btn = pass_network(
-                    ax,
-                    team_choice,
-                    hcol if team_choice == hteamName else acol,
-                    phase_tag,
-                    hteamName,
-                    ateamName,
-                    hgoal_count,
-                    agoal_count,
-                    hteamID,
-                    ateamID
-                )
-                st.pyplot(fig)
-                if pass_btn is not None and not pass_btn.empty:
-                    st.dataframe(pass_btn, hide_index=True)
-                else:
-                    st.warning("لا توجد بيانات تمريرات للعرض.")
-            except Exception as e:
-                st.error(f"خطأ في إنشاء شبكة التمريرات: {str(e)}")
-        
-        elif an_tp == 'مناطق الهجوم':
-            st.subheader('تحليل مناطق الهجوم')
-            fig, ax = plt.subplots(figsize=(10, 10), facecolor=bg_color)
-            attack_summary, fig_heatmap, fig_bar = attack_zones_analysis(fig, ax, hteamName, ateamName, hcol, acol, hteamID, ateamID)
-            
-            # عرض خريطة حرارية
-            st.pyplot(fig_heatmap)
-            
-            # عرض الرسم البياني الشريطي
-            st.pyplot(fig_bar)
-            
-            # عرض الجدول الإحصائي
-            st.subheader('إحصائيات مناطق الهجوم')
-            st.dataframe(attack_summary, hide_index=True)
+with tab1:
+    an_tp = st.selectbox('نوع التحليل:', [
+        'شبكة التمريرات',
+        'مناطق الهجوم',
+        'Defensive Actions Heatmap',
+        'Progressive Passes',
+        'Progressive Carries',
+        'Shotmap',
+        'إحصائيات الحراس',
+        'Match Momentum',
+        reshape_arabic_text('Zone14 & Half-Space Passes'),
+        reshape_arabic_text('Final Third Entries'),
+        reshape_arabic_text('Box Entries'),
+        reshape_arabic_text('High-Turnovers'),
+        reshape_arabic_text('Chances Creating Zones'),
+        reshape_arabic_text('Crosses'),
+        reshape_arabic_text('Team Domination Zones'),
+        reshape_arabic_text('Pass Target Zones'),
+        'Attacking Thirds',
+        reshape_arabic_text('PPDA')
+    ], index=0, key='analysis_type')
 
-        elif an_tp == reshape_arabic_text('Team Domination Zones'):
-            st.subheader(reshape_arabic_text('مناطق سيطرة الفريق'))
-            phase_tag = st.selectbox(
-                'اختر الفترة:', ['Full Time', 'First Half', 'Second Half'], key='phase_tag_domination')
-            fig, ax = plt.subplots(figsize=(12, 8), facecolor=bg_color)
-            team_domination_zones(
+    if an_tp == 'شبكة التمريرات':
+        st.subheader('شبكة التمريرات')
+        team_choice = st.selectbox('اختر الفريق:', [hteamName, ateamName], key='team_choice')
+        phase_tag = st.selectbox('اختر الفترة:', ['Full Time', 'First Half', 'Second Half'], key='phase_tag')
+        
+        # إنشاء الرسم
+        fig, ax = plt.subplots(figsize=(10, 10), facecolor=bg_color, dpi=150)
+        
+        # استدعاء pass_network
+        try:
+            pass_btn = pass_network(
                 ax,
+                team_choice,
+                hcol if team_choice == hteamName else acol,
                 phase_tag,
                 hteamName,
                 ateamName,
-                hcol,
-                acol,
-                bg_color,
-                line_color,
-                gradient_colors)
-            # إضافة عنوان أعلى الرسم
-            fig.text(
-                0.5, 0.98,
-                reshape_arabic_text(f'{hteamName} {hgoal_count} - {agoal_count} {ateamName}'),
-                fontsize=16, fontweight='bold', ha='center', va='center', color='white')
-            fig.text(0.5, 0.94, reshape_arabic_text('مناطق السيطرة'),
-                     fontsize=14, ha='center', va='center', color='white')
-            st.pyplot(fig)
-
-        elif an_tp == reshape_arabic_text('PPDA'):
-    st.subheader(reshape_arabic_text('معدل الضغط (PPDA)'))
-    st.write(reshape_arabic_text("PPDA: عدد التمريرات الناجحة التي يسمح بها الفريق مقابل كل فعل دفاعي. القيمة الأقل تشير إلى ضغط دفاعي أقوى."))
-    
-    try:
-        # استدعاء دالة calculate_ppda
-        ppda_results = calculate_ppda(st.session_state.df)
-        ppda_df = pd.DataFrame.from_dict(ppda_results, orient='index')
-        
-        # طباعة الأعمدة للتصحيح
-        st.write("أعمدة DataFrame:", st.session_state.df.columns.tolist())
-        
-        # عرض الجدول
-        st.dataframe(ppda_df, use_container_width=True)
-        
-        # إعداد الرسم البياني
-        fig, ax = plt.subplots(figsize=(10, 6), facecolor='none')  # خلفية شفافة
-        ax.set_facecolor('#1a1a1a')  # خلفية داكنة عصرية
-
-        # إعداد تدرج لوني
-        colors = sns.color_palette("husl", len(ppda_df))  # تدرج لوني جذاب
-        bars = ax.bar(ppda_df.index, ppda_df['PPDA'], color=colors, edgecolor='white', linewidth=1.5, alpha=0.9)
-        
-        # إضافة تسميات القيم على الأعمدة
-        for bar in bars:
-            height = bar.get_height()
-            ax.text(
-                bar.get_x() + bar.get_width() / 2, height + 0.5,
-                f'{height:.2f}', ha='center', va='bottom', color='white',
-                fontsize=12, fontweight='bold',
-                path_effects=[path_effects.withStroke(linewidth=2, foreground='black')]
+                hgoal_count,
+                agoal_count,
+                hteamID,
+                ateamID
             )
+            st.pyplot(fig)
+            if pass_btn is not None and not pass_btn.empty:
+                st.dataframe(pass_btn, hide_index=True)
+            else:
+                st.warning("لا توجد بيانات تمريرات للعرض.")
+        except Exception as e:
+            st.error(f"خطأ في إنشاء شبكة التمريرات: {str(e)}")
+
+    elif an_tp == 'مناطق الهجوم':
+        st.subheader('تحليل مناطق الهجوم')
+        fig, ax = plt.subplots(figsize=(10, 10), facecolor=bg_color)
+        attack_summary, fig_heatmap, fig_bar = attack_zones_analysis(fig, ax, hteamName, ateamName, hcol, acol, hteamID, ateamID)
         
-        # تحسين العنوان والتسميات
-        ax.set_title(
-            reshape_arabic_text('معدل الضغط (PPDA) لكل فريق'),
-            fontsize=16, color='white', pad=20, fontweight='bold'
-        )
-        ax.set_xlabel(reshape_arabic_text('الفريق'), fontsize=12, color='white')
-        ax.set_ylabel('PPDA', fontsize=12, color='white')
+        # عرض خريطة حرارية
+        st.pyplot(fig_heatmap)
         
-        # تحسين المحاور
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
-        ax.spines['left'].set_color('white')
-        ax.spines['bottom'].set_color('white')
-        ax.tick_params(colors='white', labelsize=10)
+        # عرض الرسم البياني الشريطي
+        st.pyplot(fig_bar)
         
-        # إضافة شبكة خفيفة لتحسين القراءة
-        ax.grid(True, axis='y', linestyle='--', alpha=0.3, color='white')
-        
-        # تحسين التباعد
-        plt.tight_layout()
-        
-        # عرض الرسم في Streamlit
+        # عرض الجدول الإحصائي
+        st.subheader('إحصائيات مناطق الهجوم')
+        st.dataframe(attack_summary, hide_index=True)
+
+    elif an_tp == reshape_arabic_text('Team Domination Zones'):
+        st.subheader(reshape_arabic_text('مناطق سيطرة الفريق'))
+        phase_tag = st.selectbox(
+            'اختر الفترة:', ['Full Time', 'First Half', 'Second Half'], key='phase_tag_domination')
+        fig, ax = plt.subplots(figsize=(12, 8), facecolor=bg_color)
+        team_domination_zones(
+            ax,
+            phase_tag,
+            hteamName,
+            ateamName,
+            hcol,
+            acol,
+            bg_color,
+            line_color,
+            gradient_colors)
+        # إضافة عنوان أعلى الرسم
+        fig.text(
+            0.5, 0.98,
+            reshape_arabic_text(f'{hteamName} {hgoal_count} - {agoal_count} {ateamName}'),
+            fontsize=16, fontweight='bold', ha='center', va='center', color='white')
+        fig.text(0.5, 0.94, reshape_arabic_text('مناطق السيطرة'),
+                 fontsize=14, ha='center', va='center', color='white')
         st.pyplot(fig)
-    
-    except Exception as e:
-        st.error(f"خطأ في حساب PPDA: {str(e)}")
+
+    elif an_tp == reshape_arabic_text('PPDA'):
+        st.subheader(reshape_arabic_text('معدل الضغط (PPDA)'))
+        st.write(reshape_arabic_text("PPDA: عدد التمريرات الناجحة التي يسمح بها الفريق مقابل كل فعل دفاعي. القيمة الأقل تشير إلى ضغط دفاعي أقوى."))
+        
+        try:
+            # استدعاء دالة calculate_ppda
+            ppda_results = calculate_ppda(st.session_state.df)
+            ppda_df = pd.DataFrame.from_dict(ppda_results, orient='index')
+            
+            # طباعة الأعمدة للتصحيح
+            st.write("أعمدة DataFrame:", st.session_state.df.columns.tolist())
+            
+            # عرض الجدول
+            st.dataframe(ppda_df, use_container_width=True)
+            
+            # إعداد الرسم البياني
+            fig, ax = plt.subplots(figsize=(10, 6), facecolor='none')  # خلفية شفافة
+            ax.set_facecolor('#1a1a1a')  # خلفية داكنة عصرية
+
+            # إعداد تدرج لوني
+            colors = sns.color_palette("husl", len(ppda_df))  # تدرج لوني جذاب
+            bars = ax.bar(ppda_df.index, ppda_df['PPDA'], color=colors, edgecolor='white', linewidth=1.5, alpha=0.9)
+            
+            # إضافة تسميات القيم على الأعمدة
+            for bar in bars:
+                height = bar.get_height()
+                ax.text(
+                    bar.get_x() + bar.get_width() / 2, height + 0.5,
+                    f'{height:.2f}', ha='center', va='bottom', color='white',
+                    fontsize=12, fontweight='bold',
+                    path_effects=[path_effects.withStroke(linewidth=2, foreground='black')]
+                )
+            
+            # تحسين العنوان والتسميات
+            ax.set_title(
+                reshape_arabic_text('معدل الضغط (PPDA) لكل فريق'),
+                fontsize=16, color='white', pad=20, fontweight='bold'
+            )
+            ax.set_xlabel(reshape_arabic_text('الفريق'), fontsize=12, color='white')
+            ax.set_ylabel('PPDA', fontsize=12, color='white')
+            
+            # تحسين المحاور
+            ax.spines['top'].set_visible(False)
+            ax.spines['right'].set_visible(False)
+            ax.spines['left'].set_color('white')
+            ax.spines['bottom'].set_color('white')
+            ax.tick_params(colors='white', labelsize=10)
+            
+            # إضافة شبكة خفيفة لتحسين القراءة
+            ax.grid(True, axis='y', linestyle='--', alpha=0.3, color='white')
+            
+            # تحسين التباعد
+            plt.tight_layout()
+            
+            # عرض الرسم في Streamlit
+            st.pyplot(fig)
+        
+        except Exception as e:
+            st.error(f"خطأ في حساب PPDA: {str(e)}")
+
+else:
+    st.warning("يرجى تحميل بيانات المباراة والنقر على 'تحليل المباراة' لعرض التحليلات.")
