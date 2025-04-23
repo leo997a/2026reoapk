@@ -1348,28 +1348,28 @@ if st.session_state.analysis_triggered and not st.session_state.df.empty and st.
             st.pyplot(fig)
 
         elif an_tp == reshape_arabic_text('PPDA'):
-    st.subheader(reshape_arabic_text('معدل الضغط (PPDA)'))
-    try:
-        # استدعاء دالة calculate_ppda باستخدام st.session_state.df
-        ppda_results = calculate_ppda(st.session_state.df)
+            st.subheader(reshape_arabic_text('معدل الضغط (PPDA)'))
+            try:
+                # استدعاء دالة calculate_ppda باستخدام st.session_state.df
+                ppda_results = calculate_ppda(st.session_state.df)
         
-        # تحويل النتائج إلى DataFrame للعرض
-        ppda_df = pd.DataFrame.from_dict(ppda_results, orient='index')
+                # تحويل النتائج إلى DataFrame للعرض
+                ppda_df = pd.DataFrame.from_dict(ppda_results, orient='index')
         
-        # عرض الجدول
-        st.dataframe(ppda_df, use_container_width=True)
+                # عرض الجدول
+                st.dataframe(ppda_df, use_container_width=True)
         
-        # عرض رسم بياني شريطي (اختياري)
-        fig, ax = plt.subplots(figsize=(8, 6), facecolor=bg_color)
-        ppda_df['PPDA'].plot(kind='bar', ax=ax, color=[hcol, acol])
-        ax.set_title(reshape_arabic_text('PPDA لكل فريق'), fontsize=14, color='white')
-        ax.set_xlabel(reshape_arabic_text('الفريق'), fontsize=12, color='white')
-        ax.set_ylabel('PPDA', fontsize=12, color='white')
-        ax.set_facecolor(bg_color)
-        fig.patch.set_facecolor(bg_color)
-        ax.tick_params(colors='white')
-        st.pyplot(fig)
-    except Exception as e:
-        st.error(f"خطأ في حساب PPDA: {str(e)}")
+                # عرض رسم بياني شريطي (اختياري)
+                fig, ax = plt.subplots(figsize=(8, 6), facecolor=bg_color)
+                ppda_df['PPDA'].plot(kind='bar', ax=ax, color=[hcol, acol])
+                ax.set_title(reshape_arabic_text('PPDA لكل فريق'), fontsize=14, color='white')
+                ax.set_xlabel(reshape_arabic_text('الفريق'), fontsize=12, color='white')
+                ax.set_ylabel('PPDA', fontsize=12, color='white')
+                ax.set_facecolor(bg_color)
+                fig.patch.set_facecolor(bg_color)
+                ax.tick_params(colors='white')
+                st.pyplot(fig)
+            except Exception as e:
+                st.error(f"خطأ في حساب PPDA: {str(e)}")
 else:
     st.warning("يرجى تحميل بيانات المباراة والنقر على 'تحليل المباراة' لعرض التحليلات.")
