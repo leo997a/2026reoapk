@@ -1109,10 +1109,10 @@ def attack_zones_analysis(fig, ax, hteamName, ateamName, hcol, acol, hteamID, at
 
 def calculate_ppda(events_df, attacking_third_threshold=80, period=None, include_pressure=True):
     """
-    Calculate PPDA (Passes Per Defensive Action) for each team in a given match with enhanced accuracy.
+    Calculate PPDA (Passes Per Defensive Action) with enhanced error handling and flexibility.
     
     Parameters:
-    - events_df: DataFrame containing match events (e.g., from StatsBomb).
+    - events_df: DataFrame containing match events.
     - attacking_third_threshold: x-coordinate threshold for the attacking third (default: 80).
     - period: Filter events by period ('FirstHalf', 'SecondHalf', or None for full match).
     - include_pressure: Include 'Pressure' events as defensive actions if available (default: True).
@@ -1120,48 +1120,67 @@ def calculate_ppda(events_df, attacking_third_threshold=80, period=None, include
     Returns:
     - Dictionary with PPDA and detailed stats for each team.
     """
-    # Filter events by period if specified
-    if period:
-        events_df = events_df[events_df['period'] == period]
-
-    # Filter successful passes in the attacking third, excluding long passes and set pieces
-    passes = events_df[
-        (events_df['type'] == 'Pass') &
-        (events_df['outcomeType'] == 'Successful') &
-        (events_df['x'].apply(lambda x: x >= attacking_third_threshold)) &
-        (~events_df.get('pass_length', pd.Series(dtype=float)).gt(30)) &  # Exclude long passes (>30m)
-        (~events_df.get('play_pattern', pd.Series(dtype=str)).str.contains('From', na=False))  # Exclude set pieces
-    ]
+    # تحقق من وجود الأعمدة الأساسية
+    required_columns = ['type', 'outcomeType', 'x', 'teamName']
+    missing_columns = [col for col in required_columns if col not in events_df.columns]
+    if missing_columns:
+        raise ValueError(f"الأعمدة المطلوبة مفقودة: {missing_columns}")
     
-    # Define defensive actions, including Pressure events if specified
+    # نسخة من DataFrame لتجنب التعديل
+    df = events_df.copy()
+    
+    # تصفية الأحداث حسب الفترة إذا تم تحديدها
+    if period and 'period' in df.columns:
+        df = df[df['period'] == period]
+    elif period and 'period' not in df.columns:
+        raise ValueError("عمود 'period' غير موجود في البيانات")
+    
+    # تصفية التمريرات الناجحة في الثلث الهجومي
+    pass_filter = (
+        (df['type'] == 'Pass') &
+        (df['outcomeType'] == 'Successful') &
+        (df['x'].apply(lambda x: x >= attacking_third_threshold))
+    )
+    
+    # استبعاد التمريرات الطويلة إذا كان العمود موجودًا
+    if 'pass_length' in df.columns:
+        pass_filter &= ~df['pass_length'].gt(30)
+    
+    # استبعاد المواقف الثابتة إذا كان العمود موجودًا
+    if 'play_pattern' in df.columns:
+        pass_filter &= ~df['play_pattern'].str.contains('From', na=False)
+    
+    passes = df[pass_filter]
+    
+    # تحديد الأفعال الدفاعية
     defensive_action_types = ['Tackle', 'Interception', 'Block']
-    if include_pressure and 'Pressure' in events_df['type'].unique():
+    if include_pressure and 'Pressure' in df['type'].unique():
         defensive_action_types.append('Pressure')
     
-    # Filter defensive actions in the attacking third
-    defensive_actions = events_df[
-        (events_df['type'].isin(defensive_action_types)) &
-        (events_df['x'].apply(lambda x: x >= attacking_third_threshold))
+    # تصفية الأفعال الدفاعية في الثلث الهجومي
+    defensive_actions = df[
+        (df['type'].isin(defensive_action_types)) &
+        (df['x'].apply(lambda x: x >= attacking_third_threshold))
     ]
     
-    # Get unique teams in the match
-    teams = events_df['teamName'].unique()
+    # الحصول على الفرق المشاركة
+    teams = df['teamName'].unique()
     
-    # Calculate PPDA for each team
+    # حساب PPDA لكل فريق
     ppda_results = {}
     for team in teams:
-        # Count successful passes allowed by the opposing team
+        # عدد التمريرات المسموح بها (تمريرات الفريق المنافس)
         passes_allowed = passes[passes['teamName'] != team]
         num_passes = len(passes_allowed)
         
-        # Count defensive actions by this team
+        # عدد الأفعال الدفاعية للفريق
         team_defensive_actions = defensive_actions[defensive_actions['teamName'] == team]
         num_defensive_actions = len(team_defensive_actions)
         
-        # Calculate PPDA (handle zero defensive actions)
+        # حساب PPDA
         ppda = num_passes / num_defensive_actions if num_defensive_actions > 0 else None
         
-        # Breakdown of defensive actions by type
+        # تفاصيل الأفعال الدفاعية
         action_breakdown = {
             action: len(team_defensive_actions[team_defensive_actions['type'] == action])
             for action in defensive_action_types
