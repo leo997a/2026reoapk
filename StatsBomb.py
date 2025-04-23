@@ -109,57 +109,51 @@ line_color = st.sidebar.color_picker(
 @st.cache_data
 def extract_match_dict_from_html(uploaded_file):
     try:
+        # قراءة محتوى ملف HTML
         html_content = uploaded_file.read().decode('utf-8')
         soup = BeautifulSoup(html_content, 'html.parser')
+        
+        # البحث عن العنصر <script> الذي يحتوي على matchCentreData
         script = soup.find(lambda tag: tag.name == 'script' and 'matchCentreData' in tag.text)
         if not script:
             st.error("لم يتم العثور على matchCentreData في ملف HTML")
             return None
         
-        # محاولة استخراج JSON بطرق متعددة
-        text = script.text
+        # تعبير منتظم لاستخراج كائن JSON الخاص بـ matchCentreData
+        pattern = r'matchCentreData:\s*(\{.*?\})\s*(?:,|\s*;)'
+        match = re.search(pattern, script.text, re.DOTALL)
+        
+        if not match:
+            st.error("فشل في استخراج بيانات JSON من matchCentreData")
+            # تسجيل النص الكامل للتحقق
+            with open("script_content.txt", "w", encoding="utf-8") as f:
+                f.write(script.text)
+            st.write("تم حفظ النص المستخرج في script_content.txt للتحقق")
+            return None
+        
+        # استخراج سلسلة JSON
+        json_str = match.group(1)
+        
+        # تسجيل معاينة للنص المستخرج (أول 500 حرف وآخر 500 حرف)
+        st.write("JSON string preview (first 500 chars):", json_str[:500])
+        st.write("JSON string preview (last 500 chars):", json_str[-500:])
+        
+        # محاولة تحليل JSON
         try:
-            # الطريقة الأولى: تقسيم بسيط
-            json_str = text.split("matchCentreData: ")[1].split(',\n')[0]
-            return json.loads(json_str)
-        except:
-            # الطريقة الثانية: تعبير منتظم
-            pattern = r'matchCentreData:\s*(\{.*?\})(?=\s*,\s*matchCentreEventTypeJson|\s*;)'
-            match = re.search(pattern, text, re.DOTALL)
-            if match:
-                return json.loads(match.group(1))
-            else:
-                st.error("فشل في استخراج بيانات JSON")
-                return None
+            matchdict = json.loads(json_str)
+        except json.JSONDecodeError as json_err:
+            st.error(f"خطأ في تحليل JSON: {str(json_err)}")
+            # حفظ النص المستخرج للتحقق
+            with open("failed_json.txt", "w", encoding="utf-8") as f:
+                f.write(json_str)
+            st.write("تم حفظ النص المستخرج في failed_json.txt للتحقق")
+            return None
+        
+        return matchdict
+    
     except Exception as e:
         st.error(f"خطأ أثناء استخراج البيانات من HTML: {str(e)}")
         return None
-
-# دالة معالجة البيانات
-
-
-@st.cache_data
-def extract_data_from_dict(data):
-    try:
-        events_dict = data["events"]
-        teams_dict = {
-            data['home']['teamId']: data['home']['name'],
-            data['away']['teamId']: data['away']['name']
-        }
-        players_home_df = pd.DataFrame(data['home']['players'])
-        players_home_df["teamId"] = data['home']['teamId']
-        players_away_df = pd.DataFrame(data['away']['players'])
-        players_away_df["teamId"] = data['away']['teamId']
-        players_df = pd.concat([players_home_df, players_away_df])
-        players_df['name'] = players_df['name'].astype(str)
-        players_df['name'] = players_df['name'].apply(unidecode)
-        return events_dict, players_df, teams_dict
-    except Exception as e:
-        st.error(f"خطأ أثناء معالجة البيانات: {str(e)}")
-        return None, None, None
-
-# دالة معالجة البيانات الأساسية
-
 
 @st.cache_data
 def get_event_data(json_data):
