@@ -487,164 +487,194 @@ def get_event_data(json_data):
     return df, teams_dict, players_df
 
 # دالة شبكة التمريرات
+import logging
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
+
 def pass_network(ax, team_name, col, phase_tag, hteamName, ateamName, hgoal_count, agoal_count, hteamID, ateamID):
-    print(f"Unique periods in df: {st.session_state.df['period'].unique()}")
-    print(f"Phase tag: {phase_tag}")
-    
-    if phase_tag == 'Full Time':
-        df_pass = st.session_state.df.copy()
-        df_pass = df_pass.reset_index(drop=True)
-    elif phase_tag == 'First Half':
-        df_pass = st.session_state.df[st.session_state.df['period'] == 'FirstHalf']
-        print(f"First Half rows: {len(df_pass)}")
-        df_pass = df_pass.reset_index(drop=True)
-    elif phase_tag == 'Second Half':
-        df_pass = st.session_state.df[st.session_state.df['period'] == 'SecondHalf']
-        print(f"Second Half rows: {len(df_pass)}")
-        df_pass = df_pass.reset_index(drop=True)
-    else:
-        raise ValueError(f"Invalid phase_tag: {phase_tag}")
-    
-    if len(df_pass) == 0:
-        ax.text(34, 60, reshape_arabic_text(f"لا توجد بيانات لـ {phase_tag}"), 
-                color='white', fontsize=14, ha='center', va='center', weight='bold')
-        print(f"No data available for {phase_tag}")
-        return pd.DataFrame()
-    
-    total_pass = df_pass[(df_pass['teamName'] == team_name) & (df_pass['type'] == 'Pass')]
-    accrt_pass = df_pass[(df_pass['teamName'] == team_name) & (df_pass['type'] == 'Pass') & (df_pass['outcomeType'] == 'Successful')]
-    print(f"Total passes: {len(total_pass)}, Successful passes: {len(accrt_pass)}")
-    accuracy = round((len(accrt_pass) / len(total_pass)) * 100, 2) if len(total_pass) != 0 else 0
-    
-    df_pass['pass_receiver'] = df_pass.loc[(df_pass['type'] == 'Pass') & (df_pass['outcomeType'] == 'Successful') & (df_pass['teamName'].shift(-1) == team_name), 'name'].shift(-1)
-    df_pass['pass_receiver'] = df_pass['pass_receiver'].fillna('No')
-    
-    off_acts_df = df_pass[(df_pass['teamName'] == team_name) & (df_pass['type'].isin(['Pass', 'Goal', 'MissedShots', 'SavedShot', 'ShotOnPost', 'TakeOn', 'BallTouch', 'KeeperPickup']))]
-    off_acts_df = off_acts_df[['name', 'x', 'y']].reset_index(drop=True)
-    avg_locs_df = off_acts_df.groupby('name').agg(avg_x=('x', 'median'), avg_y=('y', 'median')).reset_index()
-    team_pdf = st.session_state.players_df[['name', 'shirtNo', 'position', 'isFirstEleven']]
-    avg_locs_df = avg_locs_df.merge(team_pdf, on='name', how='left')
-    
-    avg_locs_df['isFirstEleven'] = avg_locs_df['isFirstEleven'].fillna(False)
-    avg_locs_df['shirtNo'] = avg_locs_df['shirtNo'].fillna(0)
-    avg_locs_df['position'] = avg_locs_df['position'].fillna('Unknown')
-    
-    df_pass = df_pass[(df_pass['type'] == 'Pass') & (df_pass['outcomeType'] == 'Successful') & (df_pass['teamName'] == team_name) & (~df_pass['qualifiers'].str.contains('Corner|Freekick', na=False))]
-    print(f"Passes after filtering qualifiers: {len(df_pass)}")
-    if len(df_pass) == 0:
-        ax.text(34, 60, reshape_arabic_text(f"لا توجد تمريرات ناجحة لـ {team_name} في {phase_tag}"), 
-                color='white', fontsize=14, ha='center', va='center', weight='bold')
-        return pd.DataFrame()
-    
-    df_pass = df_pass[['type', 'name', 'pass_receiver']].reset_index(drop=True)
-    pass_count_df = df_pass.groupby(['name', 'pass_receiver']).size().reset_index(name='pass_count').sort_values(by='pass_count', ascending=False)
-    pass_count_df = pass_count_df.reset_index(drop=True)
-    
-    pass_counts_df = pd.merge(pass_count_df, avg_locs_df, on='name', how='left')
-    pass_counts_df.rename(columns={'avg_x': 'pass_avg_x', 'avg_y': 'pass_avg_y'}, inplace=True)
-    pass_counts_df = pd.merge(pass_counts_df, avg_locs_df, left_on='pass_receiver', right_on='name', how='left', suffixes=('', '_receiver'))
-    pass_counts_df.drop(columns=['name_receiver'], inplace=True)
-    pass_counts_df.rename(columns={'avg_x': 'receiver_avg_x', 'avg_y': 'receiver_avg_y'}, inplace=True)
-    pass_counts_df = pass_counts_df.sort_values(by='pass_count', ascending=False).reset_index(drop=True)
-    pass_counts_df = pass_counts_df.dropna(subset=['shirtNo_receiver'])
-    
-    pass_btn = pass_counts_df[['name', 'shirtNo', 'pass_receiver', 'shirtNo_receiver', 'pass_count']]
-    pass_btn['shirtNo_receiver'] = pass_btn['shirtNo_receiver'].astype(float).astype(int)
-    
-    MAX_LINE_WIDTH = 8
-    MIN_LINE_WIDTH = 0.5
-    MIN_TRANSPARENCY = 0.2
-    MAX_TRANSPARENCY = 0.9
-    pass_counts_df['line_width'] = (pass_counts_df['pass_count'] / pass_counts_df['pass_count'].max()) * (MAX_LINE_WIDTH - MIN_LINE_WIDTH) + MIN_LINE_WIDTH
-    c_transparency = pass_counts_df['pass_count'] / pass_counts_df['pass_count'].max()
-    c_transparency = (c_transparency * (MAX_TRANSPARENCY - MIN_TRANSPARENCY)) + MIN_TRANSPARENCY
-    color = np.array(to_rgba(col))
-    color = np.tile(color, (len(pass_counts_df), 1))
-    color[:, 3] = c_transparency
-    
-    pitch = VerticalPitch(pitch_type='uefa', corner_arcs=True, linewidth=1.5, line_color=line_color)
-    pitch.draw(ax=ax)
-    
-    gradient = LinearSegmentedColormap.from_list("pitch_gradient", gradient_colors, N=100)
-    x = np.linspace(0, 1, 100)
-    y = np.linspace(0, 1, 100)
-    X, Y = np.meshgrid(x, y)
-    Z = Y
-    ax.imshow(Z, extent=[0, 68, 0, 105], cmap=gradient, alpha=0.8, aspect='auto', zorder=0)
-    pitch.draw(ax=ax)
-    
-    for idx in range(len(pass_counts_df)):
-        pitch.lines(
-            pass_counts_df['pass_avg_x'].iloc[idx],
-            pass_counts_df['pass_avg_y'].iloc[idx],
-            pass_counts_df['receiver_avg_x'].iloc[idx],
-            pass_counts_df['receiver_avg_y'].iloc[idx],
-            lw=pass_counts_df['line_width'].iloc[idx],
-            color=color[idx],
-            zorder=1,
-            ax=ax
-        )
-    
-    for index, row in avg_locs_df.iterrows():
-        if row['isFirstEleven']:
-            pitch.scatter(row['avg_x'], row['avg_y'], s=800, marker='o', color=col, edgecolor=line_color, linewidth=1.5, alpha=0.9, ax=ax)
-        else:
-            pitch.scatter(row['avg_x'], row['avg_y'], s=800, marker='s', color=col, edgecolor=line_color, linewidth=1.5, alpha=0.7, ax=ax)
-    
-    for index, row in avg_locs_df.iterrows():
-        player_initials = row["shirtNo"]
-        pitch.annotate(player_initials, xy=(row.avg_x, row.avg_y), c='white', ha='center', va='center', size=14, weight='bold', ax=ax)
-    
-    avgph = round(avg_locs_df['avg_x'].median(), 2)
-    ax.axhline(y=avgph, color='white', linestyle='--', alpha=0.5, linewidth=1.5)
-    
-    center_backs_height = avg_locs_df[avg_locs_df['position'] == 'DC']
-    def_line_h = round(center_backs_height['avg_x'].median(), 2) if not center_backs_height.empty else avgph
-    
-    Forwards_height = avg_locs_df[avg_locs_df['isFirstEleven'] == True].sort_values(by='avg_x', ascending=False).head(2)
-    fwd_line_h = round(Forwards_height['avg_x'].mean(), 2) if not Forwards_height.empty else avgph
-    
-    ymid = [0, 0, 68, 68]
-    xmid = [def_line_h, fwd_line_h, fwd_line_h, def_line_h]
-    ax.fill(ymid, xmid, col, alpha=0.2)
-    v_comp = round((1 - ((fwd_line_h - def_line_h) / 105)) * 100, 2)
-    
-    score_text = reshape_arabic_text(f"{hteamName} {hgoal_count} - {agoal_count} {ateamName}")
-    ax.text(34, 120, score_text, color='white', fontsize=16, ha='center', va='center', weight='bold')
+    logger.debug(f"Starting pass_network for team: {team_name}, phase: {phase_tag}")
+    logger.debug(f"Unique periods in df: {st.session_state.df['period'].unique()}")
     
     try:
-        teamID_fotmob = fotmob_team_ids.get(team_name, hteamID if team_name == hteamName else ateamID)
-        logo_url = f"https://images.fotmob.com/image_resources/logo/teamlogo/{teamID_fotmob}.png"
-        response = requests.get(logo_url)
-        response.raise_for_status()
-        logo = Image.open(BytesIO(response.content))
-        logo = logo.resize((50, 50), Image.Resampling.LANCZOS)
+        if phase_tag == 'Full Time':
+            df_pass = st.session_state.df.copy()
+            df_pass = df_pass.reset_index(drop=True)
+        elif phase_tag == 'First Half':
+            df_pass = st.session_state.df[st.session_state.df['period'] == 'FirstHalf']
+            logger.debug(f"First Half rows: {len(df_pass)}")
+            df_pass = df_pass.reset_index(drop=True)
+        elif phase_tag == 'Second Half':
+            df_pass = st.session_state.df[st.session_state.df['period'] == 'SecondHalf']
+            logger.debug(f"Second Half rows: {len(df_pass)}")
+            df_pass = df_pass.reset_index(drop=True)
+        else:
+            raise ValueError(f"Invalid phase_tag: {phase_tag}")
         
-        logo_ax = ax.inset_axes([0.45, -0.15, 0.1, 0.1], transform=ax.transAxes)
-        logo_ax.imshow(logo)
-        logo_ax.axis('off')
+        if len(df_pass) == 0:
+            ax.text(34, 60, reshape_arabic_text(f"لا توجد بيانات لـ {phase_tag}"), 
+                    color='white', fontsize=14, ha='center', va='center', weight='bold')
+            logger.warning(f"No data available for {phase_tag}")
+            return pd.DataFrame()
         
-        ax.text(34, 1, reshape_arabic_text(f"شبكة تمريرات {team_name}"), 
-                color='white', fontsize=12, ha='center', va='center', weight='bold')
+        total_pass = df_pass[(df_pass['teamName'] == team_name) & (df_pass['type'] == 'Pass')]
+        accrt_pass = df_pass[(df_pass['teamName'] == team_name) & (df_pass['type'] == 'Pass') & (df_pass['outcomeType'] == 'Successful')]
+        logger.debug(f"Total passes: {len(total_pass)}, Successful passes: {len(accrt_pass)}")
+        if len(total_pass) == 0:
+            ax.text(34, 60, reshape_arabic_text(f"لا توجد تمريرات لـ {team_name} في {phase_tag}"), 
+                    color='white', fontsize=14, ha='center', va='center', weight='bold')
+            return pd.DataFrame()
+        
+        accuracy = round((len(accrt_pass) / len(total_pass)) * 100, 2) if len(total_pass) != 0 else 0
+        
+        df_pass['pass_receiver'] = df_pass.loc[(df_pass['type'] == 'Pass') & (df_pass['outcomeType'] == 'Successful') & (df_pass['teamName'].shift(-1) == team_name), 'name'].shift(-1)
+        df_pass['pass_receiver'] = df_pass['pass_receiver'].fillna('No')
+        
+        off_acts_df = df_pass[(df_pass['teamName'] == team_name) & (df_pass['type'].isin(['Pass', 'Goal', 'MissedShots', 'SavedShot', 'ShotOnPost', 'TakeOn', 'BallTouch', 'KeeperPickup']))]
+        off_acts_df = off_acts_df[['name', 'x', 'y']].reset_index(drop=True)
+        if off_acts_df.empty:
+            ax.text(34, 60, reshape_arabic_text(f"لا توجد أحداث هجومية لـ {team_name} في {phase_tag}"), 
+                    color='white', fontsize=14, ha='center', va='center', weight='bold')
+            return pd.DataFrame()
+        
+        avg_locs_df = off_acts_df.groupby('name').agg(avg_x=('x', 'median'), avg_y=('y', 'median')).reset_index()
+        team_pdf = st.session_state.players_df[['name', 'shirtNo', 'position', 'isFirstEleven']].copy()
+        if team_pdf.empty:
+            ax.text(34, 60, reshape_arabic_text("بيانات اللاعبين غير متاحة"), 
+                    color='white', fontsize=14, ha='center', va='center', weight='bold')
+            return pd.DataFrame()
+        
+        avg_locs_df = avg_locs_df.merge(team_pdf, on='name', how='left')
+        avg_locs_df['isFirstEleven'] = avg_locs_df['isFirstEleven'].fillna(False)
+        avg_locs_df['shirtNo'] = avg_locs_df['shirtNo'].fillna(0)
+        avg_locs_df['position'] = avg_locs_df['position'].fillna('Unknown')
+        
+        df_pass = df_pass[(df_pass['type'] == 'Pass') & (df_pass['outcomeType'] == 'Successful') & (df_pass['teamName'] == team_name) & (~df_pass['qualifiers'].str.contains('Corner|Freekick', na=False))]
+        logger.debug(f"Passes after filtering qualifiers: {len(df_pass)}")
+        if len(df_pass) == 0:
+            ax.text(34, 60, reshape_arabic_text(f"لا توجد تمريرات ناجحة لـ {team_name} في {phase_tag}"), 
+                    color='white', fontsize=14, ha='center', va='center', weight='bold')
+            return pd.DataFrame()
+        
+        df_pass = df_pass[['type', 'name', 'pass_receiver']].reset_index(drop=True)
+        pass_count_df = df_pass.groupby(['name', 'pass_receiver']).size().reset_index(name='pass_count').sort_values(by='pass_count', ascending=False)
+        pass_count_df = pass_count_df.reset_index(drop=True)
+        
+        pass_counts_df = pd.merge(pass_count_df, avg_locs_df, on='name', how='left')
+        pass_counts_df.rename(columns={'avg_x': 'pass_avg_x', 'avg_y': 'pass_avg_y'}, inplace=True)
+        pass_counts_df = pd.merge(pass_counts_df, avg_locs_df, left_on='pass_receiver', right_on='name', how='left', suffixes=('', '_receiver'))
+        pass_counts_df.drop(columns=['name_receiver'], inplace=True)
+        pass_counts_df.rename(columns={'avg_x': 'receiver_avg_x', 'avg_y': 'receiver_avg_y'}, inplace=True)
+        pass_counts_df = pass_counts_df.sort_values(by='pass_count', ascending=False).reset_index(drop=True)
+        pass_counts_df = pass_counts_df.dropna(subset=['shirtNo_receiver'])
+        
+        if pass_counts_df.empty:
+            ax.text(34, 60, reshape_arabic_text(f"لا توجد تمريرات بين اللاعبين لـ {team_name} في {phase_tag}"), 
+                    color='white', fontsize=14, ha='center', va='center', weight='bold')
+            return pd.DataFrame()
+        
+        pass_btn = pass_counts_df[['name', 'shirtNo', 'pass_receiver', 'shirtNo_receiver', 'pass_count']]
+        pass_btn['shirtNo_receiver'] = pass_btn['shirtNo_receiver'].astype(float).astype(int)
+        
+        MAX_LINE_WIDTH = 8
+        MIN_LINE_WIDTH = 0.5
+        MIN_TRANSPARENCY = 0.2
+        MAX_TRANSPARENCY = 0.9
+        pass_counts_df['line_width'] = (pass_counts_df['pass_count'] / pass_counts_df['pass_count'].max()) * (MAX業者_LINE_WIDTH - MIN_LINE_WIDTH) + MIN_LINE_WIDTH
+        c_transparency = pass_counts_df['pass_count'] / pass_counts_df['pass_count'].max()
+        c_transparency = (c_transparency * (MAX_TRANSPARENCY - MIN_TRANSPARENCY)) + MIN_TRANSPARENCY
+        color = np.array(to_rgba(col))
+        color = np.tile(color, (len(pass_counts_df), 1))
+        color[:, 3] = c_transparency
+        
+        pitch = VerticalPitch(pitch_type='uefa', corner_arcs=True, linewidth=1.5, line_color=line_color)
+        pitch.draw(ax=ax)
+        
+        gradient = LinearSegmentedColormap.from_list("pitch_gradient", gradient_colors, N=100)
+        x = np.linspace(0, 1, 100)
+        y = np.linspace(0, 1, 100)
+        X, Y = np.meshgrid(x, y)
+        Z = Y
+        ax.imshow(Z, extent=[0, 68, 0, 105], cmap=gradient, alpha=0.8, aspect='auto', zorder=0)
+        pitch.draw(ax=ax)
+        
+        for idx in range(len(pass_counts_df)):
+            pitch.lines(
+                pass_counts_df['pass_avg_x'].iloc[idx],
+                pass_counts_df['pass_avg_y'].iloc[idx],
+                pass_counts_df['receiver_avg_x'].iloc[idx],
+                pass_counts_df['receiver_avg_y'].iloc[idx],
+                lw=pass_counts_df['line_width'].iloc[idx],
+                color=color[idx],
+                zorder=1,
+                ax=ax
+            )
+        
+        for index, row in avg_locs_df.iterrows():
+            if row['isFirstEleven']:
+                pitch.scatter(row['avg_x'], row['avg_y'], s=800, marker='o', color=col, edgecolor=line_color, linewidth=1.5, alpha=0.9, ax=ax)
+            else:
+                pitch.scatter(row['avg_x'], row['avg_y'], s=800, marker='s', color=col, edgecolor=line_color, linewidth=1.5, alpha=0.7, ax=ax)
+        
+        for index, row in avg_locs_df.iterrows():
+            player_initials = row["shirtNo"]
+            pitch.annotate(player_initials, xy=(row.avg_x, row.avg_y), c='white', ha='center', va='center', size=14, weight='bold', ax=ax)
+        
+        avgph = round(avg_locs_df['avg_x'].median(), 2)
+        ax.axhline(y=avgph, color='white', linestyle='--', alpha=0.5, linewidth=1.5)
+        
+        center_backs_height = avg_locs_df[avg_locs_df['position'] == 'DC']
+        def_line_h = round(center_backs_height['avg_x'].median(), 2) if not center_backs_height.empty else avgph
+        
+        Forwards_height = avg_locs_df[avg_locs_df['isFirstEleven'] == True].sort_values(by='avg_x', ascending=False).head(2)
+        fwd_line_h = round(Forwards_height['avg_x'].mean(), 2) if not Forwards_height.empty else avgph
+        
+        ymid = [0, 0, 68, 68]
+        xmid = [def_line_h, fwd_line_h, fwd_line_h, def_line_h]
+        ax.fill(ymid, xmid, col, alpha=0.2)
+        v_comp = round((1 - ((fwd_line_h - def_line_h) / 105)) * 100, 2)
+        
+        score_text = reshape_arabic_text(f"{hteamName} {hgoal_count} - {agoal_count} {ateamName}")
+        ax.text(34, 120, score_text, color='white', fontsize=16, ha='center', va='center', weight='bold')
+        
+        try:
+            teamID_fotmob = fotmob_team_ids.get(team_name, hteamID if team_name == hteamName else ateamID)
+            logo_url = f"https://images.fotmob.com/image_resources/logo/teamlogo/{teamID_fotmob}.png"
+            response = requests.get(logo_url)
+            response.raise_for_status()
+            logo = Image.open(BytesIO(response.content))
+            logo = logo.resize((50, 50), Image.Resampling.LANCZOS)
+            
+            logo_ax = ax.inset_axes([0.45, -0.15, 0.1, 0.1], transform=ax.transAxes)
+            logo_ax.imshow(logo)
+            logo_ax.axis('off')
+            
+            ax.text(34, 1, reshape_arabic_text(f"شبكة تمريرات {team_name}"), 
+                    color='white', fontsize=12, ha='center', va='center', weight='bold')
+        except Exception as e:
+            logger.warning(f"Failed to load logo for {team_name}: {str(e)}")
+            ax.text(34, 1, reshape_arabic_text(f"شبكة تمريرات {team_name}"), 
+                    color='white', fontsize=12, ha='center', va='center', weight='bold')
+        
+        if phase_tag == 'Full Time':
+            ax.text(34, 115, reshape_arabic_text('الوقت بالكامل: 0-90 دقيقة'), color='white', fontsize=14, ha='center', va='center', weight='bold')
+            ax.text(34, 112, reshape_arabic_text(f'إجمالي التمريرات: {len(total_pass)} | الناجحة: {len(accrt_pass)} | الدقة: {accuracy}%'), color='white', fontsize=12, ha='center', va='center')
+        elif phase_tag == 'First Half':
+            ax.text(34, 115, reshape_arabic_text('الشوط الأول: 0-45 دقيقة'), color='white', fontsize=14, ha='center', va='center', weight='bold')
+            ax.text(34, 112, reshape_arabic_text(f'إجمالي التمريرات: {len(total_pass)} | الناجحة: {len(accrt_pass)} | الدقة: {accuracy}%'), color='white', fontsize=12, ha='center', va='center')
+        elif phase_tag == 'Second Half':
+            ax.text(34, 115, reshape_arabic_text('الشوط الثاني: 45-90 دقيقة'), color='white', fontsize=14, ha='center', va='center', weight='bold')
+            ax.text(34, 112, reshape_arabic_text(f'إجمالي التمريرات: {len(total_pass)} | الناجحة: {len(accrt_pass)} | الدقة: {accuracy}%'), color='white', fontsize=12, ha='center', va='center')
+        
+        ax.text(34, -6, reshape_arabic_text(f"على الكرة\nالتماسك العمودي (المنطقة المظللة): {v_comp}%"), color='white', fontsize=12, ha='center', va='center', weight='bold')
+        
+        return pass_btn
+    
     except Exception as e:
-        st.warning(f"فشل في تحميل شعار {team_name} من FotMob: {str(e)}")
-        ax.text(34, 1, reshape_arabic_text(f"شبكة تمريرات {team_name}"), 
-                color='white', fontsize=12, ha='center', va='center', weight='bold')
-    
-    if phase_tag == 'Full Time':
-        ax.text(34, 115, reshape_arabic_text('الوقت بالكامل: 0-90 دقيقة'), color='white', fontsize=14, ha='center', va='center', weight='bold')
-        ax.text(34, 112, reshape_arabic_text(f'إجمالي التمريرات: {len(total_pass)} | الناجحة: {len(accrt_pass)} | الدقة: {accuracy}%'), color='white', fontsize=12, ha='center', va='center')
-    elif phase_tag == 'First Half':
-        ax.text(34, 115, reshape_arabic_text('الشوط الأول: 0-45 دقيقة'), color='white', fontsize=14, ha='center', va='center', weight='bold')
-        ax.text(34, 112, reshape_arabic_text(f'إجمالي التمريرات: {len(total_pass)} | الناجحة: {len(accrt_pass)} | الدقة: {accuracy}%'), color='white', fontsize=12, ha='center', va='center')
-    elif phase_tag == 'Second Half':
-        ax.text(34, 115, reshape_arabic_text('الشوط الثاني: 45-90 دقيقة'), color='white', fontsize=14, ha='center', va='center', weight='bold')
-        ax.text(34, 112, reshape_arabic_text(f'إجمالي التمريرات: {len(total_pass)} | الناجحة: {len(accrt_pass)} | الدقة: {accuracy}%'), color='white', fontsize=12, ha='center', va='center')
-    
-    ax.text(34, -6, reshape_arabic_text(f"على الكرة\nالتماسك العمودي (المنطقة المظللة): {v_comp}%"), color='white', fontsize=12, ha='center', va='center', weight='bold')
-    
-    return pass_btn
-
+        logger.error(f"Error in pass_network: {str(e)}")
+        ax.text(34, 60, reshape_arabic_text(f"خطأ: {str(e)}"), 
+                color='white', fontsize=14, ha='center', va='center', weight='bold')
+        st.error(f"خطأ في شبكة التمريرات: {str(e)}")
+        return pd.DataFrame()
 # دالة مناطق السيطرة
 
 
