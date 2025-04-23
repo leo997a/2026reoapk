@@ -31,9 +31,20 @@ import requests
 from io import StringIO, BytesIO
 import matplotlib.font_manager as fm
 
+# إضافة الخطوط يدويًا
+font_dir = os.path.join(os.getcwd(), 'fonts')  # مسار مجلد الخطوط
+if os.path.exists(font_dir):
+    for font_file in os.listdir(font_dir):
+        if font_file.endswith('.ttf') or font_file.endswith('.otf'):
+            font_path = os.path.join(font_dir, font_file)
+            fm.fontManager.addfont(font_path)
+            st.write(f"تم تحميل الخط: {font_file}")
+else:
+    st.warning("مجلد 'fonts' غير موجود. تأكد من إضافة ملفات الخطوط.")
+
 # تهيئة الخطوط لدعم العربية
 plt.rcParams['font.family'] = 'sans-serif'
-plt.rcParams['font.sans-serif'] = ['Noto Sans Arabic', 'DejaVu Sans', 'Arial']
+plt.rcParams['font.sans-serif'] = ['Tajawal', 'Cairo', 'Noto Sans Arabic', 'DejaVu Sans', 'Arial']
 plt.rcParams['axes.unicode_minus'] = False
 plt.rcParams['text.usetex'] = False
 
@@ -41,12 +52,9 @@ plt.rcParams['text.usetex'] = False
 available_fonts = [f.name for f in fm.fontManager.ttflist]
 st.write("الخطوط المتوفرة:", available_fonts)
 
-if 'Noto Sans Arabic' not in available_fonts:
-    st.warning("خط 'Noto Sans Arabic' غير متاح. قد يؤثر ذلك على وضوح النصوص العربية. تأكد من تثبيت 'fonts-noto' في ملف packages.txt.")
-
-# اختياري: طباعة الخطوط المتوفرة للتصحيح (أزل في الإنتاج)
-# available_fonts = [f.name for f in fm.fontManager.ttflist]
-# print("الخطوط المتوفرة:", available_fonts)
+for font in ['Tajawal', 'Cairo', 'Noto Sans Arabic']:
+    if font not in available_fonts:
+        st.warning(f"خط '{font}' غير متاح. تأكد من إضافة ملفات الخطوط إلى مجلد 'fonts'.")
 
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
