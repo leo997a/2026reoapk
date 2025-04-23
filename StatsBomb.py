@@ -30,16 +30,6 @@ import os
 import requests
 from io import StringIO, BytesIO
 
-# ضبط إعدادات الهوامش الافتراضية لجميع الأشكال
-plt.rcParams['figure.autolayout'] = True
-plt.rcParams['figure.subplot.left'] = 0.01
-plt.rcParams['figure.subplot.right'] = 0.99
-plt.rcParams['figure.subplot.top'] = 0.98
-plt.rcParams['figure.subplot.bottom'] = 0.02
-plt.rcParams['figure.constrained_layout.use'] = True  # استخدام constrained_layout لتقليل الهوامش
-plt.rcParams['figure.constrained_layout.h_pad'] = 0.01
-plt.rcParams['figure.constrained_layout.w_pad'] = 0.01
-
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 # قراءة ملف الفرق من الرابط
@@ -523,9 +513,10 @@ def pass_network(ax, team_name, col, phase_tag, hteamName, ateamName, hgoal_coun
     team_pdf = st.session_state.players_df[['name', 'shirtNo', 'position', 'isFirstEleven']]
     avg_locs_df = avg_locs_df.merge(team_pdf, on='name', how='left')
     
+    # التعامل مع قيم NaN في isFirstEleven
     avg_locs_df['isFirstEleven'] = avg_locs_df['isFirstEleven'].fillna(False)
-    avg_locs_df['shirtNo'] = avg_locs_df['shirtNo'].fillna(0)
-    avg_locs_df['position'] = avg_locs_df['position'].fillna('Unknown')
+    avg_locs_df['shirtNo'] = avg_locs_df['shirtNo'].fillna(0)  # تعبئة shirtNo بـ 0 إذا كانت مفقودة
+    avg_locs_df['position'] = avg_locs_df['position'].fillna('Unknown')  # تعبئة position بـ 'Unknown' إذا كانت مفقودة
     
     df_pass = df_pass[(df_pass['type'] == 'Pass') & (df_pass['outcomeType'] == 'Successful') & (df_pass['teamName'] == team_name) & (~df_pass['qualifiers'].str.contains('Corner|Freekick'))]
     df_pass = df_pass[['type', 'name', 'pass_receiver']].reset_index(drop=True)
@@ -593,6 +584,7 @@ def pass_network(ax, team_name, col, phase_tag, hteamName, ateamName, hgoal_coun
     center_backs_height = avg_locs_df[avg_locs_df['position'] == 'DC']
     def_line_h = round(center_backs_height['avg_x'].median(), 2) if not center_backs_height.empty else avgph
     
+    # التعامل مع تصفية Forwards_height
     Forwards_height = avg_locs_df[avg_locs_df['isFirstEleven'] == True].sort_values(by='avg_x', ascending=False).head(2)
     fwd_line_h = round(Forwards_height['avg_x'].mean(), 2) if not Forwards_height.empty else avgph
     
@@ -601,48 +593,56 @@ def pass_network(ax, team_name, col, phase_tag, hteamName, ateamName, hgoal_coun
     ax.fill(ymid, xmid, col, alpha=0.2)
     v_comp = round((1 - ((fwd_line_h - def_line_h) / 105)) * 100, 2)
     
-    # إضافة النتيجة (داخل حدود الشكل)
+    # إضافة النتيجة
     score_text = reshape_arabic_text(f"{hteamName} {hgoal_count} - {agoal_count} {ateamName}")
-    ax.text(34, 104, score_text, color='white', fontsize=16, ha='center', va='center', weight='bold')
+    ax.text(34, 120, score_text, color='white', fontsize=16, ha='center', va='center', weight='bold')
     
-    # إضافة أسماء الفريقين أعلى الرسم (داخل حدود الشكل)
-    ax.text(5, 102, reshape_arabic_text(hteamName), color='white', fontsize=12, ha='left', va='center')
-    ax.text(63, 102, reshape_arabic_text(ateamName), color='white', fontsize=12, ha='right', va='center')
-    
-    # إضافة شعار الفريق المختار أسفل الرسم (داخل حدود الشكل)
+    # إضافة شعاري الفريقين من FotMob
     try:
-        teamID_fotmob = fotmob_team_ids.get(team_name, hteamID if team_name == hteamName else ateamID)
-        logo_url = f"https://images.fotmob.com/image_resources/logo/teamlogo/{teamID_fotmob}.png"
-        response = requests.get(logo_url)
+    # استخدام معرفات FotMob
+        hteamID_fotmob = fotmob_team_ids.get(hteamName, hteamID)
+        ateamID_fotmob = fotmob_team_ids.get(ateamName, ateamID)
+    
+        home_logo_url = f"https://images.fotmob.com/image_resources/logo/teamlogo/{hteamID_fotmob}.png"
+        away_logo_url = f"https://images.fotmob.com/image_resources/logo/teamlogo/{ateamID_fotmob}.png"
+    
+    # تحميل شعار الفريق المضيف
+        response = requests.get(home_logo_url)
         response.raise_for_status()
-        logo = Image.open(BytesIO(response.content))
-        logo = logo.resize((50, 50), Image.Resampling.LANCZOS)
-        
-        logo_ax = ax.inset_axes([0.45, -0.02, 0.1, 0.1], transform=ax.transAxes)
-        logo_ax.imshow(logo)
-        logo_ax.axis('off')
-        
-        # إضافة نص توضيحي بجوار الشعار (داخل حدود الشكل)
-        ax.text(34, 1, reshape_arabic_text(f"شبكة تمريرات {team_name}"), 
-                color='white', fontsize=12, ha='center', va='center', weight='bold')
+        home_logo = Image.open(BytesIO(response.content))
+        home_logo = home_logo.resize((50, 50), Image.Resampling.LANCZOS)
+    
+    # تحميل شعار الفريق الضيف
+        response = requests.get(away_logo_url)
+        response.raise_for_status()
+        away_logo = Image.open(BytesIO(response.content))
+        away_logo = away_logo.resize((50, 50), Image.Resampling.LANCZOS)
+    
+    # إضافة شعار الفريق المضيف
+        home_logo_ax = ax.inset_axes([0.05, 0.95, 0.07, 0.07], transform=ax.transAxes)
+        home_logo_ax.imshow(home_logo)
+        home_logo_ax.axis('off')
+    
+    # إضافة شعار الفريق الضيف
+        away_logo_ax = ax.inset_axes([0.88, 0.95, 0.07, 0.07], transform=ax.transAxes)
+        away_logo_ax.imshow(away_logo)
+        away_logo_ax.axis('off')
     except Exception as e:
-        st.warning(f"فشل في تحميل شعار {team_name} من FotMob: {str(e)}")
-        ax.text(34, 1, reshape_arabic_text(f"شبكة تمريرات {team_name}"), 
-                color='white', fontsize=12, ha='center', va='center', weight='bold')
+        st.warning(f"فشل في تحميل شعارات الفريقين من FotMob: {str(e)}")
+        ax.text(5, 115, reshape_arabic_text(hteamName), color='white', fontsize=12, ha='left', va='center')
+        ax.text(63, 115, reshape_arabic_text(ateamName), color='white', fontsize=12, ha='right', va='center')
     
-    # إضافة نصوص الفترة وإحصائيات التمريرات (داخل حدود الشكل)
     if phase_tag == 'Full Time':
-        ax.text(34, 99, reshape_arabic_text('الوقت بالكامل: 0-90 دقيقة'), color='white', fontsize=14, ha='center', va='center', weight='bold')
-        ax.text(34, 96, reshape_arabic_text(f'إجمالي التمريرات: {len(total_pass)} | الناجحة: {len(accrt_pass)} | الدقة: {accuracy}%'), color='white', fontsize=12, ha='center', va='center')
+        ax.text(34, 115, reshape_arabic_text('الوقت بالكامل: 0-90 دقيقة'), color='white', fontsize=14, ha='center', va='center', weight='bold')
+        ax.text(34, 112, reshape_arabic_text(f'إجمالي التمريرات: {len(total_pass)} | الناجحة: {len(accrt_pass)} | الدقة: {accuracy}%'), color='white', fontsize=12, ha='center', va='center')
     elif phase_tag == 'First Half':
-        ax.text(34, 99, reshape_arabic_text('الشوط الأول: 0-45 دقيقة'), color='white', fontsize=14, ha='center', va='center', weight='bold')
-        ax.text(34, 96, reshape_arabic_text(f'إجمالي التمريرات: {len(total_pass)} | الناجحة: {len(accrt_pass)} | الدقة: {accuracy}%'), color='white', fontsize=12, ha='center', va='center')
+        ax.text(34, 115, reshape_arabic_text('الشوط الأول: 0-45 دقيقة'), color='white', fontsize=14, ha='center', va='center', weight='bold')
+        ax.text(34, 112, reshape_arabic_text(f'إجمالي التمريرات: {len(total_pass)} | الناجحة: {len(accrt_pass)} | الدقة: {accuracy}%'), color='white', fontsize=12, ha='center', va='center')
     elif phase_tag == 'Second Half':
-        ax.text(34, 99, reshape_arabic_text('الشوط الثاني: 45-90 دقيقة'), color='white', fontsize=14, ha='center', va='center', weight='bold')
-        ax.text(34, 96, reshape_arabic_text(f'إجمالي التمريرات: {len(total_pass)} | الناجحة: {len(accrt_pass)} | الدقة: {accuracy}%'), color='white', fontsize=12, ha='center', va='center')
+        ax.text(34, 115, reshape_arabic_text('الشوط الثاني: 45-90 دقيقة'), color='white', fontsize=14, ha='center', va='center', weight='bold')
+        ax.text(34, 112, reshape_arabic_text(f'إجمالي التمريرات: {len(total_pass)} | الناجحة: {len(accrt_pass)} | الدقة: {accuracy}%'), color='white', fontsize=12, ha='center', va='center')
     
-    # إضافة نص التماسك العمودي (داخل حدود الشكل)
-    ax.text(34, 3, reshape_arabic_text(f"على الكرة\nالتماسك العمودي (المنطقة المظللة): {v_comp}%"), color='white', fontsize=12, ha='center', va='center', weight='bold')
+    ax.text(34, -6, reshape_arabic_text(f"على الكرة\nالتماسك العمودي (المنطقة المظللة): {v_comp}%"), color='white', fontsize=12, ha='center', va='center', weight='bold')
     
     return pass_btn
 
@@ -1143,10 +1143,12 @@ if st.session_state.analysis_triggered and st.session_state.df is not None and s
     # علامات التبويب
     tab1, tab2, tab3, tab4 = st.tabs(
         ['تحليل الفريق', 'تحليل اللاعبين', 'إحصائيات المباراة', 'أفضل اللاعبين'])
+
 with tab1:
     an_tp = st.selectbox('نوع التحليل:', [
         'شبكة التمريرات',
-        'مناطق الهجوم',
+        'مناطق الهجوم',  # خيار جديد
+
         'Defensive Actions Heatmap',
         'Progressive Passes',
         'Progressive Carries',
@@ -1169,6 +1171,7 @@ with tab1:
         team_choice = st.selectbox('اختر الفريق:', [hteamName, ateamName], key='team_choice')
         phase_tag = st.selectbox('اختر الفترة:', ['Full Time', 'First Half', 'Second Half'], key='phase_tag')
         
+        # حساب عدد الأهداف
         homedf = st.session_state.df[(st.session_state.df['teamName'] == hteamName)]
         awaydf = st.session_state.df[(st.session_state.df['teamName'] == ateamName)]
         hgoal_count = len(homedf[(homedf['teamName'] == hteamName) & (homedf['type'] == 'Goal') & (~homedf['qualifiers'].str.contains('OwnGoal'))])
@@ -1176,17 +1179,17 @@ with tab1:
         hgoal_count += len(awaydf[(awaydf['teamName'] == ateamName) & (awaydf['type'] == 'Goal') & (awaydf['qualifiers'].str.contains('OwnGoal'))])
         agoal_count += len(homedf[(homedf['teamName'] == hteamName) & (homedf['type'] == 'Goal') & (homedf['qualifiers'].str.contains('OwnGoal'))])
         
+        # تحديد معرفات الفرق
         hteamID = list(st.session_state.teams_dict.keys())[0]
         ateamID = list(st.session_state.teams_dict.keys())[1]
         
+        # تحديد اللون بناءً على اختيار الفريق
         col = hcol if team_choice == hteamName else acol
         
-        # زيادة الارتفاع قليلاً لاستيعاب النصوص
-        fig, ax = plt.subplots(figsize=(10, 7), facecolor=bg_color)  # زيادة الارتفاع من 6.8 إلى 7
-        fig.tight_layout(pad=0.05)
-        # زيادة الهامش العلوي والسفلي لاستيعاب النصوص
-        fig.subplots_adjust(left=0.01, right=0.99, top=0.95, bottom=0.05)
+        # إنشاء الرسم
+        fig, ax = plt.subplots(figsize=(10, 10), facecolor=bg_color)
         
+        # استدعاء pass_network مع جميع الوسائط المطلوبة
         pass_btn = pass_network(
             ax,
             team_choice,
@@ -1204,27 +1207,31 @@ with tab1:
         
     elif an_tp == 'مناطق الهجوم':
         st.subheader('تحليل مناطق الهجوم')
-        fig, ax = plt.subplots(figsize=(10, 7), facecolor=bg_color)
-        fig.tight_layout(pad=0.05)
-        fig.subplots_adjust(left=0.01, right=0.99, top=0.95, bottom=0.05)
+        fig, ax = plt.subplots(figsize=(10, 10), facecolor=bg_color)
+        attack_summary, fig_heatmap, fig_bar = attack_zones_analysis(fig, ax, hteamName, ateamName, hcol, acol)
         
-        attack_summary, fig_heatmap, fig_bar = attack_zones_analysis(fig, ax, hteamName, ateamName, hcol, acol, hteamID, ateamID)
-        
+        # عرض خريطة حرارية
         st.pyplot(fig_heatmap)
+        
+        # عرض الرسم البياني الشريطي
         st.pyplot(fig_bar)
         
+        # عرض الجدول الإحصائي
         st.subheader('إحصائيات مناطق الهجوم')
-        st.dataframe(attack_summary, hide_index=True)
-    
+        attack_summary = attack_summary.rename(columns={
+            'teamName': 'الفريق',
+            'اليسار': 'اليسار',
+            'العمق': 'العمق',
+            'اليمين': 'اليمين'
+        })
+        st.dataframe(attack_summary, hide_index=True)    
+
     elif an_tp == reshape_arabic_text('Team Domination Zones'):
         st.subheader(reshape_arabic_text('مناطق سيطرة الفريق'))
         phase_tag = st.selectbox(
-            'اختر الفترة:', ['Full Time', 'First Half', 'Second Half'], key='phase_tag_domination')
-        
-        fig, ax = plt.subplots(figsize=(10, 7), facecolor=bg_color)
-        fig.tight_layout(pad=0.05)
-        fig.subplots_adjust(left=0.01, right=0.99, top=0.95, bottom=0.05)
-        
+            'اختر الفترة:', [
+                'Full Time', 'First Half', 'Second Half'], key='phase_tag_domination')
+        fig, ax = plt.subplots(figsize=(12, 8), facecolor=bg_color)
         team_domination_zones(
             ax,
             phase_tag,
@@ -1235,16 +1242,17 @@ with tab1:
             bg_color,
             line_color,
             gradient_colors)
-        
+        # إضافة عنوان أعلى الرسم
         fig.text(
             0.5,
             0.98,
-            reshape_arabic_text(f'{hteamName} {hgoal_count} - {agoal_count} {ateamName}'),
+            reshape_arabic_text(
+                f'{hteamName} {hgoal_count} - {agoal_count} {ateamName}'),
             fontsize=16,
             fontweight='bold',
             ha='center',
             va='center',
             color='white')
-        fig.text(0.5, 0.95, reshape_arabic_text('مناطق السيطرة'),
+        fig.text(0.5, 0.94, reshape_arabic_text('مناطق السيطرة'),
                  fontsize=14, ha='center', va='center', color='white')
         st.pyplot(fig)
