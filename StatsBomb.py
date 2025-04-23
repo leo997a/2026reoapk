@@ -1107,27 +1107,40 @@ def attack_zones_analysis(fig, ax, hteamName, ateamName, hcol, acol, hteamID, at
     
     return zones, most_attacked_zone
 
-def calculate_ppda(events_df, attacking_third_threshold=80):
+def calculate_ppda(events_df, attacking_third_threshold=80, period=None, include_pressure=True):
     """
-    Calculate PPDA (Passes Per Defensive Action) for each team in a given match using a DataFrame.
+    Calculate PPDA (Passes Per Defensive Action) for each team in a given match with enhanced accuracy.
     
     Parameters:
-    - events_df: DataFrame containing match events.
+    - events_df: DataFrame containing match events (e.g., from StatsBomb).
     - attacking_third_threshold: x-coordinate threshold for the attacking third (default: 80).
+    - period: Filter events by period ('FirstHalf', 'SecondHalf', or None for full match).
+    - include_pressure: Include 'Pressure' events as defensive actions if available (default: True).
     
     Returns:
-    - Dictionary with PPDA for each team.
+    - Dictionary with PPDA and detailed stats for each team.
     """
-    # Filter successful passes in the attacking third
+    # Filter events by period if specified
+    if period:
+        events_df = events_df[events_df['period'] == period]
+
+    # Filter successful passes in the attacking third, excluding long passes and set pieces
     passes = events_df[
-        (events_df['type'] == 'Pass') &  # تغيير 'type_name' إلى 'type'
+        (events_df['type'] == 'Pass') &
         (events_df['outcomeType'] == 'Successful') &
-        (events_df['x'].apply(lambda x: x >= attacking_third_threshold))
+        (events_df['x'].apply(lambda x: x >= attacking_third_threshold)) &
+        (~events_df.get('pass_length', pd.Series(dtype=float)).gt(30)) &  # Exclude long passes (>30m)
+        (~events_df.get('play_pattern', pd.Series(dtype=str)).str.contains('From', na=False))  # Exclude set pieces
     ]
     
-    # Filter defensive actions (tackles, interceptions, blocks) in the attacking third
+    # Define defensive actions, including Pressure events if specified
+    defensive_action_types = ['Tackle', 'Interception', 'Block']
+    if include_pressure and 'Pressure' in events_df['type'].unique():
+        defensive_action_types.append('Pressure')
+    
+    # Filter defensive actions in the attacking third
     defensive_actions = events_df[
-        (events_df['type'].isin(['Tackle', 'Interception', 'Block'])) &  # تغيير 'type_name' إلى 'type'
+        (events_df['type'].isin(defensive_action_types)) &
         (events_df['x'].apply(lambda x: x >= attacking_third_threshold))
     ]
     
@@ -1137,7 +1150,7 @@ def calculate_ppda(events_df, attacking_third_threshold=80):
     # Calculate PPDA for each team
     ppda_results = {}
     for team in teams:
-        # Count successful passes allowed by the opposing team (i.e., passes not by this team)
+        # Count successful passes allowed by the opposing team
         passes_allowed = passes[passes['teamName'] != team]
         num_passes = len(passes_allowed)
         
@@ -1145,13 +1158,20 @@ def calculate_ppda(events_df, attacking_third_threshold=80):
         team_defensive_actions = defensive_actions[defensive_actions['teamName'] == team]
         num_defensive_actions = len(team_defensive_actions)
         
-        # Calculate PPDA (avoid division by zero)
-        ppda = num_passes / num_defensive_actions if num_defensive_actions > 0 else float('inf')
+        # Calculate PPDA (handle zero defensive actions)
+        ppda = num_passes / num_defensive_actions if num_defensive_actions > 0 else None
+        
+        # Breakdown of defensive actions by type
+        action_breakdown = {
+            action: len(team_defensive_actions[team_defensive_actions['type'] == action])
+            for action in defensive_action_types
+        }
         
         ppda_results[team] = {
             'Passes Allowed': num_passes,
             'Defensive Actions': num_defensive_actions,
-            'PPDA': round(ppda, 2)
+            'PPDA': round(ppda, 2) if ppda is not None else None,
+            'Action Breakdown': action_breakdown
         }
     
     return ppda_results
@@ -1350,6 +1370,20 @@ with tab1:
     elif an_tp == reshape_arabic_text('PPDA'):
         st.subheader(reshape_arabic_text('معدل الضغط (PPDA)'))
         st.write(reshape_arabic_text("PPDA: عدد التمريرات الناجحة التي يسمح بها الفريق مقابل كل فعل دفاعي. القيمة الأقل تشير إلى ضغط دفاعي أقوى."))
+
+
+        # إضافة خيار لاختيار الفترة
+        period_choice = st.selectbox(
+        reshape_arabic_text('اختر الفترة:'),
+        ['Full Match', 'First Half', 'Second Half'],
+        key='ppda_period'
+        )
+        period_map = {
+        'Full Match': None,
+        'First Half': 'FirstHalf',
+        'Second Half': 'SecondHalf'
+        }
+        selected_period = period_map[period_choice]
         
         try:
             # استدعاء دالة calculate_ppda
