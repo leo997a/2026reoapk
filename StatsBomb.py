@@ -31,8 +31,8 @@ import requests
 from io import StringIO, BytesIO
 import matplotlib.font_manager as fm
 
-# إضافة الخطوط يدويًا
-font_dir = os.path.join(os.getcwd(), 'fonts')  # مسار مجلد الخطوط
+# إضافة الخطوط يدويًا من مجلد fonts
+font_dir = os.path.join(os.getcwd(), 'fonts')
 if os.path.exists(font_dir):
     for font_file in os.listdir(font_dir):
         if font_file.endswith('.ttf') or font_file.endswith('.otf'):
@@ -42,19 +42,20 @@ if os.path.exists(font_dir):
 else:
     st.warning("مجلد 'fonts' غير موجود. تأكد من إضافة ملفات الخطوط.")
 
-# تهيئة الخطوط لدعم العربية
-plt.rcParams['font.family'] = 'sans-serif'
-plt.rcParams['font.sans-serif'] = ['Tajawal', 'Cairo', 'Noto Sans Arabic', 'DejaVu Sans', 'Arial']
-plt.rcParams['axes.unicode_minus'] = False
-plt.rcParams['text.usetex'] = False
-
-# التحقق من توفر الخطوط
+# الحصول على قائمة الخطوط المتوفرة
 available_fonts = [f.name for f in fm.fontManager.ttflist]
-st.write("الخطوط المتوفرة:", available_fonts)
 
-for font in ['Tajawal', 'Cairo', 'Noto Sans Arabic']:
-    if font not in available_fonts:
-        st.warning(f"خط '{font}' غير متاح. تأكد من إضافة ملفات الخطوط إلى مجلد 'fonts'.")
+# تصفية الخطوط ذات الصلة
+filtered_fonts = [font for font in available_fonts if 'Arabic' in font or 'DejaVu' in font or 'Tajawal' in font or 'Cairo' in font]
+st.write("الخطوط المتوفرة (مرشحة):", filtered_fonts)
+
+# الخطوط المتاحة للاختيار
+font_options = ['Tajawal', 'Cairo', 'Noto Sans Arabic', 'DejaVu Sans']
+available_font_options = [font for font in font_options if font in available_fonts]
+
+if not available_font_options:
+    st.error("لم يتم العثور على أي خطوط مدعومة. تأكد من إضافة الخطوط إلى مجلد 'fonts'.")
+    available_font_options = ['DejaVu Sans']  # خط افتراضي
 
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
@@ -137,6 +138,12 @@ gradient_end = st.sidebar.color_picker(
 gradient_colors = [gradient_start, gradient_end]
 line_color = st.sidebar.color_picker(
     'لون الخطوط', '#ffffff', key='line_color_picker')
+selected_font = st.sidebar.selectbox("اختر الخط للنصوص:", available_font_options, index=0)
+
+plt.rcParams['font.family'] = 'sans-serif'
+plt.rcParams['font.sans-serif'] = [selected_font, 'DejaVu Sans', 'Arial']
+plt.rcParams['axes.unicode_minus'] = False
+plt.rcParams['text.usetex'] = False
 
 # دالة استخراج البيانات من WhoScored
 
