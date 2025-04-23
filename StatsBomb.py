@@ -640,7 +640,7 @@ def pass_network(ax, team_name, col, phase_tag, hteamName, ateamName, hgoal_coun
     score_text = reshape_arabic_text(f"{hteamName} {hgoal_count} - {agoal_count} {ateamName}")
     ax.text(34, 120, score_text, color='white', fontsize=16, ha='center', va='center', weight='bold')
     
-   teams_df = pd.read_csv('teams_name_and_id.csv')
+    teams_df = pd.read_csv('teams_name_and_id.csv')
 fotmob_team_ids = dict(zip(teams_df['teamName'], teams_df['teamId']))
 
 def normalize_team_name(team_name):
