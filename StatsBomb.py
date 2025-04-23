@@ -31,11 +31,14 @@ import requests
 from io import StringIO, BytesIO
 
 # ضبط إعدادات الهوامش الافتراضية لجميع الأشكال
-plt.rcParams['figure.autolayout'] = True  # تمكين التخطيط التلقائي
-plt.rcParams['figure.subplot.left'] = 0.03
-plt.rcParams['figure.subplot.right'] = 0.97
-plt.rcParams['figure.subplot.top'] = 0.95
-plt.rcParams['figure.subplot.bottom'] = 0.05
+plt.rcParams['figure.autolayout'] = True
+plt.rcParams['figure.subplot.left'] = 0.01
+plt.rcParams['figure.subplot.right'] = 0.99
+plt.rcParams['figure.subplot.top'] = 0.98
+plt.rcParams['figure.subplot.bottom'] = 0.02
+plt.rcParams['figure.constrained_layout.use'] = True  # استخدام constrained_layout لتقليل الهوامش
+plt.rcParams['figure.constrained_layout.h_pad'] = 0.01
+plt.rcParams['figure.constrained_layout.w_pad'] = 0.01
 
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
