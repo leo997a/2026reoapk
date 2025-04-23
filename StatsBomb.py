@@ -1404,12 +1404,25 @@ with tab1:
         selected_period = period_map[period_choice]
         
     try:
-        # استدعاء دالة calculate_ppda المحسنة
+        # استدعاء دالة calculate_ppda
         ppda_results = calculate_ppda(st.session_state.df, period=selected_period)
         ppda_df = pd.DataFrame.from_dict(ppda_results, orient='index')
         
-        # طباعة الأعمدة للتصحيح
+        # تصحيح أخطاء: عرض معلومات البيانات
+        st.subheader(reshape_arabic_text('معلومات البيانات'))
         st.write("أعمدة DataFrame:", st.session_state.df.columns.tolist())
+        st.write("عدد الأحداث الكلي:", len(st.session_state.df))
+        st.write("عدد التمريرات الناجحة في الثلث الهجومي:", len(st.session_state.df[
+            (st.session_state.df['type'] == 'Pass') &
+            (st.session_state.df['outcomeType'] == 'Successful') &
+            (st.session_state.df['x'].apply(lambda x: x >= 80))
+        ]))
+        st.write("عدد الأفعال الدفاعية في الثلث الهجومي:", len(st.session_state.df[
+            (st.session_state.df['type'].isin(['Tackle', 'Interception', 'Block', 'Ball Recovery', 'Pressure'])) &
+            (st.session_state.df['x'].apply(lambda x: x >= 80)) &
+            (st.session_state.df['outcomeType'] == 'Successful')
+        ]))
+        st.write("أنواع الأحداث المتوفرة:", st.session_state.df['type'].unique().tolist())
         
         # عرض الجدول الرئيسي
         st.subheader(reshape_arabic_text('نتائج PPDA'))
@@ -1457,6 +1470,10 @@ with tab1:
         # إضافة شبكة خفيفة
         ax.grid(True, axis='y', linestyle='--', alpha=0.3, color='white')
         
+        # إضافة خط لمتوسط PPDA في الدوري
+        ax.axhline(y=10, color='gray', linestyle='--', alpha=0.5)
+        ax.text(0, 10.5, reshape_arabic_text('متوسط PPDA في الدوري'), color='white')
+        
         # تحسين التباعد
         plt.tight_layout()
         
@@ -1465,6 +1482,3 @@ with tab1:
     
     except Exception as e:
         st.error(f"خطأ في حساب PPDA: {str(e)}")
-
-    else:
-        st.warning("يرجى تحميل بيانات المباراة والنقر على 'تحليل المباراة' لعرض التحليلات.")
