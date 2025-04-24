@@ -1122,219 +1122,172 @@ def calculate_team_ppda(
     use_extended_defs: bool = False,
     calibration_factor_low_defs: float = 0.5
 ) -> dict:
-    """
-    Calculate PPDA for a single team with customized parameters.
+    try:
+        # نسخ إطار البيانات والتحقق من الإحداثيات
+        df = events_df.copy()
+        for col in ['x', 'y']:
+            df[col] = pd.to_numeric(df[col], errors='coerce').clip(0, pitch_units if col == 'x' else 68)
+            if df[col].isna().any():
+                df = df.dropna(subset=[col])
 
-    Parameters:
-    - events_df: DataFrame containing match events.
-    - team: Team name to calculate PPDA for.
-    - region: Region for calculation ('opponent_defensive_third', etc.).
-    - custom_threshold: Custom x-coordinate threshold.
-    - pitch_units: Pitch length (default 105).
-    - period: Match period to filter.
-    - include_pressure: Include 'Pressure' events.
-    - simulate_pressure: Simulate 'Pressure' events.
-    - min_def_actions: Minimum number of defensive actions.
-    - max_pressure_distance: Maximum distance for pressure simulation.
-    - swap_sides_second_half: Swap pitch sides in second half.
-    - use_extended_defs: Include extended defensive actions.
-    - calibration_factor_low_defs: Calibration factor for low defensive actions.
+        # تصفية الفترة
+        if period:
+            df = df[df['period'] == period]
+            if df.empty:
+                st.warning(f"لا توجد بيانات للفترة {period} لفريق {team}.")
+                return {}
 
-    Returns:
-    - Dictionary with PPDA results for the team.
-    """
-    # نسخ DataFrame والتحقق من الإحداثيات
-    df = events_df.copy()
-    for col in ['x', 'y']:
-        df[col] = pd.to_numeric(df[col], errors='coerce').clip(0, pitch_units if col == 'x' else 68)
-        if df[col].isna().any():
-            df = df.dropna(subset=[col])
+        # التعامل مع تبديل الجوانب في الشوط الثاني
+        if swap_sides_second_half and not period:
+            first_half_x = df[df['period'] == 'FirstHalf']['x'].mean()
+            second_half_x = df[df['period'] == 'SecondHalf']['x'].mean()
+            if abs(first_half_x - second_half_x) > pitch_units / 3:
+                df.loc[df['period'] == 'SecondHalf', 'x'] = pitch_units - df.loc[df['period'] == 'SecondHalf', 'x']
+                df.loc[df['period'] == 'SecondHalf', 'y'] = 68 - df.loc[df['period'] == 'SecondHalf', 'y']
 
-    # تصفية الفترة
-    if period:
-        df = df[df['period'] == period]
-        if df.empty:
-            return {}
+        # تحديد الأفعال الدفاعية
+        defs = ['Tackle', 'Interception', 'BlockedPass', 'Foul', 'Challenge']
+        if include_pressure and 'Pressure' in df['type'].unique():
+            defs.append('Pressure')
+        if use_extended_defs:
+            extended_defs = ['ShieldBallOpp']
+            defs.extend([d for d in extended_defs if d in df['type'].unique()])
 
-    # التعامل مع تبديل الجوانب
-    if swap_sides_second_half and not period:
-        first_half_x = df[df['period'] == 'FirstHalf']['x'].mean()
-        second_half_x = df[df['period'] == 'SecondHalf']['x'].mean()
-        if abs(first_half_x - second_half_x) > pitch_units / 3:
-            df.loc[df['period'] == 'SecondHalf', 'x'] = pitch_units - df.loc[df['period'] == 'SecondHalf', 'x']
-            df.loc[df['period'] == 'SecondHalf', 'y'] = 68 - df.loc[df['period'] == 'SecondHalf', 'y']
+        # محاكاة أحداث الضغط
+        if simulate_pressure and 'Pressure' not in df['type'].unique():
+            passes = df[(df['type'] == 'Pass') & (df['outcomeType'] == 'Successful')]
+            potential_pressure = df[
+                (df['type'].isin(['Tackle', 'Challenge', 'Interception', 'BallRecovery'])) &
+                (df['outcomeType'] == 'Successful') &
+                (~df['qualifiers'].astype(str).str.contains('Error|Missed', na=False))
+            ]
+            pressure_count = 0
+            if not potential_pressure.empty and not passes.empty:
+                pressure_events = []
+                for _, pressure_row in potential_pressure.iterrows():
+                    relevant_passes = passes[
+                        (passes['teamName'] != pressure_row['teamName']) &
+                        (pressure_row['cumulative_mins'] >= passes['cumulative_mins']) &
+                        (pressure_row['cumulative_mins'] <= passes['cumulative_mins'] + 4/60)
+                    ]
+                    for _, pass_row in relevant_passes.iterrows():
+                        distance = ((pressure_row['x'] - pass_row['x'])**2 + (pressure_row['y'] - pass_row['y'])**2)**0.5
+                        if distance <= max_pressure_distance:
+                            pressure_event = pressure_row.copy()
+                            pressure_event['type'] = 'Pressure'
+                            pressure_events.append(pressure_event)
+                            pressure_count += 1
+                if pressure_events:
+                    pressure_df = pd.DataFrame(pressure_events)
+                    df = pd.concat([df, pressure_df[df.columns]], ignore_index=True)
+                    defs.append('Pressure')
+                    st.write(f"أحداث 'Pressure' المحاكاة لـ {team}: {str(pressure_count)}")
 
-    # تحديد الأفعال الدفاعية
-    defs = ['Tackle', 'Interception', 'BlockedPass', 'Foul', 'Challenge']
-    if include_pressure and 'Pressure' in df['type'].unique():
-        defs.append('Pressure')
-    if use_extended_defs:
-        extended_defs = ['ShieldBallOpp']
-        defs.extend([d for d in extended_defs if d in df['type'].unique()])
+        # تحديد المنطقة
+        team_id = [k for k, v in st.session_state.teams_dict.items() if v == team][0]
+        is_home_team = team_id == min(st.session_state.teams_dict.keys())
+        if region == 'opponent_defensive_third':
+            x_min = pitch_units * (2 / 3) if is_home_team else 0
+            x_max = pitch_units if is_home_team else pitch_units / 3
+        elif region == 'attacking_third':
+            x_min = pitch_units * (2 / 3)
+            x_max = pitch_units
+        elif region == 'attacking_half':
+            x_min = pitch_units / 2
+            x_max = pitch_units
+        elif region == 'attacking_60':
+            x_min = pitch_units * 0.4
+            x_max = pitch_units
+        elif region == 'whole':
+            x_min = 0
+            x_max = pitch_units
+        elif region == 'custom':
+            if custom_threshold is None:
+                raise ValueError("يجب تحديد custom_threshold.")
+            x_min = custom_threshold
+            x_max = pitch_units
+        else:
+            raise ValueError(f"المنطقة غير معروفة: {region}")
 
-    # محاكاة أحداث 'Pressure'
-    if simulate_pressure and 'Pressure' not in df['type'].unique():
-        passes = df[(df['type'] == 'Pass') & (df['outcomeType'] == 'Successful')]
-        potential_pressure = df[
-            (df['type'].isin(['Tackle', 'Challenge', 'Interception', 'BallRecovery'])) &
+        # تصفية التمريرات الناجحة
+        opponent = [t for t in df['teamName'].unique() if t != team][0]
+        passes_allowed = df[
+            (df['type'] == 'Pass') &
             (df['outcomeType'] == 'Successful') &
-            (~df['qualifiers'].str.contains('Error|Missed', na=False))
+            (df['teamName'] == opponent) &
+            (df['x'] >= x_min) &
+            (df['x'] <= x_max) &
+            (~df['qualifiers'].astype(str).str.contains('Corner|Freekick|Throwin', na=False))
         ]
-        pressure_count = 0
-        if not potential_pressure.empty and not passes.empty:
-            pressure_events = []
-            for _, pressure_row in potential_pressure.iterrows():
-                relevant_passes = passes[
-                    (passes['teamName'] != pressure_row['teamName']) &
-                    (pressure_row['cumulative_mins'] >= passes['cumulative_mins']) &
-                    (pressure_row['cumulative_mins'] <= passes['cumulative_mins'] + 4/60)
-                ]
-                for _, pass_row in relevant_passes.iterrows():
-                    distance = ((pressure_row['x'] - pass_row['x'])**2 + (pressure_row['y'] - pass_row['y'])**2)**0.5
-                    if distance <= max_pressure_distance:
-                        pressure_event = pressure_row.copy()
-                        pressure_event['type'] = 'Pressure'
-                        pressure_events.append(pressure_event)
-                        pressure_count += 1
-            if pressure_events:
-                pressure_df = pd.DataFrame(pressure_events)
-                df = pd.concat([df, pressure_df[df.columns]], ignore_index=True)
-                defs.append('Pressure')
-                st.write(f"أحداث 'Pressure' المحاكاة لـ {team}: {pressure_count}")
+        num_passes = len(passes_allowed)
+        st.write(f"الفريق: {team}, التمريرات الناجحة المسموح بها (x من {str(x_min)} إلى {str(x_max)}): {str(num_passes)}")
 
-    # تحديد المنطقة
-    team_id = [k for k, v in st.session_state.teams_dict.items() if v == team][0]
-    is_home_team = team_id == min(st.session_state.teams_dict.keys())
-    if region == 'opponent_defensive_third':
-        x_min = pitch_units * (2 / 3) if is_home_team else 0
-        x_max = pitch_units if is_home_team else pitch_units / 3
-    elif region == 'attacking_third':
-        x_min = pitch_units * (2 / 3)
-        x_max = pitch_units
-    elif region == 'attacking_half':
-        x_min = pitch_units / 2
-        x_max = pitch_units
-    elif region == 'attacking_60':
-        x_min = pitch_units * 0.4
-        x_max = pitch_units
-    elif region == 'whole':
-        x_min = 0
-        x_max = pitch_units
-    elif region == 'custom':
-        if custom_threshold is None:
-            raise ValueError("يجب تحديد custom_threshold.")
-        x_min = custom_threshold
-        x_max = pitch_units
-    else:
-        raise ValueError(f"المنطقة غير معروفة: {region}")
+        # تصفية الأفعال الدفاعية
+        defensive_actions = df[
+            (df['type'].isin(defs)) &
+            (df['teamName'] == team) &
+            (df['x'] >= x_min) &
+            (df['x'] <= x_max) &
+            (~df['qualifiers'].astype(str).str.contains('Offensive|Tactical', na=False))
+        ]
+        num_defs = len(defensive_actions)
+        st.write(f"الفريق: {team}, الأفعال الدفاعية (x من {str(x_min)} إلى {str(x_max)}): {str(num_defs)}")
 
-    # تصفية التمريرات الناجحة
-    opponent = [t for t in df['teamName'].unique() if t != team][0]
-    passes_allowed = df[
-        (df['type'] == 'Pass') &
-        (df['outcomeType'] == 'Successful') &
-        (df['teamName'] == opponent) &
-        (df['x'] >= x_min) &
-        (df['x'] <= x_max) &
-        (~df['qualifiers'].str.contains('Corner|Freekick|Throwin', na=False))
-    ]
-    num_passes = len(passes_allowed)
-    st.write(f"الفريق: {team}, التمريرات الناجحة المسموح بها (x من {x_min} إلى {x_max}): {num_passes}")
+        # حساب PPDA مع المعايرة
+        ppda = round(num_passes / num_defs, 2) if num_defs > 0 else None
+        pressure_ratio = round((num_defs / num_passes) * 100, 2) if num_passes > 0 and num_defs > 0 else None
 
-    # تصفية الأفعال الدفاعية
-    defensive_actions = df[
-        (df['type'].isin(defs)) &
-        (df['teamName'] == team) &
-        (df['x'] >= x_min) &
-        (df['x'] <= x_max) &
-        (~df['qualifiers'].str.contains('Offensive|Tactical', na=False))
-    ]
-    num_defs = len(defensive_actions)
-    st.write(f"الفريق: {team}, الأفعال الدفاعية (x من {x_min} إلى {x_max}): {num_defs}")
+        # التحقق من عدم وجود أفعال دفاعية
+        if ppda is None:
+            st.warning(f"لا يمكن حساب PPDA لفريق {team}: لا توجد أفعال دفاعية.")
+            return {
+                'Region': region,
+                'Threshold_x_min': x_min,
+                'Threshold_x_max': x_max,
+                'Passes Allowed': num_passes,
+                'Defensive Actions': num_defs,
+                'PPDA': None,
+                'Pressure Ratio (%)': None,
+                'Action Breakdown': {}
+            }
 
-    # حساب PPDA مع معايرة
-    ppda = round(num_passes / num_defs, 2) if num_defs > 0 else None
-    pressure_ratio = round((num_defs / num_passes) * 100, 2) if num_passes > 0 and num_defs > 0 else None
+        # معايرة PPDA
+        if ppda is not None:
+            if ppda > 15 or ppda < 3:
+                total_defs = len(df[(df['type'].isin(defs)) & (df['teamName'] == team)] + 1e-10)
+                region_def_ratio = num_defs / total_defs
+                calibration_factor = 1.0
+                if ppda > 15:
+                    calibration_factor = calibration_factor_low_defs if num_defs < 5 else 0.8
+                    if region_def_ratio < 0.1:
+                        calibration_factor *= 0.7
+                elif ppda < 3:
+                    calibration_factor = 1.3
+                ppda = round(ppda * calibration_factor, 2)
+                st.write(f"PPDA لفريق {team} معاير ({str(ppda)} بعد التصحيح). معامل المعايرة: {str(calibration_factor)}.")
 
-    # معايرة PPDA
-    if ppda is not None:
-        if ppda > 15 or ppda < 3:
-            total_defs = len(df[(df['type'].isin(defs)) & (df['teamName'] == team)] + 1e-10)
-            region_def_ratio = num_defs / total_defs
-            calibration_factor = 1.0
-            if ppda > 15:
-                calibration_factor = calibration_factor_low_defs if num_defs < 5 else 0.8
-                if region_def_ratio < 0.1:
-                    calibration_factor *= 0.7
-            elif ppda < 3:
-                calibration_factor = 1.3
-            ppda = round(ppda * calibration_factor, 2)
-            st.write(f"PPDA لفريق {team} معاير ({ppda} بعد التصحيح). معامل المعايرة: {calibration_factor}.")
+        # تحذير إذا كان عدد الأفعال الدفاعية قليل
+        if num_defs < 5:
+            st.write(f"تحذير: عدد الأفعال الدفاعية لفريق {team} قليل ({str(num_defs)}).")
 
-    # تحذير إذا كان عدد الأفعال منخفضًا
-    if num_defs < 5:
-        st.write(f"تحذير: عدد الأفعال الدفاعية لفريق {team} قليل ({num_defs}).")
+        # توزيع الأفعال الدفاعية
+        breakdown = {a: int((defensive_actions['type'] == a).sum()) for a in defs}
+        st.write(f"توزيع الأفعال الدفاعية لـ {team}: {str(breakdown)}")
 
-    # توزيع الأفعال الدفاعية
-    breakdown = {a: int((defensive_actions['type'] == a).sum()) for a in defs}
-    st.write(f"توزيع الأفعال الدفاعية لـ {team}: {breakdown}")
+        return {
+            'Region': region,
+            'Threshold_x_min': x_min,
+            'Threshold_x_max': x_max,
+            'Passes Allowed': num_passes,
+            'Defensive Actions': num_defs,
+            'PPDA': ppda,
+            'Pressure Ratio (%)': pressure_ratio,
+            'Action Breakdown': breakdown
+        }
 
-    return {
-        'Region': region,
-        'Threshold_x_min': x_min,
-        'Threshold_x_max': x_max,
-        'Passes Allowed': num_passes,
-        'Defensive Actions': num_defs,
-        'PPDA': ppda,
-        'Pressure Ratio (%)': pressure_ratio,
-        'Action Breakdown': breakdown
-    }
-
-def calculate_ppda_separate(
-    events_df: pd.DataFrame,
-    region: str = 'opponent_defensive_third',
-    custom_threshold: float = None,
-    pitch_units: float = 105,
-    period: str = None,
-    include_pressure: bool = True,
-    simulate_pressure: bool = True,
-    min_def_actions: int = 1,
-    max_pressure_distance: float = 5.0,
-    swap_sides_second_half: bool = True,
-    use_extended_defs: bool = False
-) -> dict:
-    """
-    Calculate PPDA for each team separately with customized parameters.
-    """
-    teams = events_df['teamName'].unique()
-    if len(teams) != 2:
-        raise ValueError(f"يتوقع وجود فريقين، تم العثور على: {teams}")
-
-    results = {}
-    for team in teams:
-        # تخصيص المعلمات لكل فريق
-        team_max_pressure_distance = max_pressure_distance
-        team_calibration_factor = 0.5
-        if team == 'Celta Vigo':  # معلمات أكثر ليونة لسيلتا فيغو
-            team_max_pressure_distance = 6.0
-            team_calibration_factor = 0.4
-        st.write(f"حساب PPDA لـ {team} باستخدام max_pressure_distance={team_max_pressure_distance}, calibration_factor_low_defs={team_calibration_factor}")
-        results[team] = calculate_team_ppda(
-            events_df,
-            team,
-            region,
-            custom_threshold,
-            pitch_units,
-            period,
-            include_pressure,
-            simulate_pressure,
-            min_def_actions,
-            team_max_pressure_distance,
-            swap_sides_second_half,
-            use_extended_defs,
-            team_calibration_factor
-        )
-    return results
+    except Exception as e:
+        st.error(f"خطأ في حساب PPDA لفريق {team}: {str(e)}")
+        return {}
 
 # واجهة Streamlit
 st.title("تحليل مباراة كرة القدم")
