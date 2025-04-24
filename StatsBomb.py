@@ -1109,9 +1109,9 @@ def attack_zones_analysis(fig, ax, hteamName, ateamName, hcol, acol, hteamID, at
 
 def calculate_ppda(
     events_df: pd.DataFrame,
-    region: str = 'attacking_third',  # الافتراضي الجديد
+    region: str = 'attacking_third',
     custom_threshold: float = None,
-    pitch_units: float = 120,
+    pitch_units: float = 105,  # ضبط لتتطابق مع التحجيم
     period: str = None,
     include_pressure: bool = True
 ) -> dict:
@@ -1127,6 +1127,10 @@ def calculate_ppda(
         * 'Pressure Ratio (%)' (Defensive Actions ÷ Passes Allowed × 100)
         * 'Action Breakdown'
     """
+    # التحقق من وجود أحداث كافية
+    if len(events_df) < 100:
+        st.warning("عدد الأحداث قليل جدًا لحساب PPDA. قد تكون النتائج غير دقيقة.")
+
     # التحقق من الأعمدة
     req = ['type', 'outcomeType', 'x', 'teamName']
     missing = [c for c in req if c not in events_df.columns]
@@ -1170,12 +1174,13 @@ def calculate_ppda(
     ]
 
     # أفعال دفاعية داخل المنطقة
-    defs = ['Tackle', 'Interception']
+    defs = ['Tackle', 'Interception', 'Challenge']
     if include_pressure and 'Pressure' in df['type'].unique():
         defs.append('Pressure')
     defensive_actions = df[df['type'].isin(defs) & (df['x'] >= x_min)]
     if defensive_actions.empty:
-        raise ValueError("No defensive actions in specified region.")
+        st.warning(f"لا توجد أفعال دفاعية في المنطقة المحددة ({region}).")
+        return {}
 
     teams = df['teamName'].unique()
     if len(teams) != 2:
@@ -1187,8 +1192,10 @@ def calculate_ppda(
         num_passes = len(passes_allowed)
         team_defs = defensive_actions[defensive_actions['teamName'] == team]
         num_defs = len(team_defs)
-        ppda = round(num_passes / num_defs, 2) if num_defs >= 5 else None
-        pressure_ratio = round((num_defs / num_passes) * 100, 2) if num_passes > 0 and num_defs >= 5 else None
+        ppda = round(num_passes / num_defs, 2) if num_defs > 0 else None
+        pressure_ratio = round((num_defs / num_passes) * 100, 2) if num_passes > 0 and num_defs > 0 else None
+        if num_defs < 5 and num_defs > 0:
+            st.warning(f"تحذير: عدد الأفعال الدفاعية لفريق {team} قليل ({num_defs})، مما قد يؤثر على دقة PPDA.")
         breakdown = {a: int((team_defs['type'] == a).sum()) for a in defs}
         results[team] = {
             'Region': region,
