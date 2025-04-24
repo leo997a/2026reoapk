@@ -1522,63 +1522,63 @@ with tab1:
                  fontsize=14, ha='center', va='center', color='white')
         st.pyplot(fig)
 
-elif an_tp == reshape_arabic_text('PPDA'):
-    st.subheader(reshape_arabic_text('معدل الضغط (PPDA)'))
-    st.write(reshape_arabic_text("PPDA: عدد التمريرات الناجحة التي يسمح بها الفريق مقابل كل فعل دفاعي في الثلث الدفاعي للخصم. القيمة الأقل تشير إلى ضغط دفاعي أقوى (عادة 5-15)."))
+    elif an_tp == reshape_arabic_text('PPDA'):
+        st.subheader(reshape_arabic_text('معدل الضغط (PPDA)'))
+        st.write(reshape_arabic_text("PPDA: عدد التمريرات الناجحة التي يسمح بها الفريق مقابل كل فعل دفاعي في الثلث الدفاعي للخصم. القيمة الأقل تشير إلى ضغط دفاعي أقوى (عادة 5-15)."))
 
-    # إضافة خيارات لتخصيص PPDA
-    period_choice = st.selectbox(
-        reshape_arabic_text('اختر الفترة:'),
-        ['Full Match', 'First Half', 'Second Half'],
-        key='ppda_period'
-    )
-    period_map = {
-        'Full Match': None,
-        'First Half': 'FirstHalf',
-        'Second Half': 'SecondHalf'
-    }
-    selected_period = period_map[period_choice]
+        # إضافة خيارات لتخصيص PPDA
+        period_choice = st.selectbox(
+            reshape_arabic_text('اختر الفترة:'),
+            ['Full Match', 'First Half', 'Second Half'],
+            key='ppda_period'
+        )
+        period_map = {
+            'Full Match': None,
+            'First Half': 'FirstHalf',
+            'Second Half': 'SecondHalf'
+        }
+        selected_period = period_map[period_choice]
 
-    region_choice = st.selectbox(
-        reshape_arabic_text('اختر المنطقة:'),
-        ['الثلث الدفاعي للخصم', 'الثلث الهجومي', 'نصف الملعب الهجومي', '60% من الملعب الهجومي', 'الملعب بأكمله'],
-        key='ppda_region'
-    )
-    region_map = {
-        'الثلث الدفاعي للخصم': 'opponent_defensive_third',
-        'الثلث الهجومي': 'attacking_third',
-        'نصف الملعب الهجومي': 'attacking_half',
-        '60% من الملعب الهجومي': 'attacking_60',
-        'الملعب بأكمله': 'whole'
-    }
-    selected_region = region_map[region_choice]
+        region_choice = st.selectbox(
+            reshape_arabic_text('اختر المنطقة:'),
+            ['الثلث الدفاعي للخصم', 'الثلث الهجومي', 'نصف الملعب الهجومي', '60% من الملعب الهجومي', 'الملعب بأكمله'],
+            key='ppda_region'
+        )
+        region_map = {
+            'الثلث الدفاعي للخصم': 'opponent_defensive_third',
+            'الثلث الهجومي': 'attacking_third',
+            'نصف الملعب الهجومي': 'attacking_half',
+            '60% من الملعب الهجومي': 'attacking_60',
+            'الملعب بأكمله': 'whole'
+        }
+       selected_region = region_map[region_choice]
 
-    simulate_pressure = st.checkbox(
+        simulate_pressure = st.checkbox(
         reshape_arabic_text('محاكاة أحداث الضغط (إذا لم تكن متوفرة)'),
-        value=True,
-        key='simulate_pressure'
-    )
+            value=True,
+            key='simulate_pressure'
+        )
 
-    max_pressure_distance = st.slider(
+        max_pressure_distance = st.slider(
         reshape_arabic_text('الحد الأقصى للمسافة لمحاكاة الضغط (بالأمتار):'),
         min_value=3.0,
         max_value=10.0,
         value=6.0,
         step=1.0,
         key='max_pressure_distance'
-    )
+        )
 
-    swap_sides = st.checkbox(
+        swap_sides = st.checkbox(
         reshape_arabic_text('تبديل الجوانب في الشوط الثاني'),
         value=True,
         key='swap_sides'
-    )
-
-    use_extended_defs = st.checkbox(
+        )
+    
+        use_extended_defs = st.checkbox(
         reshape_arabic_text('استخدام أفعال دفاعية موسعة (مثل Clearance)'),
         value=True,
         key='use_extended_defs'
-    )
+        )
 
     try:
         ppda_results = calculate_ppda(
