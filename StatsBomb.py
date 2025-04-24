@@ -29,29 +29,34 @@ import warnings
 import os
 import requests
 from io import StringIO, BytesIO
-import matplotlib.font_manager as FM
+import matplotlib.font_manager as FM  # تصحيح الاستيراد باستخدام FM
 
-
-# إضافة الخطوط يدويًا من مجلد fonts
+# إعداد مجلد الخطوط
 font_dir = os.path.join(os.getcwd(), 'fonts')
 if os.path.exists(font_dir):
     for font_file in os.listdir(font_dir):
         if font_file.endswith('.ttf') or font_file.endswith('.otf'):
             font_path = os.path.join(font_dir, font_file)
-            fm.fontManager.addfont(font_path)
-            st.write(f"تم تحميل الخط: {font_file}")
+            try:
+                FM.fontManager.addfont(font_path)  # استخدام FM بدلاً من fm
+                st.write(f"تم تحميل الخط: {font_file}")
+            except Exception as e:
+                st.warning(f"فشل تحميل الخط {font_file}: {str(e)}")
+    # تعيين عائلة الخط
+    plt.rcParams['font.family'] = 'sans-serif'
+    plt.rcParams['font.sans-serif'] = ['Tajawal', 'Cairo', 'Noto Sans Arabic', 'Amiri', 'DejaVu Sans']
 else:
     st.warning("مجلد 'fonts' غير موجود. تأكد من إضافة ملفات الخطوط.")
 
 # الحصول على قائمة الخطوط المتوفرة
-available_fonts = [f.name for f in fm.fontManager.ttflist]
+available_fonts = [f.name for f in FM.fontManager.ttflist]
 
 # تصفية الخطوط ذات الصلة
-filtered_fonts = [font for font in available_fonts if 'Arabic' in font or 'DejaVu' in font or 'Tajawal' in font or 'Cairo' in font]
+filtered_fonts = [font for font in available_fonts if any(x in font for x in ['Arabic', 'DejaVu', 'Tajawal', 'Cairo', 'Amiri'])]
 st.write("الخطوط المتوفرة (مرشحة):", filtered_fonts)
 
 # الخطوط المتاحة للاختيار
-font_options = ['Tajawal', 'Cairo', 'Noto Sans Arabic', 'DejaVu Sans']
+font_options = ['Tajawal', 'Cairo', 'Noto Sans Arabic', 'Amiri', 'DejaVu Sans']
 available_font_options = [font for font in font_options if font in available_fonts]
 
 if not available_font_options:
@@ -75,8 +80,6 @@ except Exception as e:
     fotmob_team_ids = {}
 
 # دالة لتحويل النص العربي
-
-
 def reshape_arabic_text(text):
     try:
         from arabic_reshaper import reshape
