@@ -1109,14 +1109,14 @@ def attack_zones_analysis(fig, ax, hteamName, ateamName, hcol, acol, hteamID, at
 
 def calculate_ppda(
     events_df: pd.DataFrame,
-    region: str = 'whole',  # الملعب كامل كافتراضي
+    region: str = 'attacking_third',  # الافتراضي الجديد
     custom_threshold: float = None,
     pitch_units: float = 120,
     period: str = None,
     include_pressure: bool = True
 ) -> dict:
     """
-    Calculate PPDA (Passes Per Defensive Action) and pressure ratio (%) for any football match over different pitch regions.
+    Calculate PPDA (Passes Per Defensive Action) and pressure ratio (%) for a football match.
 
     Returns:
     - Dictionary mapping team names to:
@@ -1134,6 +1134,10 @@ def calculate_ppda(
         raise ValueError(f"Missing columns: {missing}")
 
     df = events_df.copy()
+    # التحقق من قيم x
+    if df['x'].max() > pitch_units or df['x'].min() < 0:
+        raise ValueError("Invalid x coordinates.")
+
     # فلترة الفترة
     if period:
         if 'period' not in df.columns:
@@ -1164,13 +1168,9 @@ def calculate_ppda(
         (df['outcomeType'] == 'Successful') &
         (df['x'] >= x_min)
     ]
-    if 'pass_length' in df.columns:
-        passes = passes[passes['pass_length'].le(25) | passes['pass_length'].isna()]
-    if 'play_pattern' in df.columns:
-        passes = passes[~passes['play_pattern'].str.contains('From', na=False)]
 
     # أفعال دفاعية داخل المنطقة
-    defs = ['Tackle', 'Interception', 'Block', 'Ball Recovery', 'Foul Committed']
+    defs = ['Tackle', 'Interception']
     if include_pressure and 'Pressure' in df['type'].unique():
         defs.append('Pressure')
     defensive_actions = df[df['type'].isin(defs) & (df['x'] >= x_min)]
@@ -1187,8 +1187,8 @@ def calculate_ppda(
         num_passes = len(passes_allowed)
         team_defs = defensive_actions[defensive_actions['teamName'] == team]
         num_defs = len(team_defs)
-        ppda = round(num_passes / num_defs, 2) if num_defs > 0 else None
-        pressure_ratio = round((num_defs / num_passes) * 100, 2) if num_passes > 0 else None
+        ppda = round(num_passes / num_defs, 2) if num_defs >= 5 else None
+        pressure_ratio = round((num_defs / num_passes) * 100, 2) if num_passes > 0 and num_defs >= 5 else None
         breakdown = {a: int((team_defs['type'] == a).sum()) for a in defs}
         results[team] = {
             'Region': region,
