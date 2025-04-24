@@ -1479,81 +1479,83 @@ with tab1:
         }
         selected_period = period_map[period_choice]
         
-try:
-    ppda_results = calculate_ppda(st.session_state.df, period=selected_period)
-    if not ppda_results:
-        st.error("لا توجد نتائج PPDA متاحة بسبب غياب الأفعال الدفاعية.")
-    else:
-        ppda_df = pd.DataFrame.from_dict(ppda_results, orient='index')
+    try:
+        ppda_results = calculate_ppda(st.session_state.df, period=selected_period, min_def_actions=3)
+        if not ppda_results:
+            st.error("لا توجد نتائج PPDA متاحة بسبب غياب الأفعال الدفاعية أو التمريرات الناجحة.")
+        else:
+            ppda_df = pd.DataFrame.from_dict(ppda_results, orient='index')
 
-        # عرض معلومات البيانات
-        st.subheader(reshape_arabic_text('معلومات البيانات للتحقق'))
-        st.write("أعمدة DataFrame:", st.session_state.df.columns.tolist())
-        st.write("عدد الأحداث الكلي:", len(st.session_state.df))
-        st.write("أنواع الأحداث المتوفرة:", st.session_state.df['type'].unique().tolist())
-        st.write("عدد التمريرات الناجحة في الثلث الهجومي:", len(st.session_state.df[
-            (st.session_state.df['type'] == 'Pass') &
-            (st.session_state.df['outcomeType'] == 'Successful') &
-            (st.session_state.df['x'] >= 70)
-        ]))
-        st.write("عدد الأفعال الدفاعية في الثلث الهجومي:", len(st.session_state.df[
-            (st.session_state.df['type'].isin(['Tackle', 'Interception', 'Challenge', 'Pressure'])) &
-            (st.session_state.df['x'] >= 70)
-        ]))
+            # عرض معلومات البيانات
+            st.subheader(reshape_arabic_text('معلومات البيانات للتحقق'))
+            st.write("أعمدة DataFrame:", st.session_state.df.columns.tolist())
+            st.write("عدد الأحداث الكلي:", len(st.session_state.df))
+            st.write("أنواع الأحداث المتوفرة:", st.session_state.df['type'].unique().tolist())
+            st.write("عدد التمريرات الناجحة في الثلث الهجومي:", len(st.session_state.df[
+                (st.session_state.df['type'] == 'Pass') &
+                (st.session_state.df['outcomeType'] == 'Successful') &
+                (st.session_state.df['x'] >= 70)
+            ]))
+            st.write("عدد الأفعال الدفاعية في الثلث الهجومي:", len(st.session_state.df[
+                (st.session_state.df['type'].isin(['Tackle', 'Interception', 'Challenge', 'Pressure', 'BallRecovery', 'Foul'])) &
+                (st.session_state.df['x'] >= 70)
+            ]))
 
-        # عرض الجدول الرئيسي
-        st.subheader(reshape_arabic_text('نتائج PPDA'))
-        st.dataframe(ppda_df[['Passes Allowed', 'Defensive Actions', 'PPDA']], use_container_width=True)
+            # عرض الجدول الرئيسي
+            st.subheader(reshape_arabic_text('نتائج PPDA'))
+            st.dataframe(ppda_df[['Passes Allowed', 'Defensive Actions', 'PPDA', 'Pressure Ratio (%)']], use_container_width=True)
 
-        # عرض تفاصيل الأفعال الدفاعية
-        st.subheader(reshape_arabic_text('تفاصيل الأفعال الدفاعية'))
-        for team, result in ppda_results.items():
-            st.write(reshape_arabic_text(f"الفريق: {team}"))
-            action_df = pd.DataFrame.from_dict(result['Action Breakdown'], orient='index', columns=['Count'])
-            st.dataframe(action_df, use_container_width=True)
+            # عرض تفاصيل الأفعال الدفاعية
+            st.subheader(reshape_arabic_text('تفاصيل الأفعال الدفاعية'))
+            for team, result in ppda_results.items():
+                st.write(reshape_arabic_text(f"الفريق: {team}"))
+                action_df = pd.DataFrame.from_dict(result['Action Breakdown'], orient='index', columns=['Count'])
+                st.dataframe(action_df, use_container_width=True)
 
-        # إعداد الرسم البياني
-        fig, ax = plt.subplots(figsize=(10, 6), facecolor='none')
-        ax.set_facecolor('#1a1a1a')
-        colors = sns.color_palette("husl", len(ppda_df))
-        bars = ax.bar(ppda_df.index, ppda_df['PPDA'].fillna(0), color=colors, edgecolor='white', linewidth=1.5, alpha=0.9)
+            # إعداد الرسم البياني
+            fig, ax = plt.subplots(figsize=(10, 6), facecolor='none')
+            ax.set_facecolor('#1a1a1a')
+            colors = sns.color_palette("husl", len(ppda_df))
+            bars = ax.bar(ppda_df.index, ppda_df['PPDA'].fillna(0), color=colors, edgecolor='white', linewidth=1.5, alpha=0.9)
 
-        # إضافة تسميات القيم
-        for bar in bars:
-            height = bar.get_height()
-            label = f'{height:.2f}' if height > 0 else 'غير متاح'
-            ax.text(
-                bar.get_x() + bar.get_width() / 2, height + 0.5,
-                label, ha='center', va='bottom', color='white',
-                fontsize=12, fontweight='bold',
-                path_effects=[path_effects.withStroke(linewidth=2, foreground='black')]
+            # إضافة تسميات القيم
+            for bar in bars:
+                height = bar.get_height()
+                label = f'{height:.2f}' if height > 0 else 'غير متاح'
+                ax.text(
+                    bar.get_x() + bar.get_width() / 2, height + 0.5,
+                    label, ha='center', va='bottom', color='white',
+                    fontsize=12, fontweight='bold',
+                    path_effects=[path_effects.withStroke(linewidth=2, foreground='black')]
+                )
+
+            # تحسين العنوان والتسميات
+            ax.set_title(
+                reshape_arabic_text(f'معدل الضغط (PPDA) لكل فريق - {period_choice}'),
+                fontsize=16, color='white', pad=20, fontweight='bold'
             )
+            ax.set_xlabel(reshape_arabic_text('الفريق'), fontsize=12, color='white')
+            ax.set_ylabel('PPDA', fontsize=12, color='white')
 
-        # تحسين العنوان والتسميات
-        ax.set_title(
-            reshape_arabic_text(f'معدل الضغط (PPDA) لكل فريق - {period_choice}'),
-            fontsize=16, color='white', pad=20, fontweight='bold'
-        )
-        ax.set_xlabel(reshape_arabic_text('الفريق'), fontsize=12, color='white')
-        ax.set_ylabel('PPDA', fontsize=12, color='white')
+            # تحسين المحاور
+            ax.spines['top'].set_visible(False)
+            ax.spines['right'].set_visible(False)
+            ax.spines['left'].set_color('white')
+            ax.spines['bottom'].set_color('white')
+            ax.tick_params(colors='white', labelsize=10)
 
-        # تحسين المحاور
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
-        ax.spines['left'].set_color('white')
-        ax.spines['bottom'].set_color('white')
-        ax.tick_params(colors='white', labelsize=10)
+            # إضافة شبكة خفيفة
+            ax.grid(True, axis='y', linestyle='--', alpha=0.3, color='white')
 
-        # إضافة شبكة خفيفة
-        ax.grid(True, axis='y', linestyle='--', alpha=0.3, color='white')
+            # إضافة خط لمتوسط PPDA
+            ax.axhline(y=10, color='gray', linestyle='--', alpha=0.5)
+            ax.text(0, 10.5, reshape_arabic_text('متوسط PPDA في الدوري'), color='white')
 
-        # إضافة خط لمتوسط PPDA
-        ax.axhline(y=10, color='gray', linestyle='--', alpha=0.5)
-        ax.text(0, 10.5, reshape_arabic_text('متوسط PPDA في الدوري'), color='white')
+            plt.tight_layout()
+            st.pyplot(fig)
 
-        plt.tight_layout()
-        st.pyplot(fig)
+    except Exception as e:
+        st.error(f"خطأ في حساب PPDA: {str(e)}")
+        st.write("يرجى التحقق من البيانات المحملة. تأكد من أنها تحتوي على الأعمدة: type, outcomeType, x, teamName, cumulative_mins، وأن الأحداث كافية.")
 
-except Exception as e:
-    st.error(f"خطأ في حساب PPDA: {str(e)}")
-    st.write("يرجى التحقق من البيانات المحملة. تأكد من أنها تحتوي على الأعمدة: type, outcomeType, x, teamName، وأن الأحداث كافية.")
+
