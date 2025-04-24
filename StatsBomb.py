@@ -1108,7 +1108,7 @@ def attack_zones_analysis(fig, ax, hteamName, ateamName, hcol, acol, hteamID, at
     return zones, most_attacked_zone
 
 def calculate_team_ppda(
-    st.write(f"أسماء الفرق في البيانات: {df['teamName'].unique()}")
+    st.write("أسماء الفرق في البيانات: " + str(df['teamName'].unique()))
     events_df: pd.DataFrame,
     team: str,
     region: str = 'opponent_defensive_third',
