@@ -1551,7 +1551,7 @@ with tab1:
             '60% من الملعب الهجومي': 'attacking_60',
             'الملعب بأكمله': 'whole'
         }
-       selected_region = region_map[region_choice]
+        selected_region = region_map[region_choice]
 
         simulate_pressure = st.checkbox(
         reshape_arabic_text('محاكاة أحداث الضغط (إذا لم تكن متوفرة)'),
