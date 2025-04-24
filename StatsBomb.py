@@ -1380,56 +1380,6 @@ def calculate_ppda_separate(
         st.error(f"خطأ في حساب PPDA: {str(e)}")
         return {}
 
-def calculate_ppda_separate(
-    events_df: pd.DataFrame,
-    region: str = 'opponent_defensive_third',
-    custom_threshold: float = None,
-    pitch_units: float = 105,
-    period: str = None,
-    include_pressure: bool = True,
-    simulate_pressure: bool = True,
-    min_def_actions: int = 5,
-    max_pressure_distance: float = 5.0,
-    swap_sides_second_half: bool = True,
-    use_extended_defs: bool = False
-) -> dict:
-    try:
-        teams = events_df['teamName'].unique()
-        if len(teams) != 2:
-            raise ValueError(f"يتوقع وجود فريقين، تم العثور على: {teams}")
-
-        # تحديد معايير مخصصة لكل فريق (إن وجدت)
-        team_params = {
-            'Celta Vigo': {'max_pressure_distance': 5.0, 'calibration_factor': 0.7},
-            'Barcelona': {'max_pressure_distance': 5.0, 'calibration_factor': 0.7}
-        }
-
-        results = {}
-        for team in teams:
-            team_max_pressure_distance = team_params.get(team, {}).get('max_pressure_distance', max_pressure_distance)
-            team_calibration_factor = team_params.get(team, {}).get('calibration_factor', 0.7)
-            st.write(f"حساب PPDA لـ {team} باستخدام max_pressure_distance={team_max_pressure_distance}, calibration_factor_low_defs={team_calibration_factor}")
-            results[team] = calculate_team_ppda(
-                events_df,
-                team,
-                region,
-                custom_threshold,
-                pitch_units,
-                period,
-                include_pressure,
-                simulate_pressure,
-                min_def_actions,
-                team_max_pressure_distance,
-                swap_sides_second_half,
-                use_extended_defs,
-                team_calibration_factor,
-                min_pass_distance=5.0
-            )
-        return results
-    except Exception as e:
-        st.error(f"خطأ في حساب PPDA: {str(e)}")
-        return {}
-
 # واجهة Streamlit
 st.title("تحليل مباراة كرة القدم")
 uploaded_html = st.file_uploader("قم برفع ملف HTML للمباراة:", type=["html"])
