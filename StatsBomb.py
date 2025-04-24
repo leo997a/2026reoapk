@@ -1116,12 +1116,13 @@ def calculate_ppda(
     include_pressure: bool = True,
     simulate_pressure: bool = True,
     min_def_actions: int = 1,
-    max_pressure_distance: float = 8.0,
-    swap_sides_second_half: bool = True
+    max_pressure_distance: float = 6.0,  # تقليل المسافة لزيادة الدقة
+    swap_sides_second_half: bool = True,
+    use_extended_defs: bool = True  # إضافة أحداث إضافية مثل Clearance
 ) -> dict:
     """
     Calculate PPDA with enhanced accuracy, handling low defensive actions, simulating 'Pressure' events,
-    and accounting for side swaps between halves.
+    accounting for side swaps, and using extended defensive actions.
 
     Parameters:
     - events_df: DataFrame containing match events.
@@ -1134,6 +1135,7 @@ def calculate_ppda(
     - min_def_actions: Minimum number of defensive actions (lowered to 1).
     - max_pressure_distance: Maximum spatial distance for simulated pressure events (in meters).
     - swap_sides_second_half: Swap pitch sides in second half.
+    - use_extended_defs: Include additional defensive actions like Clearance and ShieldBallOpp.
 
     Returns:
     - Dictionary with PPDA results for each team.
@@ -1167,14 +1169,22 @@ def calculate_ppda(
         if df.empty:
             raise ValueError(f"لا توجد أحداث في الفترة: {period}")
 
-    # التعامل مع تبديل الجوانب في الشوط الثاني
+    # التحقق من اتجاه اللعب باستخدام متوسط إحداثيات x
     if swap_sides_second_half and not period:
-        df.loc[df['period'] == 'SecondHalf', 'x'] = pitch_units - df.loc[df['period'] == 'SecondHalf', 'x']
-        df.loc[df['period'] == 'SecondHalf', 'y'] = 68 - df.loc[df['period'] == 'SecondHalf', 'y']
-        st.write("تم تبديل إحداثيات الشوط الثاني لتعكس تغيير الجوانب.")
+        first_half_x = df[df['period'] == 'FirstHalf']['x'].mean()
+        second_half_x = df[df['period'] == 'SecondHalf']['x'].mean()
+        if abs(first_half_x - second_half_x) > pitch_units / 3:
+            df.loc[df['period'] == 'SecondHalf', 'x'] = pitch_units - df.loc[df['period'] == 'SecondHalf', 'x']
+            df.loc[df['period'] == 'SecondHalf', 'y'] = 68 - df.loc[df['period'] == 'SecondHalf', 'y']
+            st.write("تم تبديل إحداثيات الشوط الثاني بناءً على تحليل اتجاه اللعب.")
+        else:
+            st.write("لم يتم تبديل الجوانب: اتجاه اللعب متسق بين الشوطين.")
 
     # تحديد الأفعال الدفاعية
     defs = ['Tackle', 'Interception', 'BallRecovery', 'BlockedPass', 'Foul', 'Challenge']
+    if use_extended_defs:
+        extended_defs = ['Clearance', 'ShieldBallOpp']
+        defs.extend([d for d in extended_defs if d in df['type'].unique()])
     if include_pressure and 'Pressure' in df['type'].unique():
         defs.append('Pressure')
 
@@ -1183,7 +1193,7 @@ def calculate_ppda(
         st.write("محاكاة أحداث 'Pressure' باستخدام القرب الزمني والمكاني.")
         passes = df[(df['type'] == 'Pass') & (df['outcomeType'] == 'Successful')]
         potential_pressure = df[
-            (df['type'].isin(['Challenge', 'Tackle', 'Interception'])) &
+            (df['type'].isin(['Challenge', 'Tackle', 'Interception', 'BallRecovery'])) &
             (df['outcomeType'] == 'Successful') &
             (~df['qualifiers'].str.contains('Error|Missed', na=False))
         ]
@@ -1193,7 +1203,7 @@ def calculate_ppda(
                 relevant_passes = passes[
                     (passes['teamName'] != pressure_row['teamName']) &
                     (pressure_row['cumulative_mins'] >= passes['cumulative_mins']) &
-                    (pressure_row['cumulative_mins'] <= passes['cumulative_mins'] + 3/60)
+                    (pressure_row['cumulative_mins'] <= passes['cumulative_mins'] + 4/60)  # زيادة النافذة قليلاً
                 ]
                 for _, pass_row in relevant_passes.iterrows():
                     distance = ((pressure_row['x'] - pass_row['x'])**2 + (pressure_row['y'] - pass_row['y'])**2)**0.5
@@ -1265,15 +1275,20 @@ def calculate_ppda(
         num_defs = len(defensive_actions)
         st.write(f"الفريق: {team}, الأفعال الدفاعية (x من {x_min} إلى {x_max}): {num_defs}")
 
-        # حساب PPDA مع معايرة
+        # حساب PPDA مع معايرة ديناميكية
         ppda = round(num_passes / num_defs, 2) if num_defs > 0 else None
         pressure_ratio = round((num_defs / num_passes) * 100, 2) if num_passes > 0 and num_defs > 0 else None
 
-        # معايرة PPDA إذا كان مرتفعًا بشكل غير واقعي
-        if ppda is not None and ppda > 20 and num_defs < 5:
-            calibration_factor = 0.7
+        # معايرة PPDA بناءً على عدد الأفعال الدفاعية
+        if ppda is not None and ppda > 15:
+            total_defs = len(df[df['type'].isin(defs) & (df['teamName'] == team)])
+            calibration_factor = min(0.9, 1.0 - (5 - num_defs) * 0.1) if num_defs < 5 else 1.0
+            if total_defs > 0:
+                region_def_ratio = num_defs / total_defs
+                if region_def_ratio < 0.1:  # إذا كانت الأفعال في المنطقة قليلة جدًا
+                    calibration_factor *= 0.8
             ppda = round(ppda * calibration_factor, 2)
-            st.warning(f"PPDA لفريق {team} مرتفع ({ppda} بعد التصحيح). تم تطبيق معامل معايرة ({calibration_factor}) بسبب قلة الأفعال الدفاعية ({num_defs}).")
+            st.warning(f"PPDA لفريق {team} معاير ({ppda} بعد التصحيح). معامل المعايرة: {calibration_factor} بسبب قلة الأفعال الدفاعية ({num_defs}).")
 
         # تحذير إذا كان عدد الأفعال الدفاعية قليلًا
         if num_defs < 3:
@@ -1295,13 +1310,24 @@ def calculate_ppda(
 
     # تحليل توزيع الأفعال الدفاعية عبر الملعب
     st.write("توزيع الأفعال الدفاعية عبر الملعب:")
-    for third in [('الثلث الدفاعي', 0, pitch_units / 3), ('الثلث الوسطي', pitch_units / 3, pitch_units * 2 / 3), ('الثلث الهجومي', pitch_units * 2 / 3, pitch_units)]:
-        third_actions = df[
-            (df['type'].isin(defs)) &
-            (df['x'] >= third[1]) &
-            (df['x'] <= third[2])
-        ]
-        st.write(f"{third[0]} (x من {third[1]} إلى {third[2]}): {len(third_actions)} فعل دفاعي")
+    for team in teams:
+        st.write(f"الفريق: {team}")
+        for third in [('الثلث الدفاعي', 0, pitch_units / 3), ('الثلث الوسطي', pitch_units / 3, pitch_units * 2 / 3), ('الثلث الهجومي', pitch_units * 2 / 3, pitch_units)]:
+            third_actions = df[
+                (df['type'].isin(defs)) &
+                (df['teamName'] == team) &
+                (df['x'] >= third[1]) &
+                (df['x'] <= third[2])
+            ]
+            st.write(f"{third[0]} (x من {third[1]} إلى {third[2]}): {len(third_actions)} فعل دفاعي")
+
+    # تحليل إحداثيات x للتحقق من اتجاه اللعب
+    st.write("تحليل إحداثيات x للتحقق من اتجاه اللعب:")
+    for team in teams:
+        for period in ['FirstHalf', 'SecondHalf']:
+            x_values = df[(df['teamName'] == team) & (df['period'] == period)]['x']
+            if not x_values.empty:
+                st.write(f"{team} - {period}: متوسط x = {x_values.mean():.2f}, نطاق x = [{x_values.min():.2f}, {x_values.max():.2f}]")
 
     return results
 
