@@ -1116,12 +1116,13 @@ def calculate_ppda(
     include_pressure: bool = True,
     simulate_pressure: bool = True,
     min_def_actions: int = 1,
-    max_pressure_distance: float = 5.0,  # تشديد المسافة
+    max_pressure_distance: float = 5.0,
     swap_sides_second_half: bool = True,
-    use_extended_defs: bool = False  # تعطيل الأفعال الموسعة افتراضيًا
+    use_extended_defs: bool = False
 ) -> dict:
     """
-    Calculate PPDA with enhanced accuracy, stricter pressure simulation, and refined defensive actions.
+    Calculate PPDA with improved accuracy for low defensive actions, enhanced pressure simulation,
+    and dynamic calibration.
 
     Parameters:
     - events_df: DataFrame containing match events.
@@ -1184,7 +1185,7 @@ def calculate_ppda(
     if include_pressure and 'Pressure' in df['type'].unique():
         defs.append('Pressure')
     if use_extended_defs:
-        extended_defs = ['Clearance', 'ShieldBallOpp']
+        extended_defs = ['ShieldBallOpp']  # استبعاد Clearance
         defs.extend([d for d in extended_defs if d in df['type'].unique()])
 
     # محاكاة أحداث 'Pressure' إذا لزم الأمر
@@ -1192,7 +1193,7 @@ def calculate_ppda(
         st.write("محاكاة أحداث 'Pressure' باستخدام القرب الزمني والمكاني.")
         passes = df[(df['type'] == 'Pass') & (df['outcomeType'] == 'Successful')]
         potential_pressure = df[
-            (df['type'].isin(['Tackle', 'Challenge', 'Interception'])) &  # تشديد الأفعال
+            (df['type'].isin(['Tackle', 'Challenge', 'Interception', 'BallRecovery'])) &  # إضافة BallRecovery
             (df['outcomeType'] == 'Successful') &
             (~df['qualifiers'].str.contains('Error|Missed', na=False))
         ]
@@ -1203,7 +1204,7 @@ def calculate_ppda(
                 relevant_passes = passes[
                     (passes['teamName'] != pressure_row['teamName']) &
                     (pressure_row['cumulative_mins'] >= passes['cumulative_mins']) &
-                    (pressure_row['cumulative_mins'] <= passes['cumulative_mins'] + 3/60)
+                    (pressure_row['cumulative_mins'] <= passes['cumulative_mins'] + 4/60)  # زيادة النافذة
                 ]
                 for _, pass_row in relevant_passes.iterrows():
                     distance = ((pressure_row['x'] - pass_row['x'])**2 + (pressure_row['y'] - pass_row['y'])**2)**0.5
@@ -1278,21 +1279,28 @@ def calculate_ppda(
         num_defs = len(defensive_actions)
         st.write(f"الفريق: {team}, الأفعال الدفاعية (x من {x_min} إلى {x_max}): {num_defs}")
 
-        # حساب PPDA مع معايرة
+        # حساب PPDA مع معايرة ديناميكية
         ppda = round(num_passes / num_defs, 2) if num_defs > 0 else None
         pressure_ratio = round((num_defs / num_passes) * 100, 2) if num_passes > 0 and num_defs > 0 else None
 
         # معايرة PPDA
         if ppda is not None:
-            if ppda < 3 or ppda > 15:
-                calibration_factor = 1.2 if ppda < 3 else 0.8
-                if num_defs < 5:
-                    calibration_factor *= 0.9
+            if ppda > 15 or ppda < 3:
+                # حساب نسبة الأفعال الدفاعية في المنطقة مقارنة بالإجمالي
+                total_defs = len(df[(df['type'].isin(defs)) & (df['teamName'] == team)] + 1e-10)
+                region_def_ratio = num_defs / total_defs
+                calibration_factor = 1.0
+                if ppda > 15:
+                    calibration_factor = 0.5 if num_defs < 5 else 0.8  # تخفيض أقوى للأفعال القليلة
+                    if region_def_ratio < 0.1:
+                        calibration_factor *= 0.7  # تخفيض إضافي إذا كانت الأفعال مركزة خارج المنطقة
+                elif ppda < 3:
+                    calibration_factor = 1.3  # زيادة للقيم المنخفضة جدًا
                 ppda = round(ppda * calibration_factor, 2)
                 st.warning(f"PPDA لفريق {team} معاير ({ppda} بعد التصحيح). معامل المعايرة: {calibration_factor}.")
 
         # تحذير إذا كان عدد الأفعال الدفاعية قليلًا
-        if num_defs < 3:
+        if num_defs < 5:
             st.warning(f"تحذير: عدد الأفعال الدفاعية لفريق {team} قليل ({num_defs})، مما قد يؤثر على دقة PPDA.")
 
         # تفاصيل توزيع الأفعال الدفاعية
