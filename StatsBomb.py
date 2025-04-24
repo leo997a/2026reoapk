@@ -1533,104 +1533,111 @@ with tab1:
 
         # إضافة خيارات لتخصيص PPDA
         period_choice = st.selectbox(
-            reshape_arabic_text('اختر الفترة:'),
-            ['Full Match', 'First Half', 'Second Half'],
-            key='ppda_period'
-        )
-        period_map = {
-            'Full Match': None,
-            'First Half': 'FirstHalf',
-            'Second Half': 'SecondHalf'
-        }
-        selected_period = period_map[period_choice]
+        reshape_arabic_text('اختر الفترة:'),
+        ['Full Match', 'First Half', 'Second Half'],
+        key='ppda_period'
+    )
+    period_map = {
+        'Full Match': None,
+        'First Half': 'FirstHalf',
+        'Second Half': 'SecondHalf'
+    }
+    selected_period = period_map[period_choice]
 
-        region_choice = st.selectbox(
-            reshape_arabic_text('اختر المنطقة:'),
-            ['الثلث الدفاعي للخصم', 'الثلث الهجومي', 'نصف الملعب الهجومي', '60% من الملعب الهجومي', 'الملعب بأكمله'],
-            key='ppda_region'
-        )
-        region_map = {
-            'الثلث الدفاعي للخصم': 'opponent_defensive_third',
-            'الثلث الهجومي': 'attacking_third',
-            'نصف الملعب الهجومي': 'attacking_half',
-            '60% من الملعب الهجومي': 'attacking_60',
-            'الملعب بأكمله': 'whole'
-        }
-        selected_region = region_map[region_choice]
+    region_choice = st.selectbox(
+        reshape_arabic_text('اختر المنطقة:'),
+        ['الثلث الدفاعي للخصم', 'الثلث الهجومي', 'نصف الملعب الهجومي', '60% من الملعب الهجومي', 'الملعب بأكمله'],
+        index=0,
+        key='ppda_region'
+    )
+    region_map = {
+        'الثلث الدفاعي للخصم': 'opponent_defensive_third',
+        'الثلث الهجومي': 'attacking_third',
+        'نصف الملعب الهجومي': 'attacking_half',
+        '60% من الملعب الهجومي': 'attacking_60',
+        'الملعب بأكمله': 'whole'
+    }
+    selected_region = region_map[region_choice]
 
-        simulate_pressure = st.checkbox(
+    simulate_pressure = st.checkbox(
         reshape_arabic_text('محاكاة أحداث الضغط (إذا لم تكن متوفرة)'),
-            value=True,
-            key='simulate_pressure'
-        )
+        value=True,
+        key='simulate_pressure'
+    )
 
-        max_pressure_distance = st.slider(
-        reshape_arabic_text('الحد الأقصى للمسافة لمحاكاة الضغط (بالأمتار):'),
-        min_value=3.0,
-        max_value=10.0,
-        value=6.0,
-        step=1.0,
-        key='max_pressure_distance'
-        )
+    st.subheader(reshape_arabic_text('إعدادات مخصصة لكل فريق'))
+    teams = st.session_state.df['teamName'].unique()
+    team_params = {}
+    for team in teams:
+        with st.expander(reshape_arabic_text(f'إعدادات {team}')):
+            max_pressure_distance = st.slider(
+                reshape_arabic_text(f'الحد الأقصى للمسافة لمحاكاة الضغط لـ {team} (بالأمتار):'),
+                min_value=3.0,
+                max_value=10.0,
+                value=6.0 if team == 'Celta Vigo' else 5.0,
+                step=1.0,
+                key=f'max_pressure_distance_{team}'
+            )
+            calibration_factor = st.slider(
+                reshape_arabic_text(f'معامل المعايرة للأفعال القليلة لـ {team}:'),
+                min_value=0.3,
+                max_value=1.0,
+                value=0.4 if team == 'Celta Vigo' else 0.5,
+                step=0.1,
+                key=f'calibration_factor_{team}'
+            )
+            team_params[team] = {
+                'max_pressure_distance': max_pressure_distance,
+                'calibration_factor': calibration_factor
+            }
 
-        swap_sides = st.checkbox(
+    swap_sides = st.checkbox(
         reshape_arabic_text('تبديل الجوانب في الشوط الثاني'),
         value=True,
         key='swap_sides'
-        )
-    
-        use_extended_defs = st.checkbox(
-        reshape_arabic_text('استخدام أفعال دفاعية موسعة (مثل Clearance)'),
-        value=True,
+    )
+
+    use_extended_defs = st.checkbox(
+        reshape_arabic_text('استخدام أفعال دفاعية موسعة (مثل ShieldBallOpp)'),
+        value=False,
         key='use_extended_defs'
-        )
+    )
 
     try:
-        ppda_results = calculate_ppda(
-            st.session_state.df,
-            region=selected_region,
-            period=selected_period,
-            min_def_actions=1,
-            include_pressure=True,
-            simulate_pressure=simulate_pressure,
-            max_pressure_distance=max_pressure_distance,
-            swap_sides_second_half=swap_sides,
-            use_extended_defs=use_extended_defs
-        )
-        if not ppda_results:
-            st.error("لا توجد نتائج PPDA متاحة بسبب غياب الأفعال الدفاعية أو التمريرات الناجحة.")
+        results = {}
+        for team in teams:
+            st.write(f"حساب PPDA لـ {team}")
+            results[team] = calculate_team_ppda(
+                st.session_state.df,
+                team,
+                region=selected_region,
+                period=selected_period,
+                min_def_actions=1,
+                include_pressure=True,
+                simulate_pressure=simulate_pressure,
+                max_pressure_distance=team_params[team]['max_pressure_distance'],
+                swap_sides_second_half=swap_sides,
+                use_extended_defs=use_extended_defs,
+                calibration_factor_low_defs=team_params[team]['calibration_factor']
+            )
+
+        if not results:
+            st.error("لا توجد نتائج PPDA متاحة.")
         else:
-            ppda_df = pd.DataFrame.from_dict(ppda_results, orient='index')
+            ppda_df = pd.DataFrame.from_dict(results, orient='index')
 
-            # عرض معلومات البيانات
-            st.subheader(reshape_arabic_text('معلومات البيانات للتحقق'))
-            st.write("أعمدة DataFrame:", st.session_state.df.columns.tolist())
-            st.write("عدد الأحداث الكلي:", len(st.session_state.df))
-            st.write("أنواع الأحداث المتوفرة:", st.session_state.df['type'].unique().tolist())
-            st.write("عدد التمريرات الناجحة (بعد استبعاد المواقف الثابتة):", len(st.session_state.df[
-                (st.session_state.df['type'] == 'Pass') &
-                (st.session_state.df['outcomeType'] == 'Successful') &
-                (~st.session_state.df['qualifiers'].str.contains('Corner|Freekick|Throwin', na=False))
-            ]))
-            st.write("عدد الأفعال الدفاعية في البيانات:", len(st.session_state.df[
-                (st.session_state.df['type'].isin(['Tackle', 'Interception', 'BlockedPass', 'Foul', 'Challenge', 'Pressure']))
-            ]))
-
-            # عرض الجدول الرئيسي
             st.subheader(reshape_arabic_text('نتائج PPDA'))
             st.dataframe(
                 ppda_df[['Passes Allowed', 'Defensive Actions', 'PPDA', 'Pressure Ratio (%)']],
                 use_container_width=True
             )
 
-            # عرض تفاصيل الأفعال الدفاعية
             st.subheader(reshape_arabic_text('تفاصيل الأفعال الدفاعية'))
-            for team, result in ppda_results.items():
+            for team, result in results.items():
                 st.write(reshape_arabic_text(f"الفريق: {team}"))
                 action_df = pd.DataFrame.from_dict(result['Action Breakdown'], orient='index', columns=['Count'])
                 st.dataframe(action_df, use_container_width=True)
 
-            # إعداد الرسم البياني
             fig, ax = plt.subplots(figsize=(10, 6), facecolor='none')
             ax.set_facecolor('#1a1a1a')
             colors = sns.color_palette("husl", len(ppda_df))
@@ -1668,4 +1675,4 @@ with tab1:
 
     except Exception as e:
         st.error(f"خطأ في حساب PPDA: {str(e)}")
-        st.write("يرجى التحقق من البيانات المحملة. تأكد من أنها تحتوي على الأعمدة: type, outcomeType, x, y, teamName, cumulative_mins, period، وأن الأحداث كافية.")
+        st.write("يرجى التحقق من البيانات المحملة.")
