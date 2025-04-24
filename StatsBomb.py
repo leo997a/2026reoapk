@@ -1636,7 +1636,6 @@ with tab1:
                 'max_pressure_distance': max_pressure_distance,
                 'calibration_factor': calibration_factor
             }
-
     swap_sides = st.checkbox(
         reshape_arabic_text('تبديل الجوانب في الشوط الثاني'),
         value=True,
