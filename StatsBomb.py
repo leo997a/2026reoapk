@@ -1108,6 +1108,7 @@ def attack_zones_analysis(fig, ax, hteamName, ateamName, hcol, acol, hteamID, at
     return zones, most_attacked_zone
 
 def calculate_team_ppda(
+    st.write(f"أسماء الفرق في البيانات: {df['teamName'].unique()}")
     events_df: pd.DataFrame,
     team: str,
     region: str = 'opponent_defensive_third',
@@ -1149,6 +1150,8 @@ def calculate_team_ppda(
                 if 'endX' in df.columns and 'endY' in df.columns:
                     df.loc[df['period'] == 'SecondHalf', 'endX'] = pitch_units - df.loc[df['period'] == 'SecondHalf', 'endX']
                     df.loc[df['period'] == 'SecondHalf', 'endY'] = 68 - df.loc[df['period'] == 'SecondHalf', 'endY']
+
+        st.write(f"أنواع الأفعال المتاحة لـ {team}: {df[df['teamName'] == team]['type'].unique()}")
 
         # تحديد الأفعال الدفاعية
         defs = ['Tackle', 'Interception', 'BlockedPass', 'Challenge', 'BallRecovery']
@@ -1262,7 +1265,7 @@ def calculate_team_ppda(
                 ]
                 for _, pass_row in relevant_passes.iterrows():
                     distance = ((br_row['x'] - pass_row['x'])**2 + (br_row['y'] - pass_row['y'])**2)**0.5
-                    if distance <= 10.0:  # الحد الأقصى لمسافة BallRecovery
+                    if distance <= 15.0:  # الحد الأقصى لمسافة BallRecovery
                         filtered_ball_recovery.append(br_row)
                         break
             if filtered_ball_recovery:
@@ -1657,7 +1660,7 @@ for team in teams:
                 team,
                 region=selected_region,
                 period=selected_period,
-                min_def_actions=1,
+                min_def_actions=5,  # تغيير من 1 إلى 5
                 include_pressure=True,
                 simulate_pressure=simulate_pressure,
                 max_pressure_distance=team_params[team]['max_pressure_distance'],
