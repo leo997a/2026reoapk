@@ -29,34 +29,28 @@ import warnings
 import os
 import requests
 from io import StringIO, BytesIO
-import matplotlib.font_manager as FM  # تصحيح الاستيراد باستخدام FM
+import matplotlib.font_manager as fm
 
-# إعداد مجلد الخطوط
+# إضافة الخطوط يدويًا من مجلد fonts
 font_dir = os.path.join(os.getcwd(), 'fonts')
 if os.path.exists(font_dir):
     for font_file in os.listdir(font_dir):
         if font_file.endswith('.ttf') or font_file.endswith('.otf'):
             font_path = os.path.join(font_dir, font_file)
-            try:
-                FM.fontManager.addfont(font_path)  # استخدام FM بدلاً من fm
-                st.write(f"تم تحميل الخط: {font_file}")
-            except Exception as e:
-                st.warning(f"فشل تحميل الخط {font_file}: {str(e)}")
-    # تعيين عائلة الخط
-    plt.rcParams['font.family'] = 'sans-serif'
-    plt.rcParams['font.sans-serif'] = ['Tajawal', 'Cairo', 'Noto Sans Arabic', 'Amiri', 'DejaVu Sans']
+            fm.fontManager.addfont(font_path)
+            st.write(f"تم تحميل الخط: {font_file}")
 else:
     st.warning("مجلد 'fonts' غير موجود. تأكد من إضافة ملفات الخطوط.")
 
 # الحصول على قائمة الخطوط المتوفرة
-available_fonts = [f.name for f in FM.fontManager.ttflist]
+available_fonts = [f.name for f in fm.fontManager.ttflist]
 
 # تصفية الخطوط ذات الصلة
-filtered_fonts = [font for font in available_fonts if any(x in font for x in ['Arabic', 'DejaVu', 'Tajawal', 'Cairo', 'Amiri'])]
+filtered_fonts = [font for font in available_fonts if 'Arabic' in font or 'DejaVu' in font or 'Tajawal' in font or 'Cairo' in font]
 st.write("الخطوط المتوفرة (مرشحة):", filtered_fonts)
 
 # الخطوط المتاحة للاختيار
-font_options = ['Tajawal', 'Cairo', 'Noto Sans Arabic', 'Amiri', 'DejaVu Sans']
+font_options = ['Tajawal', 'Cairo', 'Noto Sans Arabic', 'DejaVu Sans']
 available_font_options = [font for font in font_options if font in available_fonts]
 
 if not available_font_options:
@@ -80,15 +74,11 @@ except Exception as e:
     fotmob_team_ids = {}
 
 # دالة لتحويل النص العربي
+
+
 def reshape_arabic_text(text):
-    try:
-        from arabic_reshaper import reshape
-        from bidi.algorithm import get_display
-        reshaped_text = reshape(text)
-        return get_display(reshaped_text)
-    except ImportError as e:
-        st.error(f"خطأ في تثبيت المكتبات: {str(e)}. يرجى تثبيت 'arabic-reshaper' و'python-bidi'.")
-        return text
+    reshaped_text = arabic_reshaper.reshape(text)
+    return get_display(reshaped_text)
 
 
 # إضافة CSS لدعم RTL
@@ -1126,33 +1116,21 @@ def calculate_team_ppda(
     period: str = None,
     include_pressure: bool = True,
     simulate_pressure: bool = True,
-    min_def_actions: int = 5,
+    min_def_actions: int = 5,  # زيادة الحد الأدنى للأفعال الدفاعية
     max_pressure_distance: float = 5.0,
     swap_sides_second_half: bool = True,
     use_extended_defs: bool = False,
-    calibration_factor_low_defs: float = 0.7,
-    min_pass_distance: float = 5.0
+    calibration_factor_low_defs: float = 0.7,  # معايرة أقل عدوانية
+    min_pass_distance: float = 5.0  # الحد الأدنى لمسافة التمريرة
 ) -> dict:
     try:
         # نسخ إطار البيانات والتحقق من الإحداثيات
         df = events_df.copy()
-        required_columns = ['x', 'y', 'type', 'teamName', 'outcomeType', 'cumulative_mins']
-        missing_columns = [col for col in required_columns if col not in df.columns]
-        if missing_columns:
-            st.error(f"الأعمدة المفقودة في البيانات: {missing_columns}")
-            return {}
-
         for col in ['x', 'y', 'endX', 'endY']:
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors='coerce').clip(0, pitch_units if col in ['x', 'endX'] else 68)
                 if df[col].isna().any():
                     df = df.dropna(subset=[col])
-
-        # التحقق من وجود الفريق
-        if team not in df['teamName'].unique():
-            st.error(f"الفريق {team} غير موجود في البيانات.")
-            return {}
-        st.write(f"أسماء الفرق في البيانات: {df['teamName'].unique()}")
 
         # تصفية الفترة
         if period:
@@ -1172,20 +1150,19 @@ def calculate_team_ppda(
                     df.loc[df['period'] == 'SecondHalf', 'endX'] = pitch_units - df.loc[df['period'] == 'SecondHalf', 'endX']
                     df.loc[df['period'] == 'SecondHalf', 'endY'] = 68 - df.loc[df['period'] == 'SecondHalf', 'endY']
 
-        # تحديد الأفعال الدفاعية
-        defs = ['Tackle', 'Interception', 'BlockedPass', 'Challenge', 'BallRecovery', 'Clearance']
+        # تحديد الأفعال الدفاعية (استبعاد Fouls غير مؤثرة)
+        defs = ['Tackle', 'Interception', 'BlockedPass', 'Challenge']
         if include_pressure and 'Pressure' in df['type'].unique():
             defs.append('Pressure')
         if use_extended_defs:
-            extended_defs = ['ShieldBallOpp']
+            extended_defs = ['ShieldBallOpp', 'BallRecovery']
             defs.extend([d for d in extended_defs if d in df['type'].unique()])
-        st.write(f"أنواع الأفعال المتاحة لـ {team}: {df[df['teamName'] == team]['type'].unique()}")
 
-        # محاكاة أحداث الضغط
+        # محاكاة أحداث الضغط (مع وزن أقل)
         if simulate_pressure and 'Pressure' not in df['type'].unique():
             passes = df[(df['type'] == 'Pass') & (df['outcomeType'] == 'Successful')]
             potential_pressure = df[
-                (df['type'].isin(['Tackle', 'Challenge', 'Interception', 'BallRecovery', 'Clearance'])) &
+                (df['type'].isin(['Tackle', 'Challenge', 'Interception', 'BallRecovery'])) &
                 (df['outcomeType'] == 'Successful') &
                 (~df['qualifiers'].astype(str).str.contains('Error|Missed', na=False))
             ]
@@ -1203,7 +1180,7 @@ def calculate_team_ppda(
                         if distance <= max_pressure_distance:
                             pressure_event = pressure_row.copy()
                             pressure_event['type'] = 'Pressure'
-                            pressure_event['pressure_weight'] = 0.2
+                            pressure_event['pressure_weight'] = 0.5  # وزن أقل للضغط المحاكى
                             pressure_events.append(pressure_event)
                             pressure_count += 1
                 if pressure_events:
@@ -1238,7 +1215,7 @@ def calculate_team_ppda(
         else:
             raise ValueError(f"المنطقة غير معروفة: {region}")
 
-        # تصفية التمريرات الناجحة
+        # تصفية التمريرات الناجحة (مع استبعاد التمريرات القصيرة)
         opponent = [t for t in df['teamName'].unique() if t != team][0]
         passes_allowed = df[
             (df['type'] == 'Pass') &
@@ -1248,32 +1225,24 @@ def calculate_team_ppda(
             (df['x'] <= x_max) &
             (~df['qualifiers'].astype(str).str.contains('Corner|Freekick|Throwin|GoalKick', na=False))
         ]
+        # حساب مسافة التمريرة إذا كانت endX/endY متوفرة
         if 'endX' in df.columns and 'endY' in df.columns:
             passes_allowed = passes_allowed.assign(
                 pass_distance=np.sqrt((passes_allowed['endX'] - passes_allowed['x'])**2 + (passes_allowed['endY'] - passes_allowed['y'])**2)
             )
             passes_allowed = passes_allowed[passes_allowed['pass_distance'] >= min_pass_distance]
-            avg_pass_distance = passes_allowed['pass_distance'].mean()
-            st.write(f"الفريق: {team}, متوسط مسافة التمريرات المسموح بها: {round(avg_pass_distance, 2)} متر")
         num_passes = len(passes_allowed)
         st.write(f"الفريق: {team}, التمريرات الناجحة المسموح بها (x من {str(x_min)} إلى {str(x_max)}): {str(num_passes)}")
 
-        # تصفية الأفعال الدفاعية
-        raw_defs = df[(df['type'].isin(defs)) & (df['teamName'] == team) & (df['outcomeType'] == 'Successful')]
-        st.write(f"عدد الأفعال الدفاعية الخام لـ {team} قبل التصفية: {len(raw_defs)}")
-
+        # تصفية الأفعال الدفاعية (مع وزن للضغط المحاكى)
         defensive_actions = df[
             (df['type'].isin(defs)) &
             (df['teamName'] == team) &
             (df['x'] >= x_min) &
             (df['x'] <= x_max) &
-            (~df['qualifiers'].astype(str).str.contains('Offensive|Tactical|Error|Missed', na=False)) &
-            (df['outcomeType'] == 'Successful')
+            (~df['qualifiers'].astype(str).str.contains('Offensive|Tactical', na=False))
         ]
-        if 'BallRecovery' in defensive_actions['type'].values:
-            # لا تصفية إضافية لـ BallRecovery مؤقتًا
-            pass
-
+        # حساب عدد الأفعال الدفاعية مع الأوزان
         if 'pressure_weight' in defensive_actions.columns:
             defensive_actions['weight'] = defensive_actions['pressure_weight'].fillna(1.0)
             num_defs = defensive_actions['weight'].sum()
@@ -1285,6 +1254,7 @@ def calculate_team_ppda(
         ppda = round(num_passes / num_defs, 2) if num_defs >= min_def_actions else None
         pressure_ratio = round((num_defs / num_passes) * 100, 2) if num_passes > 0 and num_defs >= min_def_actions else None
 
+        # التحقق من عدم وجود أفعال دفاعية كافية
         if ppda is None:
             st.warning(f"لا يمكن حساب PPDA لفريق {team}: عدد الأفعال الدفاعية قليل جدًا ({str(round(num_defs, 2))}).")
             return {
@@ -1298,25 +1268,25 @@ def calculate_team_ppda(
                 'Action Breakdown': {}
             }
 
-        # معايرة PPDA
+        # معايرة PPDA (محسنة)
         calibration_factor = 1.0
         if ppda > 15 or ppda < 5:
             total_defs = df[df['type'].isin(defs) & (df['teamName'] == team)]['weight'].sum() if 'weight' in df.columns else len(df[df['type'].isin(defs) & (df['teamName'] == team)])
             region_def_ratio = num_defs / (total_defs + 1e-10)
             if ppda > 15:
-                calibration_factor = calibration_factor_low_defs if num_defs < 10 else 0.9
+                calibration_factor = calibration_factor_low_defs if num_defs < 10 else 0.9  # معايرة أقل عدوانية
                 if region_def_ratio < 0.2:
                     calibration_factor *= 0.85
             elif ppda < 5:
-                calibration_factor = 1.7 if team == 'Barcelona' else 1.3
-                if num_defs > 50:
-                    calibration_factor *= 0.9
+                calibration_factor = 1.2  # زيادة طفيفة للقيم المنخفضة
             ppda = round(ppda * calibration_factor, 2)
             st.write(f"PPDA لفريق {team} معاير ({str(ppda)} بعد التصحيح). معامل المعايرة: {str(calibration_factor)}.")
 
+        # تحذير إذا كان عدد الأفعال الدفاعية قليل
         if num_defs < 10:
             st.write(f"تحذير: عدد الأفعال الدفاعية لفريق {team} قليل ({str(round(num_defs, 2))}).")
 
+        # توزيع الأفعال الدفاعية
         breakdown = {a: round(defensive_actions[defensive_actions['type'] == a]['weight'].sum(), 2) if 'weight' in defensive_actions.columns else int((defensive_actions['type'] == a).sum()) for a in defs}
         st.write(f"توزيع الأفعال الدفاعية لـ {team}: {str(breakdown)}")
 
@@ -1334,6 +1304,52 @@ def calculate_team_ppda(
     except Exception as e:
         st.error(f"خطأ في حساب PPDA لفريق {team}: {str(e)}")
         return {}
+
+# دالة لحساب PPDA لكلا الفريقين
+def calculate_ppda_separate(
+    events_df: pd.DataFrame,
+    region: str = 'opponent_defensive_third',
+    custom_threshold: float = None,
+    pitch_units: float = 105,
+    period: str = None,
+    include_pressure: bool = True,
+    simulate_pressure: bool = True,
+    min_def_actions: int = 5,
+    max_pressure_distance: float = 5.0,
+    swap_sides_second_half: bool = True,
+    use_extended_defs: bool = False
+) -> dict:
+    try:
+        teams = events_df['teamName'].unique()
+        if len(teams) != 2:
+            raise ValueError(f"يتوقع وجود فريقين، تم العثور على: {teams}")
+
+        results = {}
+        for team in teams:
+            team_max_pressure_distance = team_params.get(team, {}).get('max_pressure_distance', max_pressure_distance)
+            team_calibration_factor = team_params.get(team, {}).get('calibration_factor', 0.7)
+            st.write(f"حساب PPDA لـ {team} باستخدام max_pressure_distance={str(team_max_pressure_distance)}, calibration_factor_low_defs={str(team_calibration_factor)}")
+            results[team] = calculate_team_ppda(
+                events_df,
+                team,
+                region,
+                custom_threshold,
+                pitch_units,
+                period,
+                include_pressure,
+                simulate_pressure,
+                min_def_actions,
+                team_max_pressure_distance,
+                swap_sides_second_half,
+                use_extended_defs,
+                team_calibration_factor,
+                min_pass_distance=5.0
+            )
+        return results
+    except Exception as e:
+        st.error(f"خطأ في حساب PPDA: {str(e)}")
+        return {}
+
 
 # واجهة Streamlit
 st.title("تحليل مباراة كرة القدم")
@@ -1530,44 +1546,38 @@ with tab1:
         st.subheader(reshape_arabic_text('معدل الضغط (PPDA)'))
         st.write(reshape_arabic_text("PPDA: عدد التمريرات الناجحة التي يسمح بها الفريق مقابل كل فعل دفاعي في الثلث الدفاعي للخصم. القيمة الأقل تشير إلى ضغط دفاعي أقوى (عادة 5-15)."))
 
-    # إضافة خيارات لتخصيص PPDA
-    period_choice = st.selectbox(
+        # إضافة خيارات لتخصيص PPDA
+        period_choice = st.selectbox(
         reshape_arabic_text('اختر الفترة:'),
-        [reshape_arabic_text('المباراة كاملة'), reshape_arabic_text('الشوط الأول'), reshape_arabic_text('الشوط الثاني')],
+        ['Full Match', 'First Half', 'Second Half'],
         key='ppda_period'
     )
     period_map = {
-        reshape_arabic_text('المباراة كاملة'): None,
-        reshape_arabic_text('الشوط الأول'): 'FirstHalf',
-        reshape_arabic_text('الشوط الثاني'): 'SecondHalf'
+        'Full Match': None,
+        'First Half': 'FirstHalf',
+        'Second Half': 'SecondHalf'
     }
     selected_period = period_map[period_choice]
 
     region_choice = st.selectbox(
         reshape_arabic_text('اختر المنطقة:'),
-        [
-            reshape_arabic_text('الثلث الدفاعي للخصم'),
-            reshape_arabic_text('الثلث الهجومي'),
-            reshape_arabic_text('نصف الملعب الهجومي'),
-            reshape_arabic_text('60% من الملعب الهجومي'),
-            reshape_arabic_text('الملعب بأكمله')
-        ],
+        ['الثلث الدفاعي للخصم', 'الثلث الهجومي', 'نصف الملعب الهجومي', '60% من الملعب الهجومي', 'الملعب بأكمله'],
         index=0,
         key='ppda_region'
     )
     region_map = {
-        reshape_arabic_text('الثلث الدفاعي للخصم'): 'opponent_defensive_third',
-        reshape_arabic_text('الثلث الهجومي'): 'attacking_third',
-        reshape_arabic_text('نصف الملعب الهجومي'): 'attacking_half',
-        reshape_arabic_text('60% من الملعب الهجومي'): 'attacking_60',
-        reshape_arabic_text('الملعب بأكمله'): 'whole'
+        'الثلث الدفاعي للخصم': 'opponent_defensive_third',
+        'الثلث الهجومي': 'attacking_third',
+        'نصف الملعب الهجومي': 'attacking_half',
+        '60% من الملعب الهجومي': 'attacking_60',
+        'الملعب بأكمله': 'whole'
     }
     selected_region = region_map[region_choice]
 
     simulate_pressure = st.checkbox(
         reshape_arabic_text('محاكاة أحداث الضغط (إذا لم تكن متوفرة)'),
         value=True,
-        key='simulate_pressure_ppda'
+        key='simulate_pressure'
     )
 
     st.subheader(reshape_arabic_text('إعدادات مخصصة لكل فريق'))
@@ -1579,15 +1589,15 @@ with tab1:
                 reshape_arabic_text(f'الحد الأقصى للمسافة لمحاكاة الضغط لـ {team} (بالأمتار):'),
                 min_value=3.0,
                 max_value=10.0,
-                value=3.0 if team == 'Barcelona' else 6.0,
-                step=0.5,
+                value=6.0 if team == 'Celta Vigo' else 5.0,
+                step=1.0,
                 key=f'max_pressure_distance_{team}'
             )
             calibration_factor = st.slider(
                 reshape_arabic_text(f'معامل المعايرة للأفعال القليلة لـ {team}:'),
                 min_value=0.3,
                 max_value=1.0,
-                value=0.5 if team == 'Barcelona' else 0.4,
+                value=0.4 if team == 'Celta Vigo' else 0.5,
                 step=0.1,
                 key=f'calibration_factor_{team}'
             )
@@ -1599,13 +1609,13 @@ with tab1:
     swap_sides = st.checkbox(
         reshape_arabic_text('تبديل الجوانب في الشوط الثاني'),
         value=True,
-        key='swap_sides_ppda'
+        key='swap_sides'
     )
 
     use_extended_defs = st.checkbox(
         reshape_arabic_text('استخدام أفعال دفاعية موسعة (مثل ShieldBallOpp)'),
         value=False,
-        key='use_extended_defs_ppda'
+        key='use_extended_defs'
     )
 
     try:
@@ -1617,7 +1627,7 @@ with tab1:
                 team,
                 region=selected_region,
                 period=selected_period,
-                min_def_actions=5,
+                min_def_actions=1,
                 include_pressure=True,
                 simulate_pressure=simulate_pressure,
                 max_pressure_distance=team_params[team]['max_pressure_distance'],
