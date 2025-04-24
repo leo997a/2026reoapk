@@ -1610,7 +1610,7 @@ with tab1:
                 (~st.session_state.df['qualifiers'].str.contains('Corner|Freekick|Throwin', na=False))
             ]))
             st.write("عدد الأفعال الدفاعية في البيانات:", len(st.session_state.df[
-                (st.session_state.df['type'].isin(['Tackle', 'Interception', 'BallRecovery', 'BlockedPass', 'Foul', 'Challenge', 'Pressure', 'Clearance', 'ShieldBallOpp']))
+                (st.session_state.df['type'].isin(['Tackle', 'Interception', 'BlockedPass', 'Foul', 'Challenge', 'Pressure']))
             ]))
 
             # عرض الجدول الرئيسي
@@ -1633,7 +1633,6 @@ with tab1:
             colors = sns.color_palette("husl", len(ppda_df))
             bars = ax.bar(ppda_df.index, ppda_df['PPDA'].fillna(0), color=colors, edgecolor='white', linewidth=1.5, alpha=0.9)
 
-            # إضافة تسميات القيم
             for bar in bars:
                 height = bar.get_height()
                 label = f'{height:.2f}' if height > 0 else 'غير متاح'
@@ -1644,7 +1643,6 @@ with tab1:
                     path_effects=[path_effects.withStroke(linewidth=2, foreground='black')]
                 )
 
-            # تحسين العنوان والتسميات
             ax.set_title(
                 reshape_arabic_text(f'معدل الضغط (PPDA) لكل فريق - {period_choice}'),
                 fontsize=16, color='white', pad=20, fontweight='bold'
@@ -1652,17 +1650,13 @@ with tab1:
             ax.set_xlabel(reshape_arabic_text('الفريق'), fontsize=12, color='white')
             ax.set_ylabel('PPDA', fontsize=12, color='white')
 
-            # تحسين المحاور
             ax.spines['top'].set_visible(False)
             ax.spines['right'].set_visible(False)
             ax.spines['left'].set_color('white')
             ax.spines['bottom'].set_color('white')
             ax.tick_params(colors='white', labelsize=10)
 
-            # إضافة شبكة خفيفة
             ax.grid(True, axis='y', linestyle='--', alpha=0.3, color='white')
-
-            # إضافة خط لمتوسط PPDA
             ax.axhline(y=10, color='gray', linestyle='--', alpha=0.5)
             ax.text(0, 10.5, reshape_arabic_text('متوسط PPDA في الدوري'), color='white')
 
