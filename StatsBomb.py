@@ -1611,31 +1611,31 @@ with tab1:
         key='simulate_pressure'
     )
 
-    st.subheader(reshape_arabic_text('إعدادات مخصصة لكل فريق'))
-    teams = st.session_state.df['teamName'].unique()
-    team_params = {}
-    for team in teams:
-        with st.expander(reshape_arabic_text(f'إعدادات {team}')):
-            max_pressure_distance = st.slider(
-                reshape_arabic_text(f'الحد الأقصى للمسافة لمحاكاة الضغط لـ {team} (بالأمتار):'),
-                min_value=3.0,
-                max_value=10.0,
-                value=6.0 if team == 'Celta Vigo' else 5.0,
-                step=1.0,
-                key=f'max_pressure_distance_{team}'
-            )
-            calibration_factor = st.slider(
-                reshape_arabic_text(f'معامل المعايرة للأفعال القليلة لـ {team}:'),
-                min_value=0.3,
-                max_value=1.0,
-                value=0.4 if team == 'Celta Vigo' else 0.5,
-                step=0.1,
-                key=f'calibration_factor_{team}'
-            )
-            team_params[team] = {
-                'max_pressure_distance': max_pressure_distance,
-                'calibration_factor': calibration_factor
-            }
+st.subheader(reshape_arabic_text('إعدادات مخصصة لكل فريق'))
+teams = st.session_state.df['teamName'].unique()
+team_params = {}
+for team in teams:
+    with st.expander(reshape_arabic_text(f'إعدادات {team}')):
+        max_pressure_distance = st.slider(
+            reshape_arabic_text(f'الحد الأقصى للمسافة لمحاكاة الضغط لـ {team} (بالأمتار):'),
+            min_value=3.0,
+            max_value=10.0,
+            value=3.0 if team == 'Barcelona' else 6.0,  # مسافة أصغر لبرشلونة
+            step=0.5,
+            key=f'max_pressure_distance_{team}'
+        )
+        calibration_factor = st.slider(
+            reshape_arabic_text(f'معامل المعايرة للأفعال القليلة لـ {team}:'),
+            min_value=0.3,
+            max_value=1.0,
+            value=0.5 if team == 'Barcelona' else 0.4,  # قيمة أعلى لبرشلونة
+            step=0.1,
+            key=f'calibration_factor_{team}'
+        )
+        team_params[team] = {
+            'max_pressure_distance': max_pressure_distance,
+            'calibration_factor': calibration_factor
+        }
     swap_sides = st.checkbox(
         reshape_arabic_text('تبديل الجوانب في الشوط الثاني'),
         value=True,
