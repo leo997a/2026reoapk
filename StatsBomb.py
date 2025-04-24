@@ -1490,9 +1490,36 @@ with tab1:
         'Second Half': 'SecondHalf'
         }
         selected_period = period_map[period_choice]
+
+        region_choice = st.selectbox(
+        reshape_arabic_text('اختر المنطقة:'),
+        ['الثلث الدفاعي للخصم', 'الثلث الهجومي', 'نصف الملعب الهجومي', '60% من الملعب الهجومي', 'الملعب بأكمله'],
+        key='ppda_region'
+        )
+        region_map = {
+        'الثلث الدفاعي للخصم': 'opponent_defensive_third',
+        'الثلث الهجومي': 'attacking_third',
+        'نصف الملعب الهجومي': 'attacking_half',
+        '60% من الملعب الهجومي': 'attacking_60',
+        'الملعب بأكمله': 'whole'
+        }
+        selected_region = region_map[region_choice]
+
+        simulate_pressure = st.checkbox(
+        reshape_arabic_text('محاكاة أحداث الضغط (إذا لم تكن متوفرة)'),
+        value=False,
+        key='simulate_pressure'
+        )
         
     try:
-        ppda_results = calculate_ppda(st.session_state.df, period=selected_period, min_def_actions=3)
+        ppda_results = calculate_ppda(
+            st.session_state.df,
+            region=selected_region,
+            period=selected_period,
+            min_def_actions=3,
+            include_pressure=True,  # السماح بتضمين 'Pressure' إذا كانت موجودة
+            simulate_pressure=simulate_pressure
+        )
         if not ppda_results:
             st.error("لا توجد نتائج PPDA متاحة بسبب غياب الأفعال الدفاعية أو التمريرات الناجحة.")
         else:
@@ -1503,19 +1530,20 @@ with tab1:
             st.write("أعمدة DataFrame:", st.session_state.df.columns.tolist())
             st.write("عدد الأحداث الكلي:", len(st.session_state.df))
             st.write("أنواع الأحداث المتوفرة:", st.session_state.df['type'].unique().tolist())
-            st.write("عدد التمريرات الناجحة في الثلث الهجومي:", len(st.session_state.df[
+            st.write("عدد التمريرات الناجحة في البيانات:", len(st.session_state.df[
                 (st.session_state.df['type'] == 'Pass') &
-                (st.session_state.df['outcomeType'] == 'Successful') &
-                (st.session_state.df['x'] >= 70)
+                (st.session_state.df['outcomeType'] == 'Successful')
             ]))
-            st.write("عدد الأفعال الدفاعية في الثلث الهجومي:", len(st.session_state.df[
-                (st.session_state.df['type'].isin(['Tackle', 'Interception', 'Challenge', 'Pressure', 'BallRecovery', 'Foul'])) &
-                (st.session_state.df['x'] >= 70)
+            st.write("عدد الأفعال الدفاعية في البيانات:", len(st.session_state.df[
+                (st.session_state.df['type'].isin(['Tackle', 'Interception', 'BallRecovery', 'BlockedPass', 'Foul', 'Pressure']))
             ]))
 
             # عرض الجدول الرئيسي
             st.subheader(reshape_arabic_text('نتائج PPDA'))
-            st.dataframe(ppda_df[['Passes Allowed', 'Defensive Actions', 'PPDA', 'Pressure Ratio (%)']], use_container_width=True)
+            st.dataframe(
+                ppda_df[['Passes Allowed', 'Defensive Actions', 'PPDA', 'Pressure Ratio (%)']],
+                use_container_width=True
+            )
 
             # عرض تفاصيل الأفعال الدفاعية
             st.subheader(reshape_arabic_text('تفاصيل الأفعال الدفاعية'))
@@ -1569,5 +1597,3 @@ with tab1:
     except Exception as e:
         st.error(f"خطأ في حساب PPDA: {str(e)}")
         st.write("يرجى التحقق من البيانات المحملة. تأكد من أنها تحتوي على الأعمدة: type, outcomeType, x, teamName, cumulative_mins، وأن الأحداث كافية.")
-
-
