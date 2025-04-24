@@ -1114,10 +1114,10 @@ def calculate_ppda(
     pitch_units: float = 105,
     period: str = None,
     include_pressure: bool = True,
-    simulate_pressure: bool = True,  # تمكين المحاكاة افتراضيًا
-    min_def_actions: int = 1,  # تخفيف الحد الأدنى لإظهار النتائج
-    max_pressure_distance: float = 8.0,  # تقليل المسافة لزيادة الدقة
-    swap_sides_second_half: bool = True  # افتراض تبديل الجوانب في الشوط الثاني
+    simulate_pressure: bool = True,
+    min_def_actions: int = 1,
+    max_pressure_distance: float = 8.0,
+    swap_sides_second_half: bool = True
 ) -> dict:
     """
     Calculate PPDA with enhanced accuracy, handling low defensive actions, simulating 'Pressure' events,
@@ -1183,7 +1183,7 @@ def calculate_ppda(
         st.write("محاكاة أحداث 'Pressure' باستخدام القرب الزمني والمكاني.")
         passes = df[(df['type'] == 'Pass') & (df['outcomeType'] == 'Successful')]
         potential_pressure = df[
-            (df['type'].isin(['Challenge', 'Tackle', 'Interception'])) &  # أولوية للأفعال ذات الشدة العالية
+            (df['type'].isin(['Challenge', 'Tackle', 'Interception'])) &
             (df['outcomeType'] == 'Successful') &
             (~df['qualifiers'].str.contains('Error|Missed', na=False))
         ]
@@ -1193,7 +1193,7 @@ def calculate_ppda(
                 relevant_passes = passes[
                     (passes['teamName'] != pressure_row['teamName']) &
                     (pressure_row['cumulative_mins'] >= passes['cumulative_mins']) &
-                    (pressure_row['cumulative_mins'] <= passes['cumulative_mins'] + 3/60)  # تقليل النافذة الزمنية
+                    (pressure_row['cumulative_mins'] <= passes['cumulative_mins'] + 3/60)
                 ]
                 for _, pass_row in relevant_passes.iterrows():
                     distance = ((pressure_row['x'] - pass_row['x'])**2 + (pressure_row['y'] - pass_row['y'])**2)**0.5
@@ -1252,6 +1252,7 @@ def calculate_ppda(
             (~df['qualifiers'].str.contains('Corner|Freekick|Throwin', na=False))
         ]
         num_passes = len(passes_allowed)
+        st.write(f"الفريق: {team}, التمريرات الناجحة المسموح بها (x من {x_min} إلى {x_max}): {num_passes}")
 
         # تصفية الأفعال الدفاعية للفريق
         defensive_actions = df[
@@ -1259,9 +1260,10 @@ def calculate_ppda(
             (df['teamName'] == team) &
             (df['x'] >= x_min) &
             (df['x'] <= x_max) &
-            (~df['qualifiers'].str.contains('Offensive|Tactical', na=False))  # استبعاد الأخطاء غير الدفاعية
+            (~df['qualifiers'].str.contains('Offensive|Tactical', na=False))
         ]
         num_defs = len(defensive_actions)
+        st.write(f"الفريق: {team}, الأفعال الدفاعية (x من {x_min} إلى {x_max}): {num_defs}")
 
         # حساب PPDA مع معايرة
         ppda = round(num_passes / num_defs, 2) if num_defs > 0 else None
@@ -1269,9 +1271,9 @@ def calculate_ppda(
 
         # معايرة PPDA إذا كان مرتفعًا بشكل غير واقعي
         if ppda is not None and ppda > 20 and num_defs < 5:
-            calibration_factor = 0.7  # تصحيح أقوى للأفعال القليلة
+            calibration_factor = 0.7
             ppda = round(ppda * calibration_factor, 2)
-            st.warning(f"PPDA لفريق {team} مرتفع ({ppda} بعد التصحيح). تم تطبيق معامل معايرة ({cal braided_factor}) بسبب قلة الأفعال الدفاعية ({num_defs}).")
+            st.warning(f"PPDA لفريق {team} مرتفع ({ppda} بعد التصحيح). تم تطبيق معامل معايرة ({calibration_factor}) بسبب قلة الأفعال الدفاعية ({num_defs}).")
 
         # تحذير إذا كان عدد الأفعال الدفاعية قليلًا
         if num_defs < 3:
