@@ -1,29 +1,15 @@
+# ppda_app.py
 import streamlit as st
-from bs4 import BeautifulSoup
-import re
 
-st.title("📄 حساب PPDA من ملف HTML محفوظ")
+st.title("📊 حساب PPDA (Passes Per Defensive Action)")
 
-uploaded_file = st.file_uploader("قم برفع ملف HTML لصفحة المباراة من Sofascore", type="html")
+st.write("أدخل البيانات المطلوبة كما هي موجودة في Sofascore أو مصدر آخر.")
 
-if uploaded_file is not None:
-    soup = BeautifulSoup(uploaded_file, "html.parser")
-    text = soup.get_text()
+passes = st.number_input("عدد التمريرات التي قام بها الخصم في الثلث الدفاعي", min_value=0)
+actions = st.number_input("عدد الأفعال الدفاعية (اعتراضات، ضغط، تدخل...)", min_value=0)
 
-    # استخدم تعبيرات مناسبة حسب شكل النص داخل الصفحة
-    passes = re.search(r"Passes in defensive third\s*(\d+)", text)
-    actions = re.search(r"Defensive actions\s*(\d+)", text)
-
-    if passes and actions:
-        passes_val = int(passes.group(1))
-        actions_val = int(actions.group(1))
-
-        if actions_val == 0:
-            st.warning("⚠️ لا يمكن القسمة على صفر.")
-        else:
-            ppda = passes_val / actions_val
-            st.success(f"✅ PPDA = {ppda:.2f}")
-    else:
-        st.error("❌ لم يتم العثور على البيانات المطلوبة في الملف. تحقق من الكلمات المفتاحية.")
-else:
-    st.info("⬆️ الرجاء رفع ملف HTML أولاً.")
+if actions > 0:
+    ppda = passes / actions
+    st.success(f"✅ PPDA = {ppda:.2f}")
+elif passes > 0:
+    st.warning("⚠️ لا يمكن القسمة على صفر، تأكد من إدخال عدد الأفعال الدفاعية.")
