@@ -1595,23 +1595,24 @@ uploaded_json = st.file_uploader("أو قم بتحميل ملف JSON (اختيا
 if st.button("تحليل المباراة"):
     with st.spinner("جارٍ استخراج بيانات المباراة..."):
         st.session_state.json_data = None
+        # بيانات تجريبية موسعة
         st.session_state.df = pd.DataFrame({
-            'period': ['FirstHalf', 'FirstHalf', 'SecondHalf', 'SecondHalf', 'FirstHalf', 'SecondHalf'],
-            'teamName': ['TeamA', 'TeamA', 'TeamA', 'TeamB', 'TeamB', 'TeamA'],
-            'type': ['Pass', 'Pass', 'Pass', 'Goal', 'Pass', 'Carry'],
-            'outcomeType': ['Successful', 'Successful', 'Successful', 'Successful', 'Successful', 'Successful'],
-            'name': ['Player1', 'Player2', 'Player1', 'Player3', 'Player4', 'Player2'],
-            'x': [10, 20, 30, 90, 50, 40],
-            'y': [10, 20, 30, 34, 40, 50],
-            'endX': [20, 30, 40, np.nan, 60, 50],
-            'endY': [20, 30, 40, np.nan, 50, 60],
-            'qualifiers': ['', '', '', 'Goal', '', ''],
-            'shirtNo': [1, 2, 1, 3, 4, 2],
-            'position': ['DC', 'DC', 'DC', 'FW', 'MC', 'DC'],
-            'isFirstEleven': [True, True, True, True, True, True],
-            'playerId': [101, 102, 101, 103, 104, 102],
-            'isTouch': [True, True, True, True, True, True],
-            'cumulative_mins': [5, 10, 50, 60, 20, 70]
+            'period': ['FirstHalf']*10 + ['SecondHalf']*10,
+            'teamName': ['TeamA']*10 + ['TeamB']*10,
+            'type': ['Pass']*8 + ['Goal', 'Carry'] + ['Pass']*8 + ['Goal', 'Carry'],
+            'outcomeType': ['Successful']*18 + ['Successful', 'Successful'],
+            'name': ['Player1', 'Player2', 'Player1', 'Player2', 'Player1', 'Player2', 'Player1', 'Player2', 'Player3', 'Player2']*2,
+            'x': [10, 20, 30, 40, 50, 60, 70, 80, 90, 40]*2,
+            'y': [10, 20, 30, 40, 50, 60, 70, 80, 34, 50]*2,
+            'endX': [20, 30, 40, 50, 60, 70, 80, 90, np.nan, 50]*2,
+            'endY': [20, 30, 40, 50, 60, 70, 80, 90, np.nan, 60]*2,
+            'qualifiers': ['']*8 + ['Goal', ''] + ['']*8 + ['Goal', ''],
+            'shirtNo': [1, 2, 1, 2, 1, 2, 1, 2, 3, 2]*2,
+            'position': ['DC', 'DC', 'DC', 'DC', 'DC', 'DC', 'DC', 'DC', 'FW', 'DC']*2,
+            'isFirstEleven': [True]*20,
+            'playerId': [101, 102, 101, 102, 101, 102, 101, 102, 103, 102]*2,
+            'isTouch': [True]*20,
+            'cumulative_mins': [5, 10, 15, 20, 25, 30, 35, 40, 45, 50]*2
         })
         st.session_state.players_df = pd.DataFrame({
             'name': ['Player1', 'Player2', 'Player3', 'Player4'],
@@ -1623,33 +1624,33 @@ if st.button("تحليل المباراة"):
         st.session_state.teams_dict = {1: 'TeamA', 2: 'TeamB'}
         st.session_state.analysis_triggered = True
         st.success("تم تحميل البيانات التجريبية بنجاح!")
-        
+
         if uploaded_json:
             try:
                 st.session_state.json_data = json.load(uploaded_json)
+                st.session_state.df, st.session_state.teams_dict, st.session_state.players_df = get_event_data(
+                    st.session_state.json_data)
+                st.success("تم استخراج بيانات JSON بنجاح!")
             except Exception as e:
                 st.error(f"خطأ في تحميل ملف JSON: {str(e)}")
         elif uploaded_html:
             try:
                 st.session_state.json_data = extract_match_dict_from_html(uploaded_html)
+                st.session_state.df, st.session_state.teams_dict, st.session_state.players_df = get_event_data(
+                    st.session_state.json_data)
+                st.success("تم استخراج بيانات HTML بنجاح!")
             except Exception as e:
                 st.error(f"خطأ في معالجة ملف HTML: {str(e)}")
-        else:
-            st.error("يرجى رفع ملف HTML أو JSON للمباراة.")
 
-        if st.session_state.json_data:
-            st.session_state.df, st.session_state.teams_dict, st.session_state.players_df = get_event_data(
-                st.session_state.json_data)
-            st.session_state.analysis_triggered = True
-            if st.session_state.df is not None and st.session_state.teams_dict and st.session_state.players_df is not None:
-                st.success("تم استخراج البيانات بنجاح!")
-            else:
-                st.error("فشل في معالجة البيانات.")
-        else:
-            st.error("فشل في جلب بيانات المباراة.")
+# التحقق من شروط العرض
+if st.session_state.analysis_triggered:
+    st.write("تم تفعيل التحليل: صحيح")
+else:
+    st.write("تم تفعيل التحليل: خطأ")
+st.write(f"إطار البيانات فارغ: {st.session_state.df.empty}")
+st.write(f"قاموس الفرق موجود: {bool(st.session_state.teams_dict)}")
+st.write(f"إطار بيانات اللاعبين فارغ: {st.session_state.players_df.empty}")
 
-# عرض التحليل فقط إذا تم استخراج البيانات
-# عرض التحليل فقط إذا تم استخراج البيانات
 if st.session_state.analysis_triggered and not st.session_state.df.empty and st.session_state.teams_dict and not st.session_state.players_df.empty:
     hteamID = list(st.session_state.teams_dict.keys())[0]
     ateamID = list(st.session_state.teams_dict.keys())[1]
@@ -1658,28 +1659,11 @@ if st.session_state.analysis_triggered and not st.session_state.df.empty and st.
 
     homedf = st.session_state.df[(st.session_state.df['teamName'] == hteamName)]
     awaydf = st.session_state.df[(st.session_state.df['teamName'] == ateamName)]
-    hxT = homedf['xT'].sum().round(2) if 'xT' in homedf.columns else 0
-    axT = awaydf['xT'].sum().round(2) if 'xT' in awaydf.columns else 0
-
-    hgoal_count = len(homedf[(homedf['teamName'] == hteamName) & 
-                             (homedf['type'] == 'Goal') & 
-                             (~homedf['qualifiers'].str.contains('OwnGoal', na=False))])
-    agoal_count = len(awaydf[(awaydf['teamName'] == ateamName) & 
-                             (awaydf['type'] == 'Goal') & 
-                             (~awaydf['qualifiers'].str.contains('OwnGoal', na=False))])
-    hgoal_count += len(awaydf[(awaydf['teamName'] == ateamName) & 
-                              (awaydf['type'] == 'Goal') & 
-                              (awaydf['qualifiers'].str.contains('OwnGoal', na=False))])
-    agoal_count += len(homedf[(homedf['teamName'] == hteamName) & 
-                              (homedf['type'] == 'Goal') & 
-                              (homedf['qualifiers'].str.contains('OwnGoal', na=False))])
-
-    hftmb_tid = fotmob_team_ids.get(hteamName, 0)
-    aftmb_tid = fotmob_team_ids.get(ateamName, 0)
+    hgoal_count = len(homedf[(homedf['type'] == 'Goal') & (~homedf['qualifiers'].str.contains('OwnGoal', na=False))])
+    agoal_count = len(awaydf[(awaydf['type'] == 'Goal') & (~awaydf['qualifiers'].str.contains('OwnGoal', na=False))])
 
     st.header(f'{hteamName} {hgoal_count} - {agoal_count} {ateamName}')
 
-    # علامات التبويب
     try:
         tab1, tab2, tab3, tab4 = st.tabs(
             ['تحليل الفريق', 'تحليل اللاعبين', 'إحصائيات المباراة', 'أفضل اللاعبين'])
@@ -1687,52 +1671,19 @@ if st.session_state.analysis_triggered and not st.session_state.df.empty and st.
         st.error(f"خطأ في إنشاء التبويبات: {str(e)}")
         st.stop()
 
-with tab1:
-    an_tp = st.selectbox('نوع التحليل:', [
-        'شبكة التمريرات',
-        'مناطق الهجوم',
-        'Defensive Actions Heatmap',
-        'Progressive Passes',
-        'Progressive Carries',
-        'Shotmap',
-        'إحصائيات الحراس',
-        'Match Momentum',
-        reshape_arabic_text('Zone14 & Half-Space Passes'),
-        reshape_arabic_text('Final Third Entries'),
-        reshape_arabic_text('Box Entries'),
-        reshape_arabic_text('High-Turnovers'),
-        reshape_arabic_text('Chances Creating Zones'),
-        reshape_arabic_text('Crosses'),
-        reshape_arabic_text('Team Domination Zones'),
-        reshape_arabic_text('Pass Target Zones'),
-        'Attacking Thirds',
-        reshape_arabic_text('PPDA')
-    ], index=0, key='analysis_type')
-
-    if an_tp == 'شبكة التمريرات':
-        st.subheader('شبكة التمريرات')
-        team_choice = st.selectbox('اختر الفريق:', [hteamName, ateamName], key='team_choice')
-        phase_tag = st.selectbox('اختر الفترة:', ['Full Time', 'First Half', 'Second Half'], key='phase_tag')
-        
-        # إنشاء الرسم
-        fig, ax = plt.subplots(figsize=(10, 10), facecolor=bg_color, dpi=150)
-        
-        # استدعاء pass_network
-        try:
+    with tab1:
+        an_tp = st.selectbox('نوع التحليل:', ['شبكة التمريرات', 'مناطق الهجوم', 'مناطق سيطرة الفريق', 'PPDA'], key='analysis_type')
+        if an_tp == 'شبكة التمريرات':
+            st.subheader('شبكة التمريرات')
+            team_choice = st.selectbox('اختر الفريق:', [hteamName, ateamName], key='team_choice')
+            phase_tag = st.selectbox('اختر الفترة:', ['Full Time', 'First Half', 'Second Half'], key='phase_tag')
+            fig, ax = plt.subplots(figsize=(10, 10), facecolor=bg_color, dpi=150)
             pass_btn = pass_network(
-                ax,
-                team_choice,
-                hcol if team_choice == hteamName else acol,
-                phase_tag,
-                hteamName,
-                ateamName,
-                hgoal_count,
-                agoal_count,
-                hteamID,
-                ateamID
+                ax, team_choice, hcol if team_choice == hteamName else acol, phase_tag,
+                hteamName, ateamName, hgoal_count, agoal_count, hteamID, ateamID
             )
             st.pyplot(fig)
-            if pass_btn is not None and not pass_btn.empty:
+            if not pass_btn.empty:
                 st.dataframe(pass_btn, hide_index=True)
             else:
                 st.warning("لا توجد بيانات تمريرات للعرض.")
