@@ -1499,11 +1499,11 @@ with tab1:
         st.pyplot(fig)
 
     elif an_tp == reshape_arabic_text('PPDA'):
-        st.subheader(reshape_arabic_text('معدل الضغط (PPDA)'))
-        st.write(reshape_arabic_text("PPDA: عدد التمريرات الناجحة التي يسمح بها الفريق مقابل كل فعل دفاعي في الثلث الدفاعي للخصم. القيمة الأقل تشير إلى ضغط دفاعي أقوى (عادة 5-15)."))
+    st.subheader(reshape_arabic_text('معدل الضغط (PPDA)'))
+    st.write(reshape_arabic_text("PPDA: عدد التمريرات الناجحة التي يسمح بها الفريق مقابل كل فعل دفاعي في الثلث الدفاعي للخصم. القيمة الأقل تشير إلى ضغط دفاعي أقوى (عادة 5-15)."))
 
-        # إضافة خيارات لتخصيص PPDA
-        period_choice = st.selectbox(
+    # اختيار الفترة
+    period_choice = st.selectbox(
         reshape_arabic_text('اختر الفترة:'),
         ['Full Match', 'First Half', 'Second Half'],
         key='ppda_period'
@@ -1515,81 +1515,19 @@ with tab1:
     }
     selected_period = period_map[period_choice]
 
-    region_choice = st.selectbox(
-        reshape_arabic_text('اختر المنطقة:'),
-        ['الثلث الدفاعي للخصم', 'الثلث الهجومي', 'نصف الملعب الهجومي', '60% من الملعب الهجومي', 'الملعب بأكمله'],
-        index=0,
-        key='ppda_region'
-    )
-    region_map = {
-        'الثلث الدفاعي للخصم': 'opponent_defensive_third',
-        'الثلث الهجومي': 'attacking_third',
-        'نصف الملعب الهجومي': 'attacking_half',
-        '60% من الملعب الهجومي': 'attacking_60',
-        'الملعب بأكمله': 'whole'
-    }
-    selected_region = region_map[region_choice]
-
-    simulate_pressure = st.checkbox(
-        reshape_arabic_text('محاكاة أحداث الضغط (إذا لم تكن متوفرة)'),
-        value=True,
-        key='simulate_pressure'
-    )
-
-    st.subheader(reshape_arabic_text('إعدادات مخصصة لكل فريق'))
-    teams = st.session_state.df['teamName'].unique()
-    team_params = {}
-    for team in teams:
-        with st.expander(reshape_arabic_text(f'إعدادات {team}')):
-            max_pressure_distance = st.slider(
-                reshape_arabic_text(f'الحد الأقصى للمسافة لمحاكاة الضغط لـ {team} (بالأمتار):'),
-                min_value=3.0,
-                max_value=10.0,
-                value=6.0 if team == 'Celta Vigo' else 5.0,
-                step=1.0,
-                key=f'max_pressure_distance_{team}'
-            )
-            calibration_factor = st.slider(
-                reshape_arabic_text(f'معامل المعايرة للأفعال القليلة لـ {team}:'),
-                min_value=0.3,
-                max_value=1.0,
-                value=0.4 if team == 'Celta Vigo' else 0.5,
-                step=0.1,
-                key=f'calibration_factor_{team}'
-            )
-            team_params[team] = {
-                'max_pressure_distance': max_pressure_distance,
-                'calibration_factor': calibration_factor
-            }
-
-    swap_sides = st.checkbox(
-        reshape_arabic_text('تبديل الجوانب في الشوط الثاني'),
-        value=True,
-        key='swap_sides'
-    )
-
-    use_extended_defs = st.checkbox(
-        reshape_arabic_text('استخدام أفعال دفاعية موسعة (مثل ShieldBallOpp)'),
-        value=False,
-        key='use_extended_defs'
-    )
-
     try:
         results = {}
+        teams = st.session_state.df['teamName'].unique()
         for team in teams:
             st.write(f"حساب PPDA لـ {team}")
             results[team] = calculate_team_ppda(
-                st.session_state.df,
-                team,
-                region=selected_region,
+                events_df=st.session_state.df,
+                team=team,
+                region='opponent_defensive_third',
                 period=selected_period,
-                min_def_actions=1,
-                include_pressure=True,
-                simulate_pressure=simulate_pressure,
-                max_pressure_distance=team_params[team]['max_pressure_distance'],
-                swap_sides_second_half=swap_sides,
-                use_extended_defs=use_extended_defs,
-                calibration_factor_low_defs=team_params[team]['calibration_factor']
+                pitch_units=105,
+                min_def_actions=5,
+                min_pass_distance=5.0
             )
 
         if not results:
@@ -1609,6 +1547,7 @@ with tab1:
                 action_df = pd.DataFrame.from_dict(result['Action Breakdown'], orient='index', columns=['Count'])
                 st.dataframe(action_df, use_container_width=True)
 
+            # رسم الرسم البياني
             fig, ax = plt.subplots(figsize=(10, 6), facecolor='none')
             ax.set_facecolor('#1a1a1a')
             colors = sns.color_palette("husl", len(ppda_df))
