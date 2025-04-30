@@ -1,30 +1,15 @@
-import requests
-from bs4 import BeautifulSoup
+# ppda_app.py
+import streamlit as st
 
-# تحميل الصفحة مباشرة باستخدام requests (إذا كنت تفضل عدم تحميل HTML يدويًا)
-url = "https://www.sofascore.com/ar/football/match/wqf1-wqf2/RsUH#id:13513415"
-headers = {
-    "User-Agent": "Mozilla/5.0"
-}
+st.title("📊 حساب PPDA (Passes Per Defensive Action)")
 
-response = requests.get(url, headers=headers)
-if response.status_code != 200:
-    print("❌ فشل تحميل الصفحة")
-    exit()
+st.write("أدخل البيانات المطلوبة كما هي موجودة في Sofascore أو مصدر آخر.")
 
-# تحليل HTML
-soup = BeautifulSoup(response.content, 'html.parser')
+passes = st.number_input("عدد التمريرات التي قام بها الخصم في الثلث الدفاعي", min_value=0)
+actions = st.number_input("عدد الأفعال الدفاعية (اعتراضات، ضغط، تدخل...)", min_value=0)
 
-# ابحث عن التمريرات والأفعال الدفاعية داخل الصفحة
-# ستحتاج هنا إلى تحديد العناصر المناسبة بناءً على هيكل HTML الخاص بالصفحة
-# كمثال، نحن نبحث عن العناصر التي تحتوي على إحصائيات التمريرات والأفعال الدفاعية
-
-# مثال للبحث عن النصوص (يجب تعديل الـ CSS selectors أو الـ class names حسب هيكل الصفحة)
-passes_in_defensive_third = soup.find('div', class_='pass-class')  # استبدل بالـ class الفعلي
-defensive_actions = soup.find('div', class_='defensive-actions-class')  # استبدل بالـ class الفعلي
-
-if passes_in_defensive_third and defensive_actions:
-    print(f"التمريرات في الثلث الدفاعي: {passes_in_defensive_third.text.strip()}")
-    print(f"الأفعال الدفاعية: {defensive_actions.text.strip()}")
-else:
-    print("❌ لم يتم العثور على الإحصائيات المطلوبة.")
+if actions > 0:
+    ppda = passes / actions
+    st.success(f"✅ PPDA = {ppda:.2f}")
+elif passes > 0:
+    st.warning("⚠️ لا يمكن القسمة على صفر، تأكد من إدخال عدد الأفعال الدفاعية.")
