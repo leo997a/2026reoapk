@@ -1,31 +1,15 @@
-import requests
-from bs4 import BeautifulSoup
+# ppda_app.py
+import streamlit as st
 
-def extract_ppda(sofa_url):
-    headers = {
-        "User-Agent": "Mozilla/5.0"
-    }
+st.title("📊 حساب PPDA (Passes Per Defensive Action)")
 
-    response = requests.get(sofa_url, headers=headers)
-    if response.status_code != 200:
-        print("فشل في تحميل الصفحة.")
-        return
+st.write("أدخل البيانات المطلوبة كما هي موجودة في Sofascore أو مصدر آخر.")
 
-    soup = BeautifulSoup(response.content, 'html.parser')
-    
-    # هذا يعتمد على هيكل الصفحة - ستحتاج إلى تحديثه حسب البيانات الدقيقة في صفحة Sofascore
-    # هذا كود مبدأي يبحث عن إحصائيات التمريرات والأفعال الدفاعية
-    
-    stats = soup.find_all('div', class_='sc-...')
-    # هنا تستخرج الإحصائيات من الصفحة - نحتاج لتحديد المسارات الصحيحة من الصفحة يدويًا أو باستخدام أدوات devtools
+passes = st.number_input("عدد التمريرات التي قام بها الخصم في الثلث الدفاعي", min_value=0)
+actions = st.number_input("عدد الأفعال الدفاعية (اعتراضات، ضغط، تدخل...)", min_value=0)
 
-    # بديل أفضل: إذا كنت تملك بيانات مثل:
-    passes_in_defensive_third = 85  # مثال
-    defensive_actions = 10          # مثال
-
-    ppda = passes_in_defensive_third / defensive_actions if defensive_actions > 0 else None
-    print(f"PPDA = {ppda}")
-
-# مثال:
-match_url = "https://www.sofascore.com/match/..."
-extract_ppda(match_url)
+if actions > 0:
+    ppda = passes / actions
+    st.success(f"✅ PPDA = {ppda:.2f}")
+elif passes > 0:
+    st.warning("⚠️ لا يمكن القسمة على صفر، تأكد من إدخال عدد الأفعال الدفاعية.")
