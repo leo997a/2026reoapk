@@ -13,9 +13,9 @@ if uploaded_file is not None:
     soup = BeautifulSoup(uploaded_file, "html.parser")
     page_text = soup.get_text()
 
-    # 👇 ابحث عن القيم بالنص (عدّل العبارات حسب ما تجده في الصفحة)
-    passes_match = re.search(r"Passes in defensive third\s*(\d+)", page_text)
-    actions_match = re.search(r"Defensive actions\s*(\d+)", page_text)
+    # تعديل عبارات البحث حسب النصوص الفعلية التي تجدها في الملف
+    passes_match = re.search(r"التمريرات في الثلث الدفاعي\s*(\d+)", page_text)  # مثال للغة العربية
+    actions_match = re.search(r"الأفعال الدفاعية\s*(\d+)", page_text)  # مثال للغة العربية
 
     if passes_match and actions_match:
         passes = int(passes_match.group(1))
@@ -27,6 +27,6 @@ if uploaded_file is not None:
             ppda = passes / actions
             st.success(f"✅ PPDA = {ppda:.2f}")
     else:
-        st.error("❌ لم يتم العثور على البيانات المطلوبة. تأكد من أن الملف يحتوي على 'Passes in defensive third' و 'Defensive actions'.")
+        st.error("❌ لم يتم العثور على البيانات المطلوبة. تأكد من أن الملف يحتوي على 'التمريرات في الثلث الدفاعي' و 'الأفعال الدفاعية'.")
 else:
     st.info("⬆️ الرجاء رفع ملف HTML أولاً.")
