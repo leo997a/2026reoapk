@@ -1706,10 +1706,10 @@ if st.session_state.analysis_triggered and not st.session_state.df.empty and st.
             st.dataframe(attack_summary, hide_index=True)
 
 
-    elif an_tp == reshape_arabic_text('Team Domination Zones'):
-        st.subheader(reshape_arabic_text('مناطق سيطرة الفريق'))
-        phase_tag = st.selectbox(
-            'اختر الفترة:', ['Full Time', 'First Half', 'Second Half'], key='phase_tag_domination')
+        elif an_tp == reshape_arabic_text('Team Domination Zones'):
+            st.subheader(reshape_arabic_text('مناطق سيطرة الفريق'))
+            phase_tag = st.selectbox(
+                'اختر الفترة:', ['Full Time', 'First Half', 'Second Half'], key='phase_tag_domination')
         fig, ax = plt.subplots(figsize=(12, 8), facecolor=bg_color)
         team_domination_zones(
             ax,
