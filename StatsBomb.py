@@ -1122,7 +1122,7 @@ def calculate_team_ppda(
     pitch_units: float = 105,
     period: str = None,
     min_def_actions: int = 3,
-    min_pass_distance: float = 2.0  # تخفيف شرط المسافة
+    min_pass_distance: float = 2.0  # شرط مسافة مخفف
 ) -> dict:
     try:
         # نسخ إطار البيانات والتحقق من الإحداثيات
@@ -1241,11 +1241,11 @@ def calculate_team_ppda(
                 pressure_events = []
                 for _, pressure_row in potential_pressure.iterrows():
                     relevant_passes = passes[
-                        (abs(pressure_row['cumulative_mins'] - passes['cumulative_mins']) <= 8/60) &  # نطاق زمني أوسع
+                        (abs(pressure_row['cumulative_mins'] - passes['cumulative_mins']) <= 8/60) &  # نطاق زمني 8 ثوانٍ
                         (((pressure_row['x'] - passes['x'])**2 + (pressure_row['y'] - passes['y'])**2)**0.5 <= avg_distance * 3.0)  # نطاق مسافة أوسع
                     ]
                     for _, pass_row in relevant_passes.iterrows():
-                        if pressure_count < 12:  # حد أقصى لأحداث Pressure
+                        if pressure_count < 12:  # حد أقصى 12 حدث Pressure
                             pressure_event = pressure_row.copy()
                             pressure_event['type'] = 'Pressure'
                             if high_press_ratio > 0.3:
@@ -1271,7 +1271,7 @@ def calculate_team_ppda(
             (df['teamName'] == opponent) &
             (df['x'] >= x_min) &
             (df['x'] <= x_max) &
-            (~df['qualifiers'].astype(str).str.contains('Corner|Freekick|Throwin|GoalKick|KickOff', na=False))
+            (~df['qualifiers'].astype(str).str.contains('Corner|Freekick|Throwin|GoalKick|KickOff', na=False))  # بدون شرط Longball
         ]
         if 'endX' in df.columns and 'endY' in df.columns:
             passes_allowed = passes_allowed.assign(
@@ -1323,7 +1323,7 @@ def calculate_team_ppda(
             st.warning(f"PPDA غير منطقي لفريق {team} ({round(ppda, 2)}). يرجى التحقق من عدد التمريرات أو الأفعال الدفاعية.")
         st.write(f"PPDA الخام لفريق {team}: {round(ppda, 2)}")
 
-        # معايرة ذكية
+        # معايرة ديناميكية
         calibration_factor = 1.0
         total_defs = df[df['type'].isin(defs) & (df['teamName'] == team)]['weight'].sum() if 'weight' in df.columns else len(df[df['type'].isin(defs) & (df['teamName'] == team)])
         region_def_ratio = num_defs / (total_defs + 1e-10)
