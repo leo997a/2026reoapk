@@ -1,32 +1,32 @@
+import streamlit as st
 from bs4 import BeautifulSoup
+import re
 
-def extract_ppda_from_html(file_path):
-    with open(file_path, "r", encoding="utf-8") as file:
-        soup = BeautifulSoup(file, "html.parser")
+st.set_page_config(page_title="PPDA Extractor", layout="centered")
+st.title("📊 حساب PPDA من ملف HTML محفوظ")
 
-    # هنا تحتاج لتعديل المسارات بناءً على هيكل الصفحة الفعلي
-    # سنبحث عن التمريرات في الثلث الدفاعي للفريق (مثلاً)
-    # ومجمل الأفعال الدفاعية مثل interceptions, tackles, pressures
-    
-    # مثال: نبحث عن div أو span يحتوي على النصوص
-    all_text = soup.get_text()
+st.write("🔽 قم برفع ملف HTML المحفوظ من صفحة مباراة Sofascore:")
 
-    # ثم نستخرج منها الأرقام (ستحتاج لضبط هذا حسب اللغة والمصدر)
-    import re
+uploaded_file = st.file_uploader("اختر ملف HTML", type="html")
 
-    try:
-        passes = int(re.search(r"Passes in defensive third\s+(\d+)", all_text).group(1))
-        actions = int(re.search(r"Defensive actions\s+(\d+)", all_text).group(1))
-    except AttributeError:
-        print("لم يتم العثور على البيانات المطلوبة داخل الملف.")
-        return
+if uploaded_file is not None:
+    soup = BeautifulSoup(uploaded_file, "html.parser")
+    page_text = soup.get_text()
 
-    if actions == 0:
-        print("⚠️ لا يمكن القسمة على صفر.")
-        return
+    # 👇 ابحث عن القيم بالنص (عدّل العبارات حسب ما تجده في الصفحة)
+    passes_match = re.search(r"Passes in defensive third\s*(\d+)", page_text)
+    actions_match = re.search(r"Defensive actions\s*(\d+)", page_text)
 
-    ppda = passes / actions
-    print(f"✅ PPDA = {ppda:.2f}")
+    if passes_match and actions_match:
+        passes = int(passes_match.group(1))
+        actions = int(actions_match.group(1))
 
-# مثال: ضع مسار ملف HTML هنا
-extract_ppda_from_html("match.html")
+        if actions == 0:
+            st.warning("⚠️ لا يمكن حساب PPDA لأن عدد الأفعال الدفاعية = 0")
+        else:
+            ppda = passes / actions
+            st.success(f"✅ PPDA = {ppda:.2f}")
+    else:
+        st.error("❌ لم يتم العثور على البيانات المطلوبة. تأكد من أن الملف يحتوي على 'Passes in defensive third' و 'Defensive actions'.")
+else:
+    st.info("⬆️ الرجاء رفع ملف HTML أولاً.")
