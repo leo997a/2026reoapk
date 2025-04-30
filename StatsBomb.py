@@ -1122,7 +1122,7 @@ def calculate_team_ppda(
     pitch_units: float = 105,
     period: str = None,
     min_def_actions: int = 2,
-    min_pass_distance: float = 1.5  # شرط مسافة مخفف جدًا
+    min_pass_distance: float = 1.5
 ) -> dict:
     try:
         # نسخ إطار البيانات والتحقق من الإحداثيات
@@ -1145,7 +1145,7 @@ def calculate_team_ppda(
                 st.warning(f"لا توجد بيانات للفترة {period} لفريق {team}.")
                 return {}
 
-        # الكشف التلقائي عن تبديل الجوانب
+        # الكشف عن تبديل الجوانب
         swap_sides = False
         if not period:
             first_half_x = df[df['period'] == 'FirstHalf']['x'].mean()
@@ -1185,16 +1185,14 @@ def calculate_team_ppda(
             total_events = len(df[df['teamName'] == team])
             high_press_ratio = region_events / total_events if total_events > 0 else 0
             high_press = high_press_ratio > 0.15
-            centroid_x = team_events['x'].mean()
-            centroid_y = team_events['y'].mean()
             st.write(f"نسبة الأحداث في الثلث الدفاعي لـ {team}: {high_press_ratio:.2f}. الضغط العالي: {high_press}")
         else:
-            centroid_x, centroid_y = None, None
             high_press_ratio = 0
             st.warning(f"لا توجد أحداث كافية في الثلث الدفاعي لـ {team}.")
+            return {}
 
         # حساب فقدان الكرة
-        opponent = [t for t in df['teamName'].unique() if t != team][0] if len([t for t in df['teamName'].unique() if t != team]) > 0 else None
+        opponent = [t for t in df['teamName'].unique() if t != team][0] if len([t for t in df['type'].unique() if t != team]) > 0 else None
         if opponent:
             ball_losses = df[
                 (df['teamName'] == opponent) &
@@ -1226,7 +1224,14 @@ def calculate_team_ppda(
                 avg_distance = min(max(avg_distance, 6.0), 12.0) if high_press else min(max(avg_distance, 4.0), 8.0)
         st.write(f"مسافة الضغط المحسوبة تلقائيًا لـ {team}: {avg_distance:.2f} متر")
 
+        # إعدادات محاكاة "Pressure" الافتراضية
+        pressure_time_window = 10 / 60  # 10 ثوانٍ
+        pressure_distance_factor = 4.0
+        max_pressure_events = 15
+        pressure_weight = 0.7 if high_press_ratio > 0.3 else 0.5 if high_press_ratio < 0.15 else 0.6
+
         # محاكاة أحداث الضغط
+        pressure_count = 0
         if 'Pressure' not in df['type'].unique():
             passes = df[(df['type'] == 'Pass') & (df['outcomeType'] == 'Successful') & (df['teamName'] == opponent) & (df['x'] >= x_min) & (df['x'] <= x_max)]
             potential_pressure = df[
@@ -1236,24 +1241,18 @@ def calculate_team_ppda(
                 (df['x'] >= x_min) & (df['x'] <= x_max) &
                 (~df['qualifiers'].astype(str).str.contains('Error|Missed', na=False))
             ]
-            pressure_count = 0
             if not potential_pressure.empty and not passes.empty:
                 pressure_events = []
                 for _, pressure_row in potential_pressure.iterrows():
                     relevant_passes = passes[
-                        (abs(pressure_row['cumulative_mins'] - passes['cumulative_mins']) <= 10/60) &  # نطاق زمني 10 ثوانٍ
-                        (((pressure_row['x'] - passes['x'])**2 + (pressure_row['y'] - passes['y'])**2)**0.5 <= avg_distance * 4.0)  # نطاق مسافة أوسع
+                        (abs(pressure_row['cumulative_mins'] - passes['cumulative_mins']) <= pressure_time_window) &
+                        (((pressure_row['x'] - passes['x'])**2 + (pressure_row['y'] - passes['y'])**2)**0.5 <= avg_distance * pressure_distance_factor)
                     ]
                     for _, pass_row in relevant_passes.iterrows():
-                        if pressure_count < 15:  # حد أقصى 15 حدث Pressure
+                        if pressure_count < max_pressure_events:
                             pressure_event = pressure_row.copy()
                             pressure_event['type'] = 'Pressure'
-                            if high_press_ratio > 0.3:
-                                pressure_event['pressure_weight'] = 0.9
-                            elif high_press_ratio > 0.15:
-                                pressure_event['pressure_weight'] = 0.7
-                            else:
-                                pressure_event['pressure_weight'] = 0.5
+                            pressure_event['pressure_weight'] = pressure_weight
                             pressure_events.append(pressure_event)
                             pressure_count += 1
                 if pressure_events:
@@ -1263,6 +1262,8 @@ def calculate_team_ppda(
                     st.write(f"أحداث 'Pressure' المحاكاة لـ {team}: {pressure_count}")
                 else:
                     st.warning(f"لم يتم إنشاء أحداث 'Pressure' لـ {team} بسبب عدم وجود تمريرات مطابقة.")
+            else:
+                st.warning(f"لا توجد بيانات كافية لمحاكاة أحداث 'Pressure' لـ {team}.")
 
         # تصفية التمريرات الناجحة
         passes_allowed = df[
@@ -1271,7 +1272,7 @@ def calculate_team_ppda(
             (df['teamName'] == opponent) &
             (df['x'] >= x_min) &
             (df['x'] <= x_max) &
-            (~df['qualifiers'].astype(str).str.contains('Corner|Freekick|Throwin|GoalKick|KickOff', na=False))  # بدون شرط Longball
+            (~df['qualifiers'].astype(str).str.contains('Corner|Freekick|Throwin|GoalKick|KickOff', na=False))
         ]
         if 'endX' in df.columns and 'endY' in df.columns:
             passes_allowed = passes_allowed.assign(
@@ -1279,8 +1280,27 @@ def calculate_team_ppda(
             )
             passes_allowed = passes_allowed[passes_allowed['pass_distance'] >= min_pass_distance]
         num_passes = len(passes_allowed)
+
+        # الكشف عن الخلل وتطبيق التصحيح التلقائي
+        issues_detected = []
+        auto_correction_applied = False
+
+        # خلل: عدد التمريرات منخفض
         if num_passes < 70:
-            st.warning(f"عدد التمريرات الناجحة منخفض جدًا لفريق {team} ({num_passes}). يرجى التحقق من البيانات.")
+            issues_detected.append(f"عدد التمريرات الناجحة منخفض جدًا لفريق {team} ({num_passes}).")
+            # التصحيح: إعادة التصفية بدون حد أدنى للمسافة
+            passes_allowed = df[
+                (df['type'] == 'Pass') &
+                (df['outcomeType'] == 'Successful') &
+                (df['teamName'] == opponent) &
+                (df['x'] >= x_min) &
+                (df['x'] <= x_max) &
+                (~df['qualifiers'].astype(str).str.contains('Corner|Freekick|Throwin|GoalKick|KickOff', na=False))
+            ]
+            num_passes = len(passes_allowed)
+            auto_correction_applied = True
+            st.warning(f"تم تخفيف تصفية التمريرات تلقائيًا لـ {team}. عدد التمريرات الجديد: {num_passes}")
+
         st.write(f"الفريق: {team}, التمريرات الناجحة المسموح بها (x من {x_min} إلى {x_max}): {num_passes}")
 
         # تصفية الأفعال الدفاعية
@@ -1308,19 +1328,115 @@ def calculate_team_ppda(
             num_defs = defensive_actions['weight'].sum()
         else:
             num_defs = len(defensive_actions)
-        if num_defs > 25 or num_defs < 2:
-            st.warning(f"عدد الأفعال الدفاعية غير منطقي لفريق {team} ({round(num_defs, 2)}). يرجى التحقق من البيانات.")
-        st.write(f"الفريق: {team}, الأفعال الدفاعية (x من {x_min} إلى {x_max}): {round(num_defs, 2)}")
 
-        # التحقق من عدد الأفعال الدفاعية
+        # خلل: عدد الأفعال الدفاعية منخفض أو مرتفع
+        if num_defs < 3:
+            issues_detected.append(f"عدد الأفعال الدفاعية منخفض جدًا لفريق {team} ({round(num_defs, 2)}).")
+            # التصحيح: إعادة محاكاة "Pressure" بنطاق أوسع
+            pressure_time_window = 15 / 60  # 15 ثانية
+            pressure_distance_factor = 5.0
+            max_pressure_events = 20
+            pressure_weight = 0.95 if high_press else 0.7
+            pressure_count = 0
+            pressure_events = []
+            if not potential_pressure.empty and not passes.empty:
+                for _, pressure_row in potential_pressure.iterrows():
+                    relevant_passes = passes[
+                        (abs(pressure_row['cumulative_mins'] - passes['cumulative_mins']) <= pressure_time_window) &
+                        (((pressure_row['x'] - passes['x'])**2 + (pressure_row['y'] - passes['y'])**2)**0.5 <= avg_distance * pressure_distance_factor)
+                    ]
+                    for _, pass_row in relevant_passes.iterrows():
+                        if pressure_count < max_pressure_events:
+                            pressure_event = pressure_row.copy()
+                            pressure_event['type'] = 'Pressure'
+                            pressure_event['pressure_weight'] = pressure_weight
+                            pressure_events.append(pressure_event)
+                            pressure_count += 1
+                if pressure_events:
+                    pressure_df = pd.DataFrame(pressure_events)
+                    df = pd.concat([df, pressure_df[df.columns.union(['pressure_weight'])]], ignore_index=True)
+                    if 'Pressure' not in defs:
+                        defs.append('Pressure')
+                    auto_correction_applied = True
+                    st.warning(f"تمت إعادة محاكاة 'Pressure' بنطاق أوسع لـ {team}. عدد الأحداث الجديدة: {pressure_count}")
+                    # إعادة حساب الأفعال الدفاعية
+                    defensive_actions = df[
+                        (df['type'].isin(defs)) &
+                        (df['teamName'] == team) &
+                        (df['x'] >= x_min) &
+                        (df['x'] <= x_max) &
+                        (~df['qualifiers'].astype(str).str.contains('Offensive|Tactical|Error', na=False))
+                    ]
+                    if 'pressure_weight' in defensive_actions.columns:
+                        defensive_actions['weight'] = defensive_actions['pressure_weight'].fillna(1.0)
+                        num_defs = defensive_actions['weight'].sum()
+                    else:
+                        num_defs = len(defensive_actions)
+
+        if num_defs > 25:
+            issues_detected.append(f"عدد الأفعال الدفاعية مرتفع جدًا لفريق {team} ({round(num_defs, 2)}).")
+            # التصحيح: تقليل وزن "Pressure"
+            if 'pressure_weight' in defensive_actions.columns:
+                defensive_actions.loc[defensive_actions['type'] == 'Pressure', 'pressure_weight'] = 0.5
+                defensive_actions['weight'] = defensive_actions['pressure_weight'].fillna(1.0)
+                num_defs = defensive_actions['weight'].sum()
+                auto_correction_applied = True
+                st.warning(f"تم تقليل وزن أحداث 'Pressure' تلقائيًا لـ {team}. عدد الأفعال الجديد: {round(num_defs, 2)}")
+
+        # خلل: أحداث "Pressure" قليلة مع ضغط عالٍ
+        if high_press and pressure_count < 2:
+            issues_detected.append(f"أحداث 'Pressure' قليلة جدًا لـ {team} ({pressure_count}) مع ضغط عالٍ.")
+            # التصحيح: إعادة محاكاة بنطاق أوسع ووزن أعلى
+            pressure_time_window = 15 / 60
+            pressure_distance_factor = 5.0
+            max_pressure_events = 20
+            pressure_weight = 0.95
+            pressure_count = 0
+            pressure_events = []
+            if not potential_pressure.empty and not passes.empty:
+                for _, pressure_row in potential_pressure.iterrows():
+                    relevant_passes = passes[
+                        (abs(pressure_row['cumulative_mins'] - passes['cumulative_mins']) <= pressure_time_window) &
+                        (((pressure_row['x'] - passes['x'])**2 + (pressure_row['y'] - passes['y'])**2)**0.5 <= avg_distance * pressure_distance_factor)
+                    ]
+                    for _, pass_row in relevant_passes.iterrows():
+                        if pressure_count < max_pressure_events:
+                            pressure_event = pressure_row.copy()
+                            pressure_event['type'] = 'Pressure'
+                            pressure_event['pressure_weight'] = pressure_weight
+                            pressure_events.append(pressure_event)
+                            pressure_count += 1
+                if pressure_events:
+                    pressure_df = pd.DataFrame(pressure_events)
+                    df = pd.concat([df, pressure_df[df.columns.union(['pressure_weight'])]], ignore_index=True)
+                    if 'Pressure' not in defs:
+                        defs.append('Pressure')
+                    auto_correction_applied = True
+                    st.warning(f"تمت إعادة محاكاة 'Pressure' لضغط عالٍ لـ {team}. عدد الأحداث الجديدة: {pressure_count}")
+                    # إعادة حساب الأفعال الدفاعية
+                    defensive_actions = df[
+                        (df['type'].isin(defs)) &
+                        (df['teamName'] == team) &
+                        (df['x'] >= x_min) &
+                        (df['x'] <= x_max) &
+                        (~df['qualifiers'].astype(str).str.contains('Offensive|Tactical|Error', na=False))
+                    ]
+                    if 'pressure_weight' in defensive_actions.columns:
+                        defensive_actions['weight'] = defensive_actions['pressure_weight'].fillna(1.0)
+                        num_defs = defensive_actions['weight'].sum()
+                    else:
+                        num_defs = len(defensive_actions)
+
         if num_defs < min_def_actions:
             st.warning(f"عدد الأفعال الدفاعية قليل جدًا لفريق {team} ({round(num_defs, 2)} < {min_def_actions}). سيتم حساب PPDA مع تحذير.")
+        st.write(f"الفريق: {team}, الأفعال الدفاعية (x من {x_min} إلى {x_max}): {round(num_defs, 2)}")
 
         # حساب PPDA
         ppda = num_passes / num_defs if num_defs > 0 else float('inf')
         pressure_ratio = (num_defs / num_passes) * 100 if num_passes > 0 else None
         if ppda < 2 or ppda > 30:
-            st.warning(f"PPDA غير منطقي لفريق {team} ({round(ppda, 2)}). يرجى التحقق من عدد التمريرات أو الأفعال الدفاعية.")
+            issues_detected.append(f"PPDA غير منطقي لفريق {team} ({round(ppda, 2)}).")
+
         st.write(f"PPDA الخام لفريق {team}: {round(ppda, 2)}")
 
         # معايرة ديناميكية
@@ -1331,24 +1447,32 @@ def calculate_team_ppda(
 
         if ppda < 2 or ppda > 30:
             if ppda > 30:
-                calibration_factor = 0.7 if num_defs < 5 else 0.8
+                calibration_factor = 0.6 if num_defs < 5 else 0.75
                 if region_def_ratio < 0.2:
-                    calibration_factor *= 0.9
-                if not high_press:
                     calibration_factor *= 0.85
+                if not high_press:
+                    calibration_factor *= 0.8
             elif ppda < 2:
-                calibration_factor = 1.5 if high_press else 1.3
+                calibration_factor = 1.8 if high_press else 1.5
             calibrated_ppda = ppda * calibration_factor
+            auto_correction_applied = True
+            st.warning(f"تمت معايرة PPDA تلقائيًا لـ {team} بسبب قيمة غير منطقية.")
         else:
             if high_press_ratio > 0.3:
-                calibration_factor = 0.85  # تقليل PPDA لضغط عالٍ جدًا
+                calibration_factor = 0.8
             elif high_press_ratio < 0.15:
-                calibration_factor = 1.25  # زيادة PPDA لضغط منخفض
+                calibration_factor = 1.3
             calibrated_ppda = ppda * calibration_factor
 
         # ضمان النطاق المنطقي
         calibrated_ppda = min(max(calibrated_ppda, 3.0), 20.0)
         st.write(f"PPDA لفريق {team} معاير ({round(calibrated_ppda, 2)} بعد التصحيح). معامل المعايرة: {round(calibration_factor, 3)}.")
+
+        # تسجيل الأخطاء والتصحيحات
+        if issues_detected:
+            st.warning(f"الأخطاء المكتشفة لـ {team}: {', '.join(issues_detected)}")
+            if auto_correction_applied:
+me.write(f"تم تطبيق التصحيح التلقائي: {auto_correction_applied}")
 
         return {
             'Region': region,
