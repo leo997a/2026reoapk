@@ -1107,6 +1107,10 @@ def attack_zones_analysis(fig, ax, hteamName, ateamName, hcol, acol, hteamID, at
     
     return zones, most_attacked_zone
 
+import pandas as pd
+import numpy as np
+import streamlit as st
+
 def calculate_team_ppda(
     events_df: pd.DataFrame,
     team: str,
@@ -1176,12 +1180,13 @@ def calculate_team_ppda(
             region_events = len(team_events)
             total_events = len(df[df['teamName'] == team])
             high_press_ratio = region_events / total_events if total_events > 0 else 0
-            high_press = high_press_ratio > 0.3  # الفريق يضغط عاليًا إذا كانت نسبة الأحداث في الثلث الدفاعي > 30%
+            high_press = high_press_ratio > 0.15  # خفض العتبة إلى 15%
             centroid_x = team_events['x'].mean()
             centroid_y = team_events['y'].mean()
             st.write(f"نسبة الأحداث في الثلث الدفاعي لـ {team}: {high_press_ratio:.2f}. الضغط العالي: {high_press}")
         else:
             centroid_x, centroid_y = None, None
+            high_press_ratio = 0
             st.warning(f"لا توجد أحداث كافية في الثلث الدفاعي لـ {team}.")
 
         # حساب فقدان الكرة
@@ -1193,6 +1198,10 @@ def calculate_team_ppda(
                  (df['type'].isin(['Dispossessed', 'LostDuel'])))
             ]
             num_ball_losses = len(ball_losses)
+            # تعزيز الضغط العالي إذا كان فقدان الكرة مرتفعًا
+            if num_ball_losses > 50 and high_press_ratio < 0.15:
+                high_press = True
+                st.write(f"تم اكتشاف ضغط عالٍ لـ {team} بناءً على فقدان الكرة العالي ({num_ball_losses}).")
             st.write(f"فقدان الكرة من قبل {opponent} (لصالح {team}): {num_ball_losses}")
         else:
             num_ball_losses = 0
@@ -1211,7 +1220,7 @@ def calculate_team_ppda(
                     distances.append(dist)
             if distances:
                 avg_distance = np.percentile(distances, 75)
-                avg_distance = min(max(avg_distance, 6.0, 10.0)) if high_press else min(max(avg_distance, 4.0, 8.0))
+                avg_distance = min(max(avg_distance, 6.0), 10.0) if high_press else min(max(avg_distance, 4.0), 8.0)
         st.write(f"مسافة الضغط المحسوبة تلقائيًا لـ {team}: {avg_distance:.2f} متر")
 
         # محاكاة أحداث الضغط
@@ -1229,13 +1238,13 @@ def calculate_team_ppda(
                 pressure_events = []
                 for _, pressure_row in potential_pressure.iterrows():
                     relevant_passes = passes[
-                        (abs(pressure_row['cumulative_mins'] - passes['cumulative_mins']) <= 5/60) &  # زيادة نطاق الوقت
-                        (((pressure_row['x'] - passes['x'])**2 + (pressure_row['y'] - passes['y'])**2)**0.5 <= avg_distance * 1.5)  # نطاق أوسع
+                        (abs(pressure_row['cumulative_mins'] - passes['cumulative_mins']) <= 6/60) &  # زيادة نطاق الوقت
+                        (((pressure_row['x'] - passes['x'])**2 + (pressure_row['y'] - passes['y'])**2)**0.5 <= avg_distance * 2.0)  # نطاق أوسع
                     ]
                     for _, pass_row in relevant_passes.iterrows():
                         pressure_event = pressure_row.copy()
                         pressure_event['type'] = 'Pressure'
-                        pressure_event['pressure_weight'] = 0.8 if high_press else 0.6
+                        pressure_event['pressure_weight'] = 0.9 if high_press else 0.7
                         pressure_events.append(pressure_event)
                         pressure_count += 1
                 if pressure_events:
@@ -1274,7 +1283,7 @@ def calculate_team_ppda(
         if 'BallRecovery' in defensive_actions['type'].unique():
             ball_recoveries = defensive_actions[defensive_actions['type'] == 'BallRecovery']
             filtered_recoveries = ball_recoveries
-            if len(filtered_recoveries) > 0:  # التحقق من أن filtered_recoveries ليست فارغة
+            if len(filtered_recoveries) > 0:
                 defensive_actions = pd.concat([
                     defensive_actions[defensive_actions['type'] != 'BallRecovery'],
                     filtered_recoveries
@@ -1285,9 +1294,9 @@ def calculate_team_ppda(
         # حساب عدد الأفعال الدفاعية مع وزن فقدان الكرة
         if 'pressure_weight' in defensive_actions.columns:
             defensive_actions['weight'] = defensive_actions['pressure_weight'].fillna(1.0)
-            num_defs = defensive_actions['weight'].sum() + num_ball_losses * 0.4  # زيادة وزن فقدان الكرة
+            num_defs = defensive_actions['weight'].sum() + num_ball_losses * 0.5  # زيادة وزن فقدان الكرة
         else:
-            num_defs = len(defensive_actions) + num_ball_losses * 0.4
+            num_defs = len(defensive_actions) + num_ball_losses * 0.5
         st.write(f"الفريق: {team}, الأفعال الدفاعية (x من {x_min} إلى {x_max}): {round(num_defs, 2)} (شاملة وزن فقدان الكرة)")
 
         # التحقق من عدد الأفعال الدفاعية
@@ -1305,15 +1314,15 @@ def calculate_team_ppda(
         league_avg_ppda = 12.0
         if ppda > 20 or ppda < 5:
             if ppda > 20:
-                calibration_factor = 0.85 if num_defs < 10 else 0.9
-                if region_def_ratio < 0.3:
+                calibration_factor = 0.8 if num_defs < 10 else 0.85
+                if region_def_ratio < 0.2:
                     calibration_factor *= 0.9
                 if not high_press:
-                    calibration_factor *= 0.85
+                    calibration_factor *= 0.8
             elif ppda < 5:
-                calibration_factor = 1.15 if num_defs > 20 else 1.1
+                calibration_factor = 1.2 if num_defs > 20 else 1.15
                 if high_press:
-                    calibration_factor *= 0.95
+                    calibration_factor *= 0.9
             ppda = min(max(ppda * calibration_factor, league_avg_ppda * 0.5), league_avg_ppda * 1.5)
             st.write(f"PPDA لفريق {team} معاير ({round(ppda, 2)} بعد التصحيح). معامل المعايرة: {round(calibration_factor, 3)}.")
         else:
