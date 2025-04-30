@@ -1600,7 +1600,7 @@ if st.button("تحليل المباراة"):
             'period': ['FirstHalf']*10 + ['SecondHalf']*10,
             'teamName': ['TeamA']*10 + ['TeamB']*10,
             'type': ['Pass']*8 + ['Goal', 'Carry'] + ['Pass']*8 + ['Goal', 'Carry'],
-            'outcomeType': ['Successful']*18 + ['Successful', 'Successful'],
+            'outcomeType': ['Successful']*20,
             'name': ['Player1', 'Player2', 'Player1', 'Player2', 'Player1', 'Player2', 'Player1', 'Player2', 'Player3', 'Player2']*2,
             'x': [10, 20, 30, 40, 50, 60, 70, 80, 90, 40]*2,
             'y': [10, 20, 30, 40, 50, 60, 70, 80, 34, 50]*2,
@@ -1647,6 +1647,7 @@ if st.session_state.analysis_triggered:
     st.write("تم تفعيل التحليل: صحيح")
 else:
     st.write("تم تفعيل التحليل: خطأ")
+
 st.write(f"إطار البيانات فارغ: {st.session_state.df.empty}")
 st.write(f"قاموس الفرق موجود: {bool(st.session_state.teams_dict)}")
 st.write(f"إطار بيانات اللاعبين فارغ: {st.session_state.players_df.empty}")
@@ -1657,22 +1658,22 @@ if st.session_state.analysis_triggered and not st.session_state.df.empty and st.
     hteamName = st.session_state.teams_dict[hteamID]
     ateamName = st.session_state.teams_dict[ateamID]
 
-    homedf = st.session_state.df[(st.session_state.df['teamName'] == hteamName)]
-    awaydf = st.session_state.df[(st.session_state.df['teamName'] == ateamName)]
+    homedf = st.session_state.df[st.session_state.df['teamName'] == hteamName]
+    awaydf = st.session_state.df[st.session_state.df['teamName'] == ateamName]
     hgoal_count = len(homedf[(homedf['type'] == 'Goal') & (~homedf['qualifiers'].str.contains('OwnGoal', na=False))])
     agoal_count = len(awaydf[(awaydf['type'] == 'Goal') & (~awaydf['qualifiers'].str.contains('OwnGoal', na=False))])
 
     st.header(f'{hteamName} {hgoal_count} - {agoal_count} {ateamName}')
 
     try:
-        tab1, tab2, tab3, tab4 = st.tabs(
-            ['تحليل الفريق', 'تحليل اللاعبين', 'إحصائيات المباراة', 'أفضل اللاعبين'])
+        tab1, tab2, tab3, tab4 = st.tabs(['تحليل الفريق', 'تحليل اللاعبين', 'إحصائيات المباراة', 'أفضل اللاعبين'])
     except Exception as e:
         st.error(f"خطأ في إنشاء التبويبات: {str(e)}")
         st.stop()
 
     with tab1:
         an_tp = st.selectbox('نوع التحليل:', ['شبكة التمريرات', 'مناطق الهجوم', 'مناطق سيطرة الفريق', 'PPDA'], key='analysis_type')
+        
         if an_tp == 'شبكة التمريرات':
             st.subheader('شبكة التمريرات')
             team_choice = st.selectbox('اختر الفريق:', [hteamName, ateamName], key='team_choice')
@@ -1687,23 +1688,23 @@ if st.session_state.analysis_triggered and not st.session_state.df.empty and st.
                 st.dataframe(pass_btn, hide_index=True)
             else:
                 st.warning("لا توجد بيانات تمريرات للعرض.")
-    except Exception as e:
-        st.error(f"خطأ في إنشاء شبكة التمريرات: {str(e)}")
 
-    elif an_tp == 'مناطق الهجوم':
-        st.subheader('تحليل مناطق الهجوم')
-        fig, ax = plt.subplots(figsize=(10, 10), facecolor=bg_color)
-        attack_summary, fig_heatmap, fig_bar = attack_zones_analysis(fig, ax, hteamName, ateamName, hcol, acol, hteamID, ateamID)
-        
-        # عرض خريطة حرارية
-        st.pyplot(fig_heatmap)
-        
-        # عرض الرسم البياني الشريطي
-        st.pyplot(fig_bar)
-        
-        # عرض الجدول الإحصائي
-        st.subheader('إحصائيات مناطق الهجوم')
-        st.dataframe(attack_summary, hide_index=True)
+        elif an_tp == 'مناطق الهجوم':
+            st.subheader('تحليل مناطق الهجوم')
+            fig, ax = plt.subplots(figsize=(10, 10), facecolor=bg_color)
+            attack_summary, fig_heatmap, fig_bar = attack_zones_analysis(
+                fig, ax, hteamName, ateamName, hcol, acol, hteamID, ateamID)
+
+            # عرض خريطة حرارية
+            st.pyplot(fig_heatmap)
+
+            # عرض الرسم البياني الشريطي
+            st.pyplot(fig_bar)
+
+            # عرض الجدول الإحصائي
+            st.subheader('إحصائيات مناطق الهجوم')
+            st.dataframe(attack_summary, hide_index=True)
+
 
     elif an_tp == reshape_arabic_text('Team Domination Zones'):
         st.subheader(reshape_arabic_text('مناطق سيطرة الفريق'))
