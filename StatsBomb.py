@@ -1115,6 +1115,78 @@ import pandas as pd
 import numpy as np
 import streamlit as st
 
+def fetch_sofascore_ppda(match_url: str, team: str) -> float:
+    """
+    استخراج PPDA من Sofascore باستخدام رابط المباراة واسم الفريق.
+    
+    Args:
+        match_url (str): رابط مباراة Sofascore (مثل https://www.sofascore.com/celta-vigo-barcelona/xxx)
+        team (str): اسم الفريق (مثل "Celta Vigo")
+    
+    Returns:
+        float: قيمة PPDA للفريق، أو None إذا فشل الاستخراج
+    """
+    try:
+        # استخراج معرف المباراة من الرابط
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        }
+        response = requests.get(match_url, headers=headers)
+        if response.status_code != 200:
+            st.warning(f"فشل الوصول إلى رابط Sofascore: {match_url}")
+            return None
+        
+        # استخراج معرف المباراة
+        soup = BeautifulSoup(response.content, "html.parser")
+        id_tag = soup.select_one('link[href*="android-app:"]')
+        if not id_tag:
+            st.warning("لم يتم العثور على معرف المباراة في رابط Sofascore.")
+            return None
+        match_id = id_tag["href"].split("/")[-1]
+        
+        # الوصول إلى إحصائيات المباراة
+        stats_url = f"https://api.sofascore.com/api/v1/event/{match_id}/statistics"
+        stats_response = requests.get(stats_url, headers=headers)
+        if stats_response.status_code != 200:
+            st.warning(f"فشل الوصول إلى إحصائيات Sofascore للمباراة {match_id}")
+            return None
+        
+        stats_data = json.loads(stats_response.content)
+        if not stats_data or 'statistics' not in stats_data:
+            st.warning("لا توجد بيانات إحصائيات متاحة من Sofascore.")
+            return None
+        
+        # البحث عن PPDA في الإحصائيات
+        ppda_value = None
+        for stat_group in stats_data['statistics']:
+            for item in stat_group['groups']:
+                if item.get('groupName') == 'Team stats':
+                    for stat in item['statisticsItems']:
+                        if stat.get('name') == 'PPDA':
+                            # PPDA قد يكون للفريق المنزلي أو الزائر
+                            home_team = stats_data['homeTeam']['name']
+                            away_team = stats_data['awayTeam']['name']
+                            if team.lower() in home_team.lower():
+                                ppda_value = float(stat['homeValue'])
+                            elif team.lower() in away_team.lower():
+                                ppda_value = float(stat['awayValue'])
+                            break
+                    if ppda_value is not None:
+                        break
+            if ppda_value is not None:
+                break
+        
+        if ppda_value is None:
+            st.warning(f"لم يتم العثور على PPDA لفريق {team} في بيانات Sofascore.")
+            return None
+        
+        st.write(f"تم استخراج PPDA من Sofascore لفريق {team}: {ppda_value:.2f}")
+        return ppda_value
+    
+    except Exception as e:
+        st.error(f"خطأ أثناء استخراج PPDA من Sofascore: {str(e)}")
+        return None
+
 def calculate_team_ppda(
     events_df: pd.DataFrame,
     team: str,
@@ -1122,7 +1194,8 @@ def calculate_team_ppda(
     pitch_units: float = 105,
     period: str = None,
     min_def_actions: int = 2,
-    min_pass_distance: float = 1.5
+    min_pass_distance: float = 1.5,
+    sofascore_match_url: str = None  # إضافة معلمة لرابط Sofascore
 ) -> dict:
     try:
         # نسخ إطار البيانات والتحقق من الإحداثيات
@@ -1284,6 +1357,13 @@ def calculate_team_ppda(
         # الكشف عن الخلل وتطبيق التصحيح التلقائي
         issues_detected = []
         auto_correction_applied = False
+        sofascore_ppda = None
+
+        # استخراج PPDA من Sofascore إذا تم توفير الرابط
+        if sofascore_match_url:
+            sofascore_ppda = fetch_sofascore_ppda(sofascore_match_url, team)
+            if sofascore_ppda is not None:
+                st.write(f"سيتم استخدام PPDA من Sofascore ({sofascore_ppda:.2f}) كمرجع لفريق {team} إذا لزم الأمر.")
 
         # خلل: عدد التمريرات منخفض
         if num_passes < 70:
@@ -1446,23 +1526,39 @@ def calculate_team_ppda(
         league_avg_ppda = 12.0
 
         if ppda < 2 or ppda > 30:
-            if ppda > 30:
-                calibration_factor = 0.6 if num_defs < 5 else 0.75
-                if region_def_ratio < 0.2:
-                    calibration_factor *= 0.85
-                if not high_press:
-                    calibration_factor *= 0.8
-            elif ppda < 2:
-                calibration_factor = 1.8 if high_press else 1.5
-            calibrated_ppda = ppda * calibration_factor
-            auto_correction_applied = True
-            st.warning(f"تمت معايرة PPDA تلقائيًا لـ {team} بسبب قيمة غير منطقية.")
+            if sofascore_ppda is not None:
+                # استخدام PPDA من Sofascore مباشرة إذا كان متاحًا
+                calibrated_ppda = sofascore_ppda
+                calibration_factor = sofascore_ppda / ppda if ppda != 0 else 1.0
+                auto_correction_applied = True
+                st.warning(f"تم استخدام PPDA من Sofascore ({sofascore_ppda:.2f}) لفريق {team} بسبب قيمة غير منطقية.")
+            else:
+                # التصحيح الافتراضي إذا لم يتوفر PPDA من Sofascore
+                if ppda > 30:
+                    calibration_factor = 0.6 if num_defs < 5 else 0.75
+                    if region_def_ratio < 0.2:
+                        calibration_factor *= 0.85
+                    if not high_press:
+                        calibration_factor *= 0.8
+                elif ppda < 2:
+                    calibration_factor = 1.8 if high_press else 1.5
+                calibrated_ppda = ppda * calibration_factor
+                auto_correction_applied = True
+                st.warning(f"تمت معايرة PPDA تلقائيًا لـ {team} بسبب قيمة غير منطقية.")
         else:
             if high_press_ratio > 0.3:
                 calibration_factor = 0.8
             elif high_press_ratio < 0.15:
                 calibration_factor = 1.3
             calibrated_ppda = ppda * calibration_factor
+            # التحقق من التوافق مع PPDA من Sofascore إذا كان متاحًا
+            if sofascore_ppda is not None and abs(calibrated_ppda - sofascore_ppda) / sofascore_ppda > 0.3:
+                st.warning(f"PPDA المحسوب ({calibrated_ppda:.2f}) يختلف كثيرًا عن PPDA من Sofascore ({sofascore_ppda:.2f}) لفريق {team}.")
+                # استخدام متوسط مرجح إذا كان الفرق كبيرًا
+                calibrated_ppda = 0.7 * calibrated_ppda + 0.3 * sofascore_ppda
+                calibration_factor = calibrated_ppda / ppda if ppda != 0 else 1.0
+                auto_correction_applied = True
+                st.write(f"تم تعديل PPDA إلى متوسط مرجح ({calibrated_ppda:.2f}) باستخدام Sofascore.")
 
         # ضمان النطاق المنطقي
         calibrated_ppda = min(max(calibrated_ppda, 3.0), 20.0)
@@ -1471,8 +1567,8 @@ def calculate_team_ppda(
         # تسجيل الأخطاء والتصحيحات
         if issues_detected:
             st.warning(f"الأخطاء المكتشفة لـ {team}: {', '.join(issues_detected)}")
-        if auto_correction_applied:
-            st.write(f"تم تطبيق التصحيح التلقائي: {auto_correction_applied}")
+            if auto_correction_applied:
+                st.write(f"تم تطبيق التصحيح التلقائي: {auto_correction_applied}")
 
         return {
             'Region': region,
@@ -1481,6 +1577,7 @@ def calculate_team_ppda(
             'Passes Allowed': num_passes,
             'Defensive Actions': round(num_defs, 2),
             'PPDA': round(calibrated_ppda, 2) if calibrated_ppda != float('inf') else None,
+            'Sofascore_PPDA': round(sofascore_ppda, 2) if sofascore_ppda is not None else None,
             'Pressure Ratio (%)': round(pressure_ratio, 2) if pressure_ratio is not None else None,
             'Ball Losses Forced': num_ball_losses,
             'High Press': high_press,
