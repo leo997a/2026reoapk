@@ -1122,7 +1122,7 @@ def calculate_team_ppda(
     pitch_units: float = 105,
     period: str = None,
     min_def_actions: int = 3,
-    min_pass_distance: float = 3.0  # تخفيف شرط المسافة
+    min_pass_distance: float = 2.0  # تخفيف شرط المسافة
 ) -> dict:
     try:
         # نسخ إطار البيانات والتحقق من الإحداثيات
@@ -1241,14 +1241,19 @@ def calculate_team_ppda(
                 pressure_events = []
                 for _, pressure_row in potential_pressure.iterrows():
                     relevant_passes = passes[
-                        (abs(pressure_row['cumulative_mins'] - passes['cumulative_mins']) <= 7/60) &  # نطاق زمني أوسع
-                        (((pressure_row['x'] - passes['x'])**2 + (pressure_row['y'] - passes['y'])**2)**0.5 <= avg_distance * 2.5)  # نطاق مسافة أوسع
+                        (abs(pressure_row['cumulative_mins'] - passes['cumulative_mins']) <= 8/60) &  # نطاق زمني أوسع
+                        (((pressure_row['x'] - passes['x'])**2 + (pressure_row['y'] - passes['y'])**2)**0.5 <= avg_distance * 3.0)  # نطاق مسافة أوسع
                     ]
                     for _, pass_row in relevant_passes.iterrows():
-                        if pressure_count < 10:  # حد أقصى لأحداث Pressure
+                        if pressure_count < 12:  # حد أقصى لأحداث Pressure
                             pressure_event = pressure_row.copy()
                             pressure_event['type'] = 'Pressure'
-                            pressure_event['pressure_weight'] = 0.6 if high_press else 0.4
+                            if high_press_ratio > 0.3:
+                                pressure_event['pressure_weight'] = 0.8
+                            elif high_press_ratio > 0.15:
+                                pressure_event['pressure_weight'] = 0.6
+                            else:
+                                pressure_event['pressure_weight'] = 0.4
                             pressure_events.append(pressure_event)
                             pressure_count += 1
                 if pressure_events:
@@ -1266,7 +1271,7 @@ def calculate_team_ppda(
             (df['teamName'] == opponent) &
             (df['x'] >= x_min) &
             (df['x'] <= x_max) &
-            (~df['qualifiers'].astype(str).str.contains('Corner|Freekick|Throwin|GoalKick|KickOff', na=False))  # إزالة Longball
+            (~df['qualifiers'].astype(str).str.contains('Corner|Freekick|Throwin|GoalKick|KickOff', na=False))
         ]
         if 'endX' in df.columns and 'endY' in df.columns:
             passes_allowed = passes_allowed.assign(
@@ -1274,7 +1279,7 @@ def calculate_team_ppda(
             )
             passes_allowed = passes_allowed[passes_allowed['pass_distance'] >= min_pass_distance]
         num_passes = len(passes_allowed)
-        if num_passes < 60:
+        if num_passes < 80:
             st.warning(f"عدد التمريرات الناجحة منخفض جدًا لفريق {team} ({num_passes}). يرجى التحقق من البيانات.")
         st.write(f"الفريق: {team}, التمريرات الناجحة المسموح بها (x من {x_min} إلى {x_max}): {num_passes}")
 
@@ -1303,8 +1308,8 @@ def calculate_team_ppda(
             num_defs = defensive_actions['weight'].sum()
         else:
             num_defs = len(defensive_actions)
-        if num_defs > 15 and num_passes < 100:
-            st.warning(f"عدد الأفعال الدفاعية مرتفع جدًا لفريق {team} ({round(num_defs, 2)}) مقارنة بالتمريرات ({num_passes}). يرجى التحقق من البيانات.")
+        if num_defs > 20 or num_defs < 3:
+            st.warning(f"عدد الأفعال الدفاعية غير منطقي لفريق {team} ({round(num_defs, 2)}). يرجى التحقق من البيانات.")
         st.write(f"الفريق: {team}, الأفعال الدفاعية (x من {x_min} إلى {x_max}): {round(num_defs, 2)}")
 
         # التحقق من عدد الأفعال الدفاعية
@@ -1314,8 +1319,8 @@ def calculate_team_ppda(
         # حساب PPDA
         ppda = num_passes / num_defs if num_defs > 0 else float('inf')
         pressure_ratio = (num_defs / num_passes) * 100 if num_passes > 0 else None
-        if ppda < 5:
-            st.warning(f"PPDA منخفض جدًا لفريق {team} ({round(ppda, 2)}). يرجى التحقق من عدد الأفعال الدفاعية أو التمريرات.")
+        if ppda < 3 or ppda > 25:
+            st.warning(f"PPDA غير منطقي لفريق {team} ({round(ppda, 2)}). يرجى التحقق من عدد التمريرات أو الأفعال الدفاعية.")
         st.write(f"PPDA الخام لفريق {team}: {round(ppda, 2)}")
 
         # معايرة ذكية
@@ -1323,28 +1328,27 @@ def calculate_team_ppda(
         total_defs = df[df['type'].isin(defs) & (df['teamName'] == team)]['weight'].sum() if 'weight' in df.columns else len(df[df['type'].isin(defs) & (df['teamName'] == team)])
         region_def_ratio = num_defs / (total_defs + 1e-10)
         league_avg_ppda = 12.0
-        if ppda > 30 or ppda < 2:
-            if ppda > 30:
+
+        if ppda < 3 or ppda > 25:
+            if ppda > 25:
                 calibration_factor = 0.8 if num_defs < 8 else 0.85
                 if region_def_ratio < 0.2:
                     calibration_factor *= 0.9
                 if not high_press:
                     calibration_factor *= 0.85
-            elif ppda < 2:
-                calibration_factor = 1.2 if num_defs > 20 else 1.15
-                if high_press:
-                    calibration_factor *= 0.9
+            elif ppda < 3:
+                calibration_factor = 1.3 if high_press else 1.2
             calibrated_ppda = ppda * calibration_factor
-            if calibrated_ppda > league_avg_ppda * 2.5:
-                calibrated_ppda = league_avg_ppda * 2.5
-            st.write(f"PPDA لفريق {team} معاير ({round(calibrated_ppda, 2)} بعد التصحيح). معامل المعايرة: {round(calibration_factor, 3)}.")
-        elif ppda < 5:
-            calibration_factor = 1.1 if high_press else 1.05
-            calibrated_ppda = ppda * calibration_factor
-            st.write(f"PPDA لفريق {team} معاير ({round(calibrated_ppda, 2)} بعد التصحيح). معامل المعايرة: {round(calibration_factor, 3)}.")
         else:
-            calibrated_ppda = ppda
-            st.write(f"PPDA لفريق {team}: {round(calibrated_ppda, 2)} (بدون معايرة).")
+            if high_press_ratio > 0.3:
+                calibration_factor = 0.9  # تقليل PPDA لضغط عالٍ جدًا
+            elif high_press_ratio < 0.15:
+                calibration_factor = 1.2  # زيادة PPDA لضغط منخفض
+            calibrated_ppda = ppda * calibration_factor
+
+        # ضمان النطاق المنطقي
+        calibrated_ppda = min(max(calibrated_ppda, 3.0), 20.0)
+        st.write(f"PPDA لفريق {team} معاير ({round(calibrated_ppda, 2)} بعد التصحيح). معامل المعايرة: {round(calibration_factor, 3)}.")
 
         return {
             'Region': region,
