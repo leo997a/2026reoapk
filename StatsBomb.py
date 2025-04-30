@@ -1587,40 +1587,44 @@ def calculate_team_ppda(
     except Exception as e:
         st.error(f"خطأ في حساب PPDA لفريق {team}: {str(e)}")
         return {}
-# واجهة Streamlit
-st.title("تحليل مباراة كرة القدم")
 uploaded_html = st.file_uploader("قم برفع ملف HTML للمباراة:", type=["html"])
 uploaded_json = st.file_uploader("أو قم بتحميل ملف JSON (اختياري):", type="json")
+
+if "analysis_triggered" not in st.session_state:
+    st.session_state.analysis_triggered = False
 
 if st.button("تحليل المباراة"):
     with st.spinner("جارٍ استخراج بيانات المباراة..."):
         st.session_state.json_data = None
-        # بيانات تجريبية موسعة
+
+        # بيانات تجريبية
         st.session_state.df = pd.DataFrame({
             'period': ['FirstHalf']*10 + ['SecondHalf']*10,
             'teamName': ['TeamA']*10 + ['TeamB']*10,
             'type': ['Pass']*8 + ['Goal', 'Carry'] + ['Pass']*8 + ['Goal', 'Carry'],
             'outcomeType': ['Successful']*20,
-            'name': ['Player1', 'Player2', 'Player1', 'Player2', 'Player1', 'Player2', 'Player1', 'Player2', 'Player3', 'Player2']*2,
-            'x': [10, 20, 30, 40, 50, 60, 70, 80, 90, 40]*2,
-            'y': [10, 20, 30, 40, 50, 60, 70, 80, 34, 50]*2,
-            'endX': [20, 30, 40, 50, 60, 70, 80, 90, np.nan, 50]*2,
-            'endY': [20, 30, 40, 50, 60, 70, 80, 90, np.nan, 60]*2,
+            'name': ['Player1', 'Player2']*5*2,
+            'x': list(range(10, 100, 10))*2,
+            'y': list(range(10, 100, 10))*2,
+            'endX': list(range(20, 110, 10))*2,
+            'endY': list(range(20, 110, 10))*2,
             'qualifiers': ['']*8 + ['Goal', ''] + ['']*8 + ['Goal', ''],
-            'shirtNo': [1, 2, 1, 2, 1, 2, 1, 2, 3, 2]*2,
-            'position': ['DC', 'DC', 'DC', 'DC', 'DC', 'DC', 'DC', 'DC', 'FW', 'DC']*2,
+            'shirtNo': [1, 2]*5*2,
+            'position': ['DC']*8 + ['FW', 'DC'] + ['DC']*8 + ['FW', 'DC'],
             'isFirstEleven': [True]*20,
-            'playerId': [101, 102, 101, 102, 101, 102, 101, 102, 103, 102]*2,
+            'playerId': [101, 102]*5*2,
             'isTouch': [True]*20,
-            'cumulative_mins': [5, 10, 15, 20, 25, 30, 35, 40, 45, 50]*2
+            'cumulative_mins': list(range(5, 55, 5))*2
         })
+
         st.session_state.players_df = pd.DataFrame({
             'name': ['Player1', 'Player2', 'Player3', 'Player4'],
             'shirtNo': [1, 2, 3, 4],
             'position': ['DC', 'DC', 'FW', 'MC'],
-            'isFirstEleven': [True, True, True, True],
+            'isFirstEleven': [True]*4,
             'playerId': [101, 102, 103, 104]
         })
+
         st.session_state.teams_dict = {1: 'TeamA', 2: 'TeamB'}
         st.session_state.analysis_triggered = True
         st.success("تم تحميل البيانات التجريبية بنجاح!")
@@ -1642,24 +1646,23 @@ if st.button("تحليل المباراة"):
             except Exception as e:
                 st.error(f"خطأ في معالجة ملف HTML: {str(e)}")
 
-# التحقق من شروط العرض
 if st.session_state.analysis_triggered:
-    st.write("تم تفعيل التحليل: صحيح")
+    st.write("تم تفعيل التحليل: ✅")
 else:
-    st.write("تم تفعيل التحليل: خطأ")
+    st.write("تم تفعيل التحليل: ❌")
 
 st.write(f"إطار البيانات فارغ: {st.session_state.df.empty}")
 st.write(f"قاموس الفرق موجود: {bool(st.session_state.teams_dict)}")
 st.write(f"إطار بيانات اللاعبين فارغ: {st.session_state.players_df.empty}")
 
 if st.session_state.analysis_triggered and not st.session_state.df.empty and st.session_state.teams_dict and not st.session_state.players_df.empty:
-    hteamID = list(st.session_state.teams_dict.keys())[0]
-    ateamID = list(st.session_state.teams_dict.keys())[1]
+    hteamID, ateamID = list(st.session_state.teams_dict.keys())
     hteamName = st.session_state.teams_dict[hteamID]
     ateamName = st.session_state.teams_dict[ateamID]
 
     homedf = st.session_state.df[st.session_state.df['teamName'] == hteamName]
     awaydf = st.session_state.df[st.session_state.df['teamName'] == ateamName]
+
     hgoal_count = len(homedf[(homedf['type'] == 'Goal') & (~homedf['qualifiers'].str.contains('OwnGoal', na=False))])
     agoal_count = len(awaydf[(awaydf['type'] == 'Goal') & (~awaydf['qualifiers'].str.contains('OwnGoal', na=False))])
 
@@ -1672,163 +1675,61 @@ if st.session_state.analysis_triggered and not st.session_state.df.empty and st.
         st.stop()
 
     with tab1:
-        an_tp = st.selectbox('نوع التحليل:', ['شبكة التمريرات', 'مناطق الهجوم', 'مناطق سيطرة الفريق', 'PPDA'], key='analysis_type')
-        
+        an_tp = st.selectbox('نوع التحليل:', ['شبكة التمريرات', 'مناطق الهجوم', 'مناطق سيطرة الفريق', 'PPDA'])
+
         if an_tp == 'شبكة التمريرات':
             st.subheader('شبكة التمريرات')
-            team_choice = st.selectbox('اختر الفريق:', [hteamName, ateamName], key='team_choice')
-            phase_tag = st.selectbox('اختر الفترة:', ['Full Time', 'First Half', 'Second Half'], key='phase_tag')
+            team_choice = st.selectbox('اختر الفريق:', [hteamName, ateamName])
+            phase_tag = st.selectbox('اختر الفترة:', ['Full Time', 'First Half', 'Second Half'])
             fig, ax = plt.subplots(figsize=(10, 10), facecolor=bg_color, dpi=150)
             pass_btn = pass_network(
                 ax, team_choice, hcol if team_choice == hteamName else acol, phase_tag,
                 hteamName, ateamName, hgoal_count, agoal_count, hteamID, ateamID
             )
             st.pyplot(fig)
-            if not pass_btn.empty:
-                st.dataframe(pass_btn, hide_index=True)
-            else:
-                st.warning("لا توجد بيانات تمريرات للعرض.")
+            st.dataframe(pass_btn if not pass_btn.empty else pd.DataFrame(["لا توجد بيانات تمريرات."]))
 
         elif an_tp == 'مناطق الهجوم':
             st.subheader('تحليل مناطق الهجوم')
             fig, ax = plt.subplots(figsize=(10, 10), facecolor=bg_color)
             attack_summary, fig_heatmap, fig_bar = attack_zones_analysis(
                 fig, ax, hteamName, ateamName, hcol, acol, hteamID, ateamID)
-
-            # عرض خريطة حرارية
             st.pyplot(fig_heatmap)
-
-            # عرض الرسم البياني الشريطي
             st.pyplot(fig_bar)
-
-            # عرض الجدول الإحصائي
             st.subheader('إحصائيات مناطق الهجوم')
             st.dataframe(attack_summary, hide_index=True)
 
-
-        elif an_tp == reshape_arabic_text('Team Domination Zones'):
-            st.subheader(reshape_arabic_text('مناطق سيطرة الفريق'))
-            phase_tag = st.selectbox(
-        'اختر الفترة:', ['Full Time', 'First Half', 'Second Half'], key='phase_tag_domination')
-
-    fig, ax = plt.subplots(figsize=(12, 8), facecolor=bg_color)
-    team_domination_zones(
-        ax,
-        phase_tag,
-        hteamName,
-        ateamName,
-        hcol,
-        acol,
-        bg_color,
-        line_color,
-        gradient_colors)
-    
-    # إضافة عنوان أعلى الرسم
-    fig.text(
-        0.5, 0.98,
-        reshape_arabic_text(f'{hteamName} {hgoal_count} - {agoal_count} {ateamName}'),
-        fontsize=16, fontweight='bold', ha='center', va='center', color='white')
-    fig.text(
-        0.5, 0.94,
-        reshape_arabic_text('مناطق السيطرة'),
-        fontsize=14, ha='center', va='center', color='white')
-    
-
-    elif an_tp == reshape_arabic_text('PPDA'):
-        st.subheader(reshape_arabic_text('معدل الضغط (PPDA)'))
-        st.write(reshape_arabic_text("PPDA: عدد التمريرات الناجحة التي يسمح بها الفريق مقابل كل فعل دفاعي في الثلث الدفاعي للخصم. القيمة الأقل تشير إلى ضغط دفاعي أقوى (عادة 5-15)."))
-
-    # اختيار الفترة
-    period_choice = st.selectbox(
-        reshape_arabic_text('اختر الفترة:'),
-        ['Full Match', 'First Half', 'Second Half'],
-        key='ppda_period'
-    )
-    period_map = {
-        'Full Match': None,
-        'First Half': 'FirstHalf',
-        'Second Half': 'SecondHalf'
-    }
-    selected_period = period_map[period_choice]
-
-    try:
-        results = {}
-        teams = st.session_state.df['teamName'].unique()
-        for team in teams:
-            st.write(f"حساب PPDA لـ {team}")
-            results[team] = calculate_team_ppda(
-                events_df=st.session_state.df,
-                team=team,
-                region='opponent_defensive_third',
-                period=selected_period,
-                pitch_units=105,
-                min_def_actions=3,
-                min_pass_distance=5.0
-            )
-
-        if not results or all(not res for res in results.values()):
-            st.error("لا توجد نتائج PPDA متاحة.")
-        else:
-            # إنشاء إطار بيانات مع التحقق من القيم
-            ppda_df = pd.DataFrame.from_dict(results, orient='index')
-            required_columns = ['Passes Allowed', 'Defensive Actions', 'PPDA', 'Pressure Ratio (%)', 'Ball Losses Forced', 'High Press']
-            for col in required_columns:
-                if col not in ppda_df.columns:
-                    ppda_df[col] = None
-            ppda_df = ppda_df[required_columns].fillna('غير متاح')
-
-            st.subheader(reshape_arabic_text('نتائج PPDA'))
-            st.dataframe(
-                ppda_df,
-                use_container_width=True
-            )
-
-            st.subheader(reshape_arabic_text('تفاصيل الأفعال الدفاعية'))
-            for team, result in results.items():
-                if result and 'Action Breakdown' in result:
-                    st.write(reshape_arabic_text(f"الفريق: {team}"))
-                    action_df = pd.DataFrame.from_dict(result['Action Breakdown'], orient='index', columns=['Count'])
-                    st.dataframe(action_df, use_container_width=True)
-                else:
-                    st.write(reshape_arabic_text(f"لا توجد تفاصيل أفعال دفاعية لـ {team}"))
-
-            # رسم الرسم البياني
-            fig, ax = plt.subplots(figsize=(10, 6), facecolor='none')
-            ax.set_facecolor('#1a1a1a')
-            colors = sns.color_palette("husl", len(ppda_df))
-            ppda_values = pd.to_numeric(ppda_df['PPDA'], errors='coerce').fillna(0)
-            bars = ax.bar(ppda_df.index, ppda_values, color=colors, edgecolor='white', linewidth=1.5, alpha=0.9)
-
-            for bar in bars:
-                height = bar.get_height()
-                label = f'{height:.2f}' if height > 0 else 'غير متاح'
-                ax.text(
-                    bar.get_x() + bar.get_width() / 2, height + 0.5,
-                    label, ha='center', va='bottom', color='white',
-                    fontsize=12, fontweight='bold',
-                    path_effects=[path_effects.withStroke(linewidth=2, foreground='black')]
-                )
-
-            ax.set_title(
-                reshape_arabic_text(f'معدل الضغط (PPDA) لكل فريق - {period_choice}'),
-                fontsize=16, color='white', pad=20, fontweight='bold'
-            )
-            ax.set_xlabel(reshape_arabic_text('الفريق'), fontsize=12, color='white')
-            ax.set_ylabel('PPDA', fontsize=12, color='white')
-
-            ax.spines['top'].set_visible(False)
-            ax.spines['right'].set_visible(False)
-            ax.spines['left'].set_color('white')
-            ax.spines['bottom'].set_color('white')
-            ax.tick_params(colors='white', labelsize=10)
-
-            ax.grid(True, axis='y', linestyle='--', alpha=0.3, color='white')
-            ax.axhline(y=12, color='gray', linestyle='--', alpha=0.5)
-            ax.text(0, 12.5, reshape_arabic_text('متوسط PPDA في الدوري'), color='white')
-
-            plt.tight_layout()
+        elif an_tp == 'مناطق سيطرة الفريق':
+            st.subheader('مناطق سيطرة الفريق')
+            phase_tag = st.selectbox('اختر الفترة:', ['Full Time', 'First Half', 'Second Half'])
+            fig, ax = plt.subplots(figsize=(12, 8), facecolor=bg_color)
+            team_domination_zones(ax, phase_tag, hteamName, ateamName, hcol, acol, bg_color, line_color, gradient_colors)
+            fig.text(0.5, 0.98, f'{hteamName} {hgoal_count} - {agoal_count} {ateamName}',
+                     fontsize=16, fontweight='bold', ha='center', va='center', color='white')
+            fig.text(0.5, 0.94, 'مناطق السيطرة', fontsize=14, ha='center', va='center', color='white')
             st.pyplot(fig)
 
-    except Exception as e:
-        st.error(f"خطأ في حساب PPDA: {str(e)}")
-        st.write("يرجى التحقق من البيانات المحملة.")
+        elif an_tp == 'PPDA':
+            st.subheader('معدل الضغط (PPDA)')
+            st.write("PPDA: عدد التمريرات الناجحة التي يسمح بها الفريق مقابل كل فعل دفاعي في الثلث الدفاعي للخصم.")
+            period_choice = st.selectbox('اختر الفترة:', ['Full Match', 'First Half', 'Second Half'])
+            period_map = {'Full Match': None, 'First Half': 'FirstHalf', 'Second Half': 'SecondHalf'}
+            selected_period = period_map[period_choice]
+            try:
+                results = {}
+                for team in st.session_state.df['teamName'].unique():
+                    results[team] = calculate_team_ppda(
+                        events_df=st.session_state.df,
+                        team=team,
+                        region='opponent_defensive_third',
+                        period=selected_period,
+                        pitch_units=105,
+                        min_def_actions=3,
+                        min_pass_distance=5.0
+                    )
+                ppda_df = pd.DataFrame.from_dict(results, orient='index')
+                ppda_df.fillna('غير متاح', inplace=True)
+                st.subheader('نتائج PPDA')
+                st.dataframe(ppda_df, use_container_width=True)
+            except Exception as e:
+                st.error(f"حدث خطأ أثناء حساب PPDA: {str(e)}")
