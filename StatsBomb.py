@@ -1734,9 +1734,9 @@ if st.session_state.analysis_triggered and not st.session_state.df.empty and st.
         fontsize=14, ha='center', va='center', color='white')
     
 
-        elif an_tp == reshape_arabic_text('PPDA'):
-            st.subheader(reshape_arabic_text('معدل الضغط (PPDA)'))
-            st.write(reshape_arabic_text("PPDA: عدد التمريرات الناجحة التي يسمح بها الفريق مقابل كل فعل دفاعي في الثلث الدفاعي للخصم. القيمة الأقل تشير إلى ضغط دفاعي أقوى (عادة 5-15)."))
+    elif an_tp == reshape_arabic_text('PPDA'):
+        st.subheader(reshape_arabic_text('معدل الضغط (PPDA)'))
+        st.write(reshape_arabic_text("PPDA: عدد التمريرات الناجحة التي يسمح بها الفريق مقابل كل فعل دفاعي في الثلث الدفاعي للخصم. القيمة الأقل تشير إلى ضغط دفاعي أقوى (عادة 5-15)."))
 
     # اختيار الفترة
     period_choice = st.selectbox(
