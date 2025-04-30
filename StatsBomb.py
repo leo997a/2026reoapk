@@ -1471,8 +1471,8 @@ def calculate_team_ppda(
         # تسجيل الأخطاء والتصحيحات
         if issues_detected:
             st.warning(f"الأخطاء المكتشفة لـ {team}: {', '.join(issues_detected)}")
-            if auto_correction_applied:
-        me.write(f"تم تطبيق التصحيح التلقائي: {auto_correction_applied}")
+        if auto_correction_applied:
+            st.write(f"تم تطبيق التصحيح التلقائي: {auto_correction_applied}")
 
         return {
             'Region': region,
