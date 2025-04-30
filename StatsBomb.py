@@ -1502,8 +1502,8 @@ with tab1:
         st.pyplot(fig)
 
     elif an_tp == reshape_arabic_text('PPDA'):
-    st.subheader(reshape_arabic_text('معدل الضغط (PPDA)'))
-    st.write(reshape_arabic_text("PPDA: عدد التمريرات الناجحة التي يسمح بها الفريق مقابل كل فعل دفاعي في الثلث الدفاعي للخصم. القيمة الأقل تشير إلى ضغط دفاعي أقوى (عادة 5-15)."))
+        st.subheader(reshape_arabic_text('معدل الضغط (PPDA)'))
+        st.write(reshape_arabic_text("PPDA: عدد التمريرات الناجحة التي يسمح بها الفريق مقابل كل فعل دفاعي في الثلث الدفاعي للخصم. القيمة الأقل تشير إلى ضغط دفاعي أقوى (عادة 5-15)."))
 
     # اختيار الفترة
     period_choice = st.selectbox(
