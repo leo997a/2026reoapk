@@ -1735,87 +1735,87 @@ def plot_match_stats(ax, df, hteamName, ateamName, hcol, acol, bg_color, line_co
         ax.set_yticks([])
 
     # النصوص (العناوين)
-    stat_labels = [
-        "الاستحواذ",
-        "ميلان الملعب",
-        "التمريرات (الناجحة)",
-        "الكرات الطويلة (الناجحة)",
-        "التدخلات (الناجحة)",
-        "الاعتراضات",
-        "التشتيتات",
-        "المواجهات الهوائية (الناجحة)",
-        "PPDA",
-        "متوسط التمريرات/التسلسل",
-        "تسلسلات 10+ تمريرات"
-    ]
-    for i, label in enumerate(stat_labels):
-        ax.text(52.5, stats_title[i], reshape_arabic_text(label), color='white', fontsize=14, ha='center', va='center', fontweight='bold', path_effects=[path_effects.withStroke(linewidth=1.5, foreground='black')])
+        stat_labels = [
+            "الاستحواذ",
+            "ميلان الملعب",
+            "التمريرات (الناجحة)",
+            "الكرات الطويلة (الناجحة)",
+            "التدخلات (الناجحة)",
+            "الاعتراضات",
+            "التشتيتات",
+            "المواجهات الهوائية (الناجحة)",
+            "PPDA",
+            "متوسط التمريرات/التسلسل",
+            "تسلسلات 10+ تمريرات"
+        ]
+        for i, label in enumerate(stat_labels):
+            ax.text(52.5, stats_title[i], reshape_arabic_text(label), color='white', fontsize=14, ha='center', va='center', fontweight='bold', path_effects=[path_effects.withStroke(linewidth=1.5, foreground='black')])
 
     # النصوص (القيم)
-    ax.text(0, 58, f"{round(hposs)}%", color=line_color, fontsize=16, ha='right', va='center', fontweight='bold')
-    ax.text(0, 58-(1*6), f"{round(hft)}%", color=line_color, fontsize=16, ha='right', va='center', fontweight='bold')
-    ax.text(0, 58-(2*6), f"{htotalPass} ({hAccPass})", color=line_color, fontsize=16, ha='right', va='center', fontweight='bold')
-    ax.text(0, 58-(3*6), f"{hLongB} ({hAccLongB})", color=line_color, fontsize=16, ha='right', va='center', fontweight='bold')
-    ax.text(0, 58-(4*6), f"{htkl} ({htklw})", color=line_color, fontsize=16, ha='right', va='center', fontweight='bold')
-    ax.text(0, 58-(5*6), f"{hintc}", color=line_color, fontsize=16, ha='right', va='center', fontweight='bold')
-    ax.text(0, 58-(6*6), f"{hclr}", color=line_color, fontsize=16, ha='right', va='center', fontweight='bold')
-    ax.text(0, 58-(7*6), f"{harl} ({harlw})", color=line_color, fontsize=16, ha='right', va='center', fontweight='bold')
-    ax.text(0, 58-(8*6), f"{home_ppda}", color=line_color, fontsize=16, ha='right', va='center', fontweight='bold')
-    ax.text(0, 58-(9*6), f"{int(PPS_home)}", color=line_color, fontsize=16, ha='right', va='center', fontweight='bold')
-    ax.text(0, 58-(10*6), f"{pass_seq_10_more_home}", color=line_color, fontsize=16, ha='right', va='center', fontweight='bold')
+        ax.text(0, 58, f"{round(hposs)}%", color=line_color, fontsize=16, ha='right', va='center', fontweight='bold')
+        ax.text(0, 58-(1*6), f"{round(hft)}%", color=line_color, fontsize=16, ha='right', va='center', fontweight='bold')
+        ax.text(0, 58-(2*6), f"{htotalPass} ({hAccPass})", color=line_color, fontsize=16, ha='right', va='center', fontweight='bold')
+        ax.text(0, 58-(3*6), f"{hLongB} ({hAccLongB})", color=line_color, fontsize=16, ha='right', va='center', fontweight='bold')
+        ax.text(0, 58-(4*6), f"{htkl} ({htklw})", color=line_color, fontsize=16, ha='right', va='center', fontweight='bold')
+        ax.text(0, 58-(5*6), f"{hintc}", color=line_color, fontsize=16, ha='right', va='center', fontweight='bold')
+        ax.text(0, 58-(6*6), f"{hclr}", color=line_color, fontsize=16, ha='right', va='center', fontweight='bold')
+        ax.text(0, 58-(7*6), f"{harl} ({harlw})", color=line_color, fontsize=16, ha='right', va='center', fontweight='bold')
+        ax.text(0, 58-(8*6), f"{home_ppda}", color=line_color, fontsize=16, ha='right', va='center', fontweight='bold')
+        ax.text(0, 58-(9*6), f"{int(PPS_home)}", color=line_color, fontsize=16, ha='right', va='center', fontweight='bold')
+        ax.text(0, 58-(10*6), f"{pass_seq_10_more_home}", color=line_color, fontsize=16, ha='right', va='center', fontweight='bold')
 
-    ax.text(105, 58, f"{round(aposs)}%", color=line_color, fontsize=16, ha='left', va='center', fontweight='bold')
-    ax.text(105, 58-(1*6), f"{round(aft)}%", color=line_color, fontsize=16, ha='left', va='center', fontweight='bold')
-    ax.text(105, 58-(2*6), f"{atotalPass} ({aAccPass})", color=line_color, fontsize=16, ha='left', va='center', fontweight='bold')
-    ax.text(105, 58-(3*6), f"{aLongB} ({aAccLongB})", color=line_color, fontsize=16, ha='left', va='center', fontweight='bold')
-    ax.text(105, 58-(4*6), f"{atkl} ({atklw})", color=line_color, fontsize=16, ha='left', va='center', fontweight='bold')
-    ax.text(105, 58-(5*6), f"{aintc}", color=line_color, fontsize=16, ha='left', va='center', fontweight='bold')
-    ax.text(105, 58-(6*6), f"{aclr}", color=line_color, fontsize=16, ha='left', va='center', fontweight='bold')
-    ax.text(105, 58-(7*6), f"{aarl} ({aarlw})", color=line_color, fontsize=16, ha='left', va='center', fontweight='bold')
-    ax.text(105, 58-(8*6), f"{away_ppda}", color=line_color, fontsize=16, ha='left', va='center', fontweight='bold')
-    ax.text(105, 58-(9*6), f"{int(PPS_away)}", color=line_color, fontsize=16, ha='left', va='center', fontweight='bold')
-    ax.text(105, 58-(10*6), f"{pass_seq_10_more_away}", color=line_color, fontsize=16, ha='left', va='center', fontweight='bold')
+        ax.text(105, 58, f"{round(aposs)}%", color=line_color, fontsize=16, ha='left', va='center', fontweight='bold')
+        ax.text(105, 58-(1*6), f"{round(aft)}%", color=line_color, fontsize=16, ha='left', va='center', fontweight='bold')
+        ax.text(105, 58-(2*6), f"{atotalPass} ({aAccPass})", color=line_color, fontsize=16, ha='left', va='center', fontweight='bold')
+        ax.text(105, 58-(3*6), f"{aLongB} ({aAccLongB})", color=line_color, fontsize=16, ha='left', va='center', fontweight='bold')
+        ax.text(105, 58-(4*6), f"{atkl} ({atklw})", color=line_color, fontsize=16, ha='left', va='center', fontweight='bold')
+        ax.text(105, 58-(5*6), f"{aintc}", color=line_color, fontsize=16, ha='left', va='center', fontweight='bold')
+        ax.text(105, 58-(6*6), f"{aclr}", color=line_color, fontsize=16, ha='left', va='center', fontweight='bold')
+        ax.text(105, 58-(7*6), f"{aarl} ({aarlw})", color=line_color, fontsize=16, ha='left', va='center', fontweight='bold')
+        ax.text(105, 58-(8*6), f"{away_ppda}", color=line_color, fontsize=16, ha='left', va='center', fontweight='bold')
+        ax.text(105, 58-(9*6), f"{int(PPS_away)}", color=line_color, fontsize=16, ha='left', va='center', fontweight='bold')
+        ax.text(105, 58-(10*6), f"{pass_seq_10_more_away}", color=line_color, fontsize=16, ha='left', va='center', fontweight='bold')
 
     # إنشاء إطار بيانات الإحصائيات
-    home_data = {
-        'اسم الفريق': hteamName,
-        'الاستحواذ (%)': hposs,
-        'ميلان الملعب (%)': hft,
-        'إجمالي التمريرات': htotalPass,
-        'التمريرات الناجحة': hAccPass,
-        'الكرات الطويلة': hLongB,
-        'الكرات الطويلة الناجحة': hAccLongB,
-        'التدخلات': htkl,
-        'التدخلات الناجحة': htklw,
-        'الاعتراضات': hintc,
-        'التشتيتات': hclr,
-        'المواجهات الهوائية': harl,
-        'المواجهات هائية الناجحة': harlw,
-        'PPDA': home_ppda,
-        'متوسط التمريرات/التسلسل': PPS_home,
-        'تسلسلات 10+ تمريرات': pass_seq_10_more_home
-    }
+        home_data = {
+            'اسم الفريق': hteamName,
+            'الاستحواذ (%)': hposs,
+            'ميلان الملعب (%)': hft,
+            'إجمالي التمريرات': htotalPass,
+            'التمريرات الناجحة': hAccPass,
+            'الكرات الطويلة': hLongB,
+            'الكرات الطويلة الناجحة': hAccLongB,
+            'التدخلات': htkl,
+            'التدخلات الناجحة': htklw,
+            'الاعتراضات': hintc,
+            'التشتيتات': hclr,
+            'المواجهات الهوائية': harl,
+            'المواجهات هائية الناجحة': harlw,
+            'PPDA': home_ppda,
+            'متوسط التمريرات/التسلسل': PPS_home,
+            'تسلسلات 10+ تمريرات': pass_seq_10_more_home
+        }
 
-    away_data = {
-        'اسم الفريق': ateamName,
-        'الاستحواذ (%)': aposs,
-        'ميلان الملعب (%)': aft,
-        'إجمالي التمريرات': atotalPass,
-        'التمريرات الناجحة': aAccPass,
-        'الكرات الطويلة': aLongB,
-        'الكرات الطويلة الناجحة': aAccLongB,
-        'التدخلات': atkl,
-        'التدخلات الناجحة': atklw,
-        'الاعتراضات': aintc,
-        'التشتيتات': aclr,
-        'المواجهات الهوائية': aarl,
-        'المواجهات هائية الناجحة': aarlw,
-        'PPDA': away_ppda,
-        'متوسط التمريرات/التسلسل': PPS_away,
-        'تسلسلات 10+ تمريرات': pass_seq_10_more_away
-    }
+        away_data = {
+            'اسم الفريق': ateamName,
+            'الاستحواذ (%)': aposs,
+            'ميلان الملعب (%)': aft,
+            'إجمالي التمريرات': atotalPass,
+            'التمريرات الناجحة': aAccPass,
+            'الكرات الطويلة': aLongB,
+            'الكرات الطويلة الناجحة': aAccLongB,
+            'التدخلات': atkl,
+            'التدخلات الناجحة': atklw,
+            'الاعتراضات': aintc,
+            'التشتيتات': aclr,
+            'المواجهات الهوائية': aarl,
+            'المواجهات هائية الناجحة': aarlw,
+            'PPDA': away_ppda,
+            'متوسط التمريرات/التسلسل': PPS_away,
+            'تسلسلات 10+ تمريرات': pass_seq_10_more_away
+       }
 
-    return pd.DataFrame([home_data, away_data])
+        return pd.DataFrame([home_data, away_data])
 
 # واجهة Streamlit
 st.title("تحليل مباراة كرة القدم")
