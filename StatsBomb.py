@@ -1496,7 +1496,7 @@ with tab1:
                 ateamID
             )
             # إضافة العلامة المائية إذا كانت مفعلة
-        if watermark_enabled:
+    if watermark_enabled:
             add_watermark(fig, text=watermark_text, alpha=watermark_opacity, 
                          fontsize=watermark_size, color=watermark_color)
         
