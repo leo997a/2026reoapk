@@ -2361,7 +2361,6 @@ with tab1:
         
 
 
-('نوع التحليل:'
 with tab3:
     reshape_arabic_text("إحصائيات المباراة"))
         try:
