@@ -2109,6 +2109,7 @@ with tab1:
         reshape_arabic_text('Crosses'),
         reshape_arabic_text('Team Domination Zones'),
         reshape_arabic_text('Pass Target Zones'),
+        reshape_arabic_text("إحصائيات المباراة),
         'Attacking Thirds',
         reshape_arabic_text('PPDA')
     ], index=0, key='analysis_type')
@@ -2359,7 +2360,7 @@ with tab1:
                        ha=watermark_ha, va=watermark_va)
             
             st.pyplot(fig)
-with tab3:  # تبويب إحصائيات المباراة
+elif an_tp == 'مناطق الهجوم':
     st.header(reshape_arabic_text("إحصائيات المباراة"))
     try:
         fig, ax = plt.subplots(figsize=(12, 10), facecolor=bg_color)
