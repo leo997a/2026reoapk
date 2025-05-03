@@ -2360,7 +2360,10 @@ with tab1:
                        ha=watermark_ha, va=watermark_va)
             
             st.pyplot(fig)
-            
+
+
+
+
 with tab3:
     st.header(reshape_arabic_text("إحصائيات المباراة"))
         try:
