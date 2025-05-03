@@ -2065,7 +2065,7 @@ with tab2:
         ax.set_title(reshape_arabic_text("مقارنة وهمية"))
         st.pyplot(fig)
 
-       with tab3:
+with tab3:
             st.subheader(reshape_arabic_text("إحصائيات المباراة"))
             
             # إضافة اختيار الفترة
