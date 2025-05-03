@@ -2353,7 +2353,8 @@ with tab1:
                        x_pos=watermark_x, y_pos=watermark_y, 
                        ha=watermark_ha, va=watermark_va)
         
-
+except Exception as e:
+    st.error(f"حدث خطأ: {e}")
 
 with tab3:
     reshape_arabic_text("إحصائيات المباراة")
