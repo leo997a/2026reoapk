@@ -1710,8 +1710,8 @@ def plot_match_stats(ax, df, hteamName, ateamName, hcol, acol, bg_color, line_co
         stats_away = [aposs, aft, atotalPass, aLongB, atkl, aintc, aclr, aarl, away_ppda, PPS_away, pass_seq_10_more_away]
 
     # تطبيع القيم للأشرطة
-    stats_normalized_home = []
-    stats_normalized_away = []
+        stats_normalized_home = []
+        stats_normalized_away = []
     for h, a in zip(stats_home, stats_away):
         total = h + a
         if total > 0:
