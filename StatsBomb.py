@@ -29,7 +29,9 @@ import warnings
 import os
 import requests
 from io import StringIO, BytesIO
-import matplotlib.font_manager as fm
+import matplotlib.font_manager as FM
+import ast
+
 
 # دالة إضافة العلامة المائية
 def add_watermark(fig, text="reo show", alpha=0.3, fontsize=15, color='white', x_pos=0.5, y_pos=0.5, ha='center', va='center'):
@@ -131,6 +133,10 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
+# إعداد الخطوط الحديثة (يجب تثبيت الخط أو استخدام خط متاح)
+plt.rcParams['font.family'] = 'sans-serif'
+plt.rcParams['font.sans-serif'] = ['Roboto', 'Montserrat', 'Arial']
+
 # تعريف الألوان الافتراضية
 default_hcol = '#d00000'
 default_acol = '#003087'
@@ -177,6 +183,8 @@ line_color = st.sidebar.color_picker(
     'لون الخطوط', '#ffffff', key='line_color_picker')
 selected_font = st.sidebar.selectbox("اختر الخط للنصوص:", available_font_options, index=0)
 
+# إعداد تدرج لوني للأشرطة
+cmap = LinearSegmentedColormap.from_list("custom_gradient", gradient_colors)
 # إضافة إعدادات العلامة المائية
 st.sidebar.title('إعدادات العلامة المائية')
 watermark_enabled = st.sidebar.checkbox('تفعيل العلامة المائية', value=True)
@@ -2386,6 +2394,10 @@ with tab3:
         if not team_ids or len(team_ids) < 2:
             raise ValueError("لا توجد فرق كافية في teams_dict لعرض الإحصائيات.")
 
+        # تعريف أسماء الفرق
+        hteamName = "Barcelona"  # استبدل بـ st.session_state.teams_dict[team_ids[0]]['name'] إذا كان لديك قاموس الفرق
+        ateamName = "Inter"      # استبدل بـ st.session_state.teams_dict[team_ids[1]]['name']
+
         # نسبة الاستحواذ
         hpossdf = df[(df['teamId'] == team_ids[0]) & (df['type'] == 'Pass')]
         apossdf = df[(df['teamId'] == team_ids[1]) & (df['type'] == 'Pass')]
@@ -2454,8 +2466,6 @@ with tab3:
         home_goalkick = df[(df['teamId'] == team_ids[0]) & (df['type'] == 'Pass') & (df['has_goalkick'] == True)]
         away_goalkick = df[(df['teamId'] == team_ids[1]) & (df['type'] == 'Pass') & (df['has_goalkick'] == True)]
 
-        import ast
-
         # حساب متوسط طول ركلات المرمى للفريق المضيف
         if len(home_goalkick) != 0:
             try:
@@ -2498,101 +2508,111 @@ with tab3:
         home_ppda = round((len(away_pass) / len(home_def_acts)) if len(home_def_acts) > 0 else 0, 2)
         away_ppda = round((len(home_pass) / len(away_def_acts)) if len(away_def_acts) > 0 else 0, 2)
 
-        # إنشاء قاموس للإحصائيات
-        stats_dict = {
-            reshape_arabic_text('الإحصائية'): [
-                reshape_arabic_text('الاستحواذ %'),
-                reshape_arabic_text('الميل الميداني %'),
-                reshape_arabic_text('إجمالي التمريرات'),
-                reshape_arabic_text('التمريرات الناجحة'),
-                reshape_arabic_text('دقة التمرير %'),
-                reshape_arabic_text('التمريرات الناجحة (بدون الثلث الدفاعي)'),
-                reshape_arabic_text('الكرات الطويلة'),
-                reshape_arabic_text('الكرات الطويلة الناجحة'),
-                reshape_arabic_text('دقة الكرات الطويلة %'),
-                reshape_arabic_text('العرضيات'),
-                reshape_arabic_text('العرضيات الناجحة'),
-                reshape_arabic_text('دقة العرضيات %'),
-                reshape_arabic_text('الركلات الحرة'),
-                reshape_arabic_text('الركنيات'),
-                reshape_arabic_text('رميات التماس'),
-                reshape_arabic_text('ركلات المرمى'),
-                reshape_arabic_text('متوسط طول ركلات المرمى'),
-                reshape_arabic_text('المراوغات'),
-                reshape_arabic_text('المراوغات الناجحة'),
-                reshape_arabic_text('نسبة نجاح المراوغات %'),
-                reshape_arabic_text('PPDA')
-            ],
-            hteamName: [
-                hposs, hft, htotalPass, hAccPass, round((hAccPass/htotalPass)*100, 2) if htotalPass > 0 else 0,
-                hAccPasswdt, hLongB, hAccLongB, round((hAccLongB/hLongB)*100, 2) if hLongB > 0 else 0,
-                hCrss, hAccCrss, round((hAccCrss/hCrss)*100, 2) if hCrss > 0 else 0, hfk, hCor, htins,
-                hglkk, hglkl, htotalDrb, hAccDrb, round((hAccDrb/htotalDrb)*100, 2) if htotalDrb > 0 else 0,
-                home_ppda
-            ],
-            ateamName: [
-                aposs, aft, atotalPass, aAccPass, round((aAccPass/atotalPass)*100, 2) if atotalPass > 0 else 0,
-                aAccPasswdt, aLongB, aAccLongB, round((aAccLongB/aLongB)*100, 2) if aLongB > 0 else 0,
-                aCrss, aAccCrss, round((aAccCrss/aCrss)*100, 2) if aCrss > 0 else 0, afk, aCor, atins,
-                aglkk, aglkl, atotalDrb, aAccDrb, round((aAccDrb/atotalDrb)*100, 2) if atotalDrb > 0 else 0,
-                away_ppda
-            ]
-        }
+        # قائمة الإحصائيات
+        stats = [
+            (reshape_arabic_text('الاستحواذ %'), hposs, aposs, True),
+            (reshape_arabic_text('الميل الميداني %'), hft, aft, True),
+            (reshape_arabic_text('إجمالي التمريرات'), htotalPass, atotalPass, False),
+            (reshape_arabic_text('التمريرات الناجحة'), hAccPass, aAccPass, False),
+            (reshape_arabic_text('دقة التمرير %'), round((hAccPass/htotalPass)*100, 2) if htotalPass > 0 else 0, round((aAccPass/atotalPass)*100, 2) if atotalPass > 0 else 0, True),
+            (reshape_arabic_text('التمريرات الناجحة (بدون الثلث الدفاعي)'), hAccPasswdt, aAccPasswdt, False),
+            (reshape_arabic_text('الكرات الطويلة'), hLongB, aLongB, False),
+            (reshape_arabic_text('الكرات الطويلة الناجحة'), hAccLongB, aAccLongB, False),
+            (reshape_arabic_text('دقة الكرات الطويلة %'), round((hAccLongB/hLongB)*100, 2) if hLongB > 0 else 0, round((aAccLongB/aLongB)*100, 2) if aLongB > 0 else 0, True),
+            (reshape_arabic_text('العرضيات'), hCrss, aCrss, False),
+            (reshape_arabic_text('العرضيات الناجحة'), hAccCrss, aAccCrss, False),
+            (reshape_arabic_text('دقة العرضيات %'), round((hAccCrss/hCrss)*100, 2) if hCrss > 0 else 0, round((aAccCrss/aCrss)*100, 2) if aCrss > 0 else 0, True),
+            (reshape_arabic_text('الركلات الحرة'), hfk, afk, False),
+            (reshape_arabic_text('الركنيات'), hCor, aCor, False),
+            (reshape_arabic_text('رميات التماس'), htins, atins, False),
+            (reshape_arabic_text('ركلات المرمى'), hglkk, aglkk, False),
+            (reshape_arabic_text('متوسط طول ركلات المرمى'), hglkl, aglkl, False),
+            (reshape_arabic_text('المراوغات'), htotalDrb, atotalDrb, False),
+            (reshape_arabic_text('المراوغات الناجحة'), hAccDrb, aAccDrb, False),
+            (reshape_arabic_text('نسبة نجاح المراوغات %'), round((hAccDrb/htotalDrb)*100, 2) if htotalDrb > 0 else 0, round((aAccDrb/atotalDrb)*100, 2) if atotalDrb > 0 else 0, True),
+            (reshape_arabic_text('PPDA'), home_ppda, away_ppda, False)
+        ]
 
-        # إنشاء DataFrame للإحصائيات
-        stats_df = pd.DataFrame(stats_dict)
-
-        # عرض الإحصائيات في جدول تفاعلي
-        st.subheader(reshape_arabic_text("جدول الإحصائيات التفصيلي"))
-        st.dataframe(stats_df.style.format({
-            hteamName: '{:.2f}',
-            ateamName: '{:.2f}'
-        }))
-
-        # رسم الإحصائيات في رسم بياني
-        fig, ax = plt.subplots(figsize=(12, 10), facecolor=bg_color)
+        # إعداد الرسم
+        fig, ax = plt.subplots(figsize=(12, 14), facecolor=bg_color)
         ax.set_facecolor(bg_color)
-
-        # إضافة عنوان
-        ax.set_title(reshape_arabic_text('إحصائيات المباراة'), color='white', fontsize=16, fontweight='bold')
-
-        # إخفاء المحاور
         ax.axis('off')
 
-        # إنشاء جدول للإحصائيات
-        table_data = []
-        for i in range(len(stats_df)):
-            row = [stats_df.iloc[i, 0], stats_df.iloc[i, 1], stats_df.iloc[i, 2]]
-            table_data.append(row)
+        # إضافة خلفية متدرجة
+        gradient = np.linspace(0, 1, 512)
+        gradient = np.vstack((gradient, gradient))
+        ax.imshow(gradient, aspect='auto', cmap='Blues', alpha=0.1, extent=[0, 12, 0, 14])
 
-        # إنشاء الجدول
-        table = ax.table(
-            cellText=table_data,
-            colLabels=[reshape_arabic_text('الإحصائية'), reshape_arabic_text(hteamName), reshape_arabic_text(ateamName)],
-            loc='center',
-            cellLoc='center',
-            colWidths=[0.5, 0.25, 0.25]
-        )
+        # إضافة شعاري الناديين
+        def add_logo(ax, image_path, x, y, zoom=0.15):
+            img = plt.imread(image_path)
+            imagebox = OffsetImage(img, zoom=zoom)
+            ab = AnnotationBbox(imagebox, (x, y), frameon=False, boxcoords="axes fraction")
+            ax.add_artist(ab)
 
-        # تنسيق الجدول
-        table.auto_set_font_size(False)
-        table.set_fontsize(10)
-        table.scale(1, 2)
+        # استبدل المسارات التالية بمسارات أو روابط فعلية لشعاري الناديين
+        home_team_logo = "path_to_barcelona_logo.png"  # استبدل بمسار شعار برشلونة
+        away_team_logo = "path_to_inter_logo.png"      # استبدل بمسار شعار إنتر
+        add_logo(ax, home_team_logo, 0.25, 0.95)
+        add_logo(ax, away_team_logo, 0.75, 0.95)
 
-        # تلوين خلايا الجدول
-        for (i, j), cell in table.get_celld().items():
-            if j == 0:  # عمود الإحصائيات
-                cell.set_text_props(color='white', fontweight='bold')
-                cell.set_facecolor('#2c2c44')
-            elif i == 0:  # صف العناوين
-                cell.set_text_props(color='white', fontweight='bold')
-                cell.set_facecolor('#1e1e2f')
-            elif j == 1:  # عمود الفريق المضيف
-                cell.set_text_props(color='white')
-                cell.set_facecolor(to_rgba(hcol, 0.3))
-            elif j == 2:  # عمود الفريق الضيف
-                cell.set_text_props(color='white')
-                cell.set_facecolor(to_rgba(acol, 0.3))
+        # إضافة أسماء الفرق أسفل الشعارات
+        ax.text(0.25, 0.90, hteamName, color=home_color, fontsize=16, fontweight='bold', ha='center', va='center', transform=ax.transAxes)
+        ax.text(0.75, 0.90, ateamName, color=away_color, fontsize=16, fontweight='bold', ha='center', va='center', transform=ax.transAxes)
+
+        # إضافة عنوان
+        ax.text(0.5, 0.85, reshape_arabic_text('إحصائيات المباراة'), color=text_color, fontsize=20, fontweight='bold', ha='center', va='center', transform=ax.transAxes, bbox=dict(facecolor='none', edgecolor='white', alpha=0.2, boxstyle='round,pad=0.5'))
+
+        # إعداد مواقع الإحصائيات
+        y_positions = np.linspace(0.80, 0.05, len(stats))
+        bar_width = 0.4  # عرض الشريط
+
+        for i, (stat_name, home_value, away_value, is_percentage) in enumerate(stats):
+            y = y_positions[i]
+
+            # عرض اسم الإحصائية في المنتصف
+            ax.text(0.5, y, stat_name, color=text_color, fontsize=12, fontweight='bold', ha='center', va='center', transform=ax.transAxes)
+
+            # عرض قيم الفريق المضيف على اليسار
+            home_text = f"{home_value}{'%' if is_percentage else ''}"
+            ax.text(0.25, y, home_text, color=home_color, fontsize=12, ha='center', va='center', transform=ax.transAxes)
+
+            # عرض قيم الفريق الضيف على اليمين
+            away_text = f"{away_value}{'%' if is_percentage else ''}"
+            ax.text(0.75, y, away_text, color=away_color, fontsize=12, ha='center', va='center', transform=ax.transAxes)
+
+            # حساب نسبة الشريط
+            total = home_value + away_value
+            if total > 0:
+                home_ratio = home_value / total
+                away_ratio = away_value / total
+            else:
+                home_ratio = 0.5
+                away_ratio = 0.5
+
+            # رسم الشريط بين القيمتين
+            bar_x_start = 0.35  # بداية الشريط
+            bar_x_end = 0.65    # نهاية الشريط
+            bar_length = bar_x_end - bar_x_start
+            home_bar_length = bar_length * home_ratio
+            away_bar_length = bar_length * away_ratio
+
+            # رسم الشريط بتدرج لوني
+            bar_gradient = np.linspace(0, 1, 256)
+            bar_gradient = np.vstack((bar_gradient, bar_gradient))
+            ax.imshow(bar_gradient, aspect='auto', cmap=cmap, extent=[bar_x_start, bar_x_end, y-0.01, y+0.01], transform=ax.transAxes, alpha=0.8)
+
+            # إضافة تأثير ظل للشريط
+            from matplotlib.patches import FancyBboxPatch
+            bar_box = FancyBboxPatch((bar_x_start, y-0.01), bar_length, 0.02, boxstyle="round,pad=0.02", transform=ax.transAxes, facecolor='none', edgecolor='white', alpha=0.3)
+            ax.add_patch(bar_box)
+
+        # إضافة خطوط فاصلة لتحسين التصميم
+        for y in y_positions:
+            ax.axhline(y, xmin=0.1, xmax=0.9, color='white', alpha=0.1, linestyle='--', transform=ax.transAxes)
+
+        # إضافة تأثير ضبابي للخلفية (محاكاة Blur)
+        ax.imshow(np.ones((512, 512)), aspect='auto', cmap='Greys', alpha=0.05, extent=[0, 1, 0, 1], transform=ax.transAxes)
 
         # إضافة العلامة المائية إذا كانت مفعلة
         if watermark_enabled:
@@ -2601,6 +2621,7 @@ with tab3:
                          x_pos=watermark_x, y_pos=watermark_y,
                          ha=watermark_ha, va=watermark_va)
 
+        # عرض الرسم في Streamlit
         st.pyplot(fig)
 
     except Exception as e:
