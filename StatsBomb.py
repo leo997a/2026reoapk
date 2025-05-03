@@ -1690,105 +1690,97 @@ def plot_match_stats(ax, df, hteamName, ateamName, hcol, acol, bg_color, line_co
         st.error(f"خطأ في plot_match_stats: {str(e)}")
         return pd.DataFrame()
 
-# واجهة Streamlit
-st.title("تحليل مباراة كرة القدم")
-uploaded_html = st.file_uploader("قم برفع ملف HTML للمباراة:", type=["html"])
-uploaded_json = st.file_uploader("أو قم بتحميل ملف JSON (اختياري):", type="json")
+# Streamlit app
+def main():
+    st.set_page_config(page_title="تحليل مباراة كرة القدم", layout="wide")
+    st.title(reshape_arabic_text("تحليل مباراة كرة القدم"))
 
-if st.button("تحليل المباراة"):
-    with st.spinner("جارٍ استخراج بيانات المباراة..."):
+    if 'df' not in st.session_state:
+        st.session_state.df = None
+    if 'json_data' not in st.session_state:
         st.session_state.json_data = None
-        st.session_state.df = pd.DataFrame({
-            'period': ['FirstHalf', 'FirstHalf', 'SecondHalf', 'SecondHalf', 'FirstHalf', 'SecondHalf'],
-            'teamName': ['TeamA', 'TeamA', 'TeamA', 'TeamB', 'TeamB', 'TeamA'],
-            'type': ['Pass', 'Pass', 'Pass', 'Goal', 'Pass', 'Carry'],
-            'outcomeType': ['Successful', 'Successful', 'Successful', 'Successful', 'Successful', 'Successful'],
-            'name': ['Player1', 'Player2', 'Player1', 'Player3', 'Player4', 'Player2'],
-            'x': [10, 20, 30, 90, 50, 40],
-            'y': [10, 20, 30, 34, 40, 50],
-            'endX': [20, 30, 40, np.nan, 60, 50],
-            'endY': [20, 30, 40, np.nan, 50, 60],
-            'qualifiers': ['', '', '', 'Goal', '', ''],
-            'shirtNo': [1, 2, 1, 3, 4, 2],
-            'position': ['DC', 'DC', 'DC', 'FW', 'MC', 'DC'],
-            'isFirstEleven': [True, True, True, True, True, True],
-            'playerId': [101, 102, 101, 103, 104, 102],
-            'isTouch': [True, True, True, True, True, True],
-            'cumulative_mins': [5, 10, 50, 60, 20, 70]
-        })
-        st.session_state.players_df = pd.DataFrame({
-            'name': ['Player1', 'Player2', 'Player3', 'Player4'],
-            'shirtNo': [1, 2, 3, 4],
-            'position': ['DC', 'DC', 'FW', 'MC'],
-            'isFirstEleven': [True, True, True, True],
-            'playerId': [101, 102, 103, 104]
-        })
-        st.session_state.teams_dict = {1: 'TeamA', 2: 'TeamB'}
-        st.session_state.analysis_triggered = True
-        st.success("تم تحميل البيانات التجريبية بنجاح!")
-        
-        if uploaded_json:
-            try:
-                st.session_state.json_data = json.load(uploaded_json)
-            except Exception as e:
-                st.error(f"خطأ في تحميل ملف JSON: {str(e)}")
-        elif uploaded_html:
-            try:
-                st.session_state.json_data = extract_match_dict_from_html(uploaded_html)
-            except Exception as e:
-                st.error(f"خطأ في معالجة ملف HTML: {str(e)}")
-        else:
-            st.error("يرجى رفع ملف HTML أو JSON للمباراة.")
+    if 'teams_dict' not in st.session_state:
+        st.session_state.teams_dict = None
+    if 'players_df' not in st.session_state:
+        st.session_state.players_df = None
+    if 'analysis_triggered' not in st.session_state:
+        st.session_state.analysis_triggered = False
 
-        if st.session_state.json_data:
-            st.session_state.df, st.session_state.teams_dict, st.session_state.players_df = get_event_data(
-                st.session_state.json_data)
+    uploaded_file = st.file_uploader("اختر ملف بيانات المباراة (HTML أو JSON)", type=["html", "json"])
+
+    if uploaded_file is not None:
+        try:
+            if uploaded_file.name.endswith('.json'):
+                st.session_state.json_data = json.load(uploaded_file)
+            else:
+                st.session_state.json_data = uploaded_file.read().decode('utf-8')
+            st.success("تم تحميل الملف بنجاح!")
+        except Exception as e:
+            st.error(f"خطأ في تحميل الملف: {str(e)}")
+
+    if st.button("تحليل المباراة"):
+        with st.spinner("جارٍ استخراج بيانات المباراة..."):
+            st.session_state.json_data = None
+            st.session_state.df = pd.DataFrame({
+                'period': ['FirstHalf', 'FirstHalf', 'SecondHalf', 'SecondHalf', 'FirstHalf', 'SecondHalf', 'FirstHalf', 'SecondHalf'],
+                'teamName': ['TeamA', 'TeamA', 'TeamA', 'TeamB', 'TeamB', 'TeamA', 'TeamB', 'TeamA'],
+                'type': ['Pass', 'Pass', 'Pass', 'Goal', 'Pass', 'Carry', 'Tackle', 'Interception'],
+                'outcomeType': ['Successful', 'Successful', 'Successful', 'Successful', 'Successful', 'Successful', 'Successful', 'Successful'],
+                'name': ['Player1', 'Player2', 'Player1', 'Player3', 'Player4', 'Player2', 'Player3', 'Player1'],
+                'x': [10, 20, 30, 90, 50, 40, 60, 45],
+                'y': [10, 20, 30, 34, 40, 50, 45, 55],
+                'endX': [20, 30, 40, np.nan, 60, 50, np.nan, np.nan],
+                'endY': [20, 30, 40, np.nan, 50, 60, np.nan, np.nan],
+                'qualifiers': ['Longball', '', '', 'Goal', 'Longball', '', '', ''],
+                'shirtNo': [1, 2, 1, 3, 4, 2, 3, 1],
+                'position': ['DC', 'DC', 'DC', 'FW', 'MC', 'DC', 'FW', 'DC'],
+                'isFirstEleven': [True, True, True, True, True, True, True, True],
+                'playerId': [101, 102, 101, 103, 104, 102, 103, 101],
+                'isTouch': [True, True, True, True, True, True, True, True],
+                'cumulative_mins': [5, 10, 50, 60, 20, 70, 30, 40],
+                'possession_id': [1, 1, 2, 3, 3, 4, 5, 6]
+            })
+            st.session_state.players_df = pd.DataFrame({
+                'name': ['Player1', 'Player2', 'Player3', 'Player4'],
+                'shirtNo': [1, 2, 3, 4],
+                'position': ['DC', 'DC', 'FW', 'MC'],
+                'isFirstEleven': [True, True, True, True],
+                'playerId': [101, 102, 103, 104]
+            })
+            st.session_state.teams_dict = {1: 'TeamA', 2: 'TeamB'}
+            st.session_state.analysis_triggered = True
+            st.success("تم تحميل البيانات التجريبية بنجاح!")
+
+    if st.session_state.json_data:
+        try:
+            st.session_state.df, st.session_state.teams_dict, st.session_state.players_df = get_event_data(st.session_state.json_data)
             st.session_state.analysis_triggered = True
             if st.session_state.df is not None and st.session_state.teams_dict and st.session_state.players_df is not None:
                 st.success("تم استخراج البيانات بنجاح!")
+                st.write("الأعمدة في إطار البيانات:", st.session_state.df.columns.tolist())
             else:
                 st.error("فشل في معالجة البيانات.")
+        except Exception as e:
+            st.error(f"خطأ في معالجة البيانات: {str(e)}")
+
+    if st.session_state.analysis_triggered and st.session_state.df is not None and not st.session_state.df.empty:
+        teams = list(st.session_state.teams_dict.values())
+        if len(teams) >= 2:
+            hteamName, ateamName = teams[0], teams[1]
         else:
-            st.error("فشل في جلب بيانات المباراة.")
+            st.error("يتطلب وجود فريقين على الأقل في البيانات.")
+            return
 
-# عرض التحليل فقط إذا تم استخراج البيانات
-# عرض التحليل فقط إذا تم استخراج البيانات
-if st.session_state.analysis_triggered and not st.session_state.df.empty and st.session_state.teams_dict and not st.session_state.players_df.empty:
-    hteamID = list(st.session_state.teams_dict.keys())[0]
-    ateamID = list(st.session_state.teams_dict.keys())[1]
-    hteamName = st.session_state.teams_dict[hteamID]
-    ateamName = st.session_state.teams_dict[ateamID]
+        # تعريف الألوان لاستخدامها في التبويبات
+        hcol = '#FF0000'
+        acol = '#0000FF'
 
-    homedf = st.session_state.df[(st.session_state.df['teamName'] == hteamName)]
-    awaydf = st.session_state.df[(st.session_state.df['teamName'] == ateamName)]
-    hxT = homedf['xT'].sum().round(2) if 'xT' in homedf.columns else 0
-    axT = awaydf['xT'].sum().round(2) if 'xT' in awaydf.columns else 0
+        tab1, tab2, tab3 = st.tabs([
+            reshape_arabic_text("الأحداث"),
+            reshape_arabic_text("تشكيلة الفريق"),
+            reshape_arabic_text("إحصائيات المباراة")
+        ])
 
-    hgoal_count = len(homedf[(homedf['teamName'] == hteamName) & 
-                             (homedf['type'] == 'Goal') & 
-                             (~homedf['qualifiers'].str.contains('OwnGoal', na=False))])
-    agoal_count = len(awaydf[(awaydf['teamName'] == ateamName) & 
-                             (awaydf['type'] == 'Goal') & 
-                             (~awaydf['qualifiers'].str.contains('OwnGoal', na=False))])
-    hgoal_count += len(awaydf[(awaydf['teamName'] == ateamName) & 
-                              (awaydf['type'] == 'Goal') & 
-                              (awaydf['qualifiers'].str.contains('OwnGoal', na=False))])
-    agoal_count += len(homedf[(homedf['teamName'] == hteamName) & 
-                              (homedf['type'] == 'Goal') & 
-                              (homedf['qualifiers'].str.contains('OwnGoal', na=False))])
-
-    hftmb_tid = fotmob_team_ids.get(hteamName, 0)
-    aftmb_tid = fotmob_team_ids.get(ateamName, 0)
-
-    st.header(f'{hteamName} {hgoal_count} - {agoal_count} {ateamName}')
-
-    # علامات التبويب
-    try:
-        tab1, tab2, tab3, tab4 = st.tabs(
-            ['تحليل الفريق', 'تحليل اللاعبين', 'إحصائيات المباراة', 'أفضل اللاعبين'])
-    except Exception as e:
-        st.error(f"خطأ في إنشاء التبويبات: {str(e)}")
-        st.stop()
 
 with tab1:
     an_tp = st.selectbox('نوع التحليل:', [
