@@ -2361,7 +2361,6 @@ with tab1:
             
             st.pyplot(fig)
             
-# داخل دالة main() في قسم التبويبات (tab3)
 with tab3:  # تبويب إحصائيات المباراة
     st.header(reshape_arabic_text("إحصائيات المباراة"))
         try:
