@@ -1495,7 +1495,12 @@ with tab1:
                 hteamID,
                 ateamID
             )
-            st.pyplot(fig)
+            # إضافة العلامة المائية إذا كانت مفعلة
+        if watermark_enabled:
+            add_watermark(fig, text=watermark_text, alpha=watermark_opacity, 
+                         fontsize=watermark_size, color=watermark_color)
+        
+        st.pyplot(fig)
             if pass_btn is not None and not pass_btn.empty:
                 st.dataframe(pass_btn, hide_index=True)
             else:
@@ -1540,6 +1545,11 @@ with tab1:
             fontsize=16, fontweight='bold', ha='center', va='center', color='white')
         fig.text(0.5, 0.94, reshape_arabic_text('مناطق السيطرة'),
                  fontsize=14, ha='center', va='center', color='white')
+        # إضافة العلامة المائية إذا كانت مفعلة
+        if watermark_enabled:
+            add_watermark(fig, text=watermark_text, alpha=watermark_opacity, 
+                         fontsize=watermark_size, color=watermark_color)
+        
         st.pyplot(fig)
 
     elif an_tp == reshape_arabic_text('PPDA'):
@@ -1686,7 +1696,12 @@ with tab1:
             ax.text(0, 10.5, reshape_arabic_text('متوسط PPDA في الدوري'), color='white')
 
             plt.tight_layout()
-            st.pyplot(fig)
+            # إضافة العلامة المائية إذا كانت مفعلة
+        if watermark_enabled:
+            add_watermark(fig, text=watermark_text, alpha=watermark_opacity, 
+                         fontsize=watermark_size, color=watermark_color)
+        
+        st.pyplot(fig)
 
     except Exception as e:
         st.error(f"خطأ في حساب PPDA: {str(e)}")
