@@ -2214,11 +2214,11 @@ with tab1:
         st.pyplot(fig)
 
     elif an_tp == reshape_arabic_text('PPDA'):
-        st.subheader(reshape_arabic_text('معدل الضغط (PPDA)'))
-        st.write(reshape_arabic_text("PPDA: عدد التمريرات الناجحة التي يسمح بها الفريق مقابل كل فعل دفاعي في الثلث الدفاعي للخصم. القيمة الأقل تشير إلى ضغط دفاعي أقوى (عادة 5-15)."))
+    st.subheader(reshape_arabic_text('معدل الضغط (PPDA)'))
+    st.write(reshape_arabic_text("PPDA: عدد التمريرات الناجحة التي يسمح بها الفريق مقابل كل فعل دفاعي في الثلث الدفاعي للخصم. القيمة الأقل تشير إلى ضغط دفاعي أقوى (عادة 5-15)."))
 
-        # إضافة خيارات لتخصيص PPDA
-        period_choice = st.selectbox(
+    # إضافة خيارات لتخصيص PPDA
+    period_choice = st.selectbox(
         reshape_arabic_text('اختر الفترة:'),
         ['Full Match', 'First Half', 'Second Half'],
         key='ppda_period'
@@ -2228,7 +2228,7 @@ with tab1:
         'First Half': 'FirstHalf',
         'Second Half': 'SecondHalf'
     }
-    selected_period = period_map[period_choice]
+    selected_period = period_map.get(period_choice, None)
 
     region_choice = st.selectbox(
         reshape_arabic_text('اختر المنطقة:'),
@@ -2243,7 +2243,7 @@ with tab1:
         '60% من الملعب الهجومي': 'attacking_60',
         'الملعب بأكمله': 'whole'
     }
-    selected_region = region_map[region_choice]
+    selected_region = region_map.get(region_choice, 'opponent_defensive_third')
 
     simulate_pressure = st.checkbox(
         reshape_arabic_text('محاكاة أحداث الضغط (إذا لم تكن متوفرة)'),
