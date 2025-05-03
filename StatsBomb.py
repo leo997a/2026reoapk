@@ -2236,47 +2236,52 @@ with tab2:
 with tab3:
     st.subheader(reshape_arabic_text("إحصائيات المباراة"))
     
-    # اختبار رسم بسيط
-    fig, ax = plt.subplots(figsize=(12, 10), facecolor=bg_color, dpi=150)
-    pitch = Pitch(pitch_type='uefa', pitch_color=bg_color, line_color=line_color)
-    pitch.draw(ax=ax)
-    ax.text(52.5, 34, reshape_arabic_text("اختبار الملعب"), color='white', ha='center', va='center', fontsize=20)
-    st.pyplot(fig)
-    
-    try:
-        # استدعاء دالة plot_match_stats
-        stats_df = plot_match_stats(
-            ax,
-            st.session_state.df,
-            hteamName,
-            ateamName,
-            hcol,
-            acol,
-            bg_color,
-            line_color,
-            watermark_enabled,
-            watermark_text,
-            watermark_opacity,
-            watermark_size,
-            watermark_color,
-            watermark_x,
-            watermark_y,
-            watermark_ha,
-            watermark_va
-        )
+    # التحقق من البيانات
+    if st.session_state.df.empty:
+        st.error("إطار البيانات فارغ. يرجى تحميل بيانات المباراة.")
+    elif not all(col in st.session_state.df.columns for col in ['teamName', 'type', 'outcomeType', 'x', 'y', 'qualifiers']):
+        st.error("الأعمدة المطلوبة مفقودة في إطار البيانات.")
+    else:
+        # إنشاء الرسم
+        fig, ax = plt.subplots(figsize=(12, 10), facecolor=bg_color, dpi=150)
         
-        # إضافة العلامة المائية إذا كانت مفعلة
-        if watermark_enabled:
-            fig = add_watermark(fig, text=watermark_text, alpha=watermark_opacity, 
-                               fontsize=watermark_size, color=watermark_color,
-                               x_pos=watermark_x, y_pos=watermark_y, 
-                               ha=watermark_ha, va=watermark_va)
-        
-        st.pyplot(fig)
-        
-        # عرض إطار البيانات
-        st.subheader(reshape_arabic_text("تفاصيل الإحصائيات"))
-        st.dataframe(stats_df, use_container_width=True)
-        
-    except Exception as e:
-        st.error(f"خطأ في عرض إحصائيات المباراة: {str(e)}")
+        try:
+            # استدعاء دالة plot_match_stats
+            stats_df = plot_match_stats(
+                ax,
+                st.session_state.df,
+                hteamName,
+                ateamName,
+                hcol,
+                acol,
+                bg_color,
+                line_color,
+                watermark_enabled,
+                watermark_text,
+                watermark_opacity,
+                watermark_size,
+                watermark_color,
+                watermark_x,
+                watermark_y,
+                watermark_ha,
+                watermark_va
+            )
+            
+            # إضافة العلامة المائية إذا كانت مفعلة
+            if watermark_enabled:
+                fig = add_watermark(fig, text=watermark_text, alpha=watermark_opacity, 
+                                   fontsize=watermark_size, color=watermark_color,
+                                   x_pos=watermark_x, y_pos=watermark_y, 
+                                   ha=watermark_ha, va=watermark_va)
+            
+            st.pyplot(fig)
+            
+            # عرض إطار البيانات
+            st.subheader(reshape_arabic_text("تفاصيل الإحصائيات"))
+            st.dataframe(stats_df, use_container_width=True)
+            
+        except Exception as e:
+            st.error(f"خطأ في عرض إحصائيات المباراة: {str(e)}")
+            st.write("تفاصيل إضافية:")
+            st.write(f"فرق في البيانات: {st.session_state.df['teamName'].unique()}")
+            st.write(f"أعمدة البيانات: {list(st.session_state.df.columns)}")
