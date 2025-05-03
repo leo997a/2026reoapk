@@ -239,21 +239,27 @@ def extract_match_dict_from_html(uploaded_file):
         # قراءة محتوى ملف HTML
         html_content = uploaded_file.read().decode('utf-8')
         
-        # تسجيل أول 1000 وآخر 1000 حرف من HTML للتحقق
-        st.write("HTML content preview (first 1000 chars):", html_content[:1000])
-        st.write("HTML content preview (last 1000 chars):", html_content[-1000:])
-        with open("html_content.txt", "w", encoding="utf-8") as f:
-            f.write(html_content)
-        st.write("تم حفظ محتوى HTML الكامل في html_content.txt")
+        # تسجيل معلومات تشخيصية
+        st.write("تم تحميل ملف HTML بحجم:", len(html_content), "حرف")
         
         # استخراج نص JSON باستخدام تعبير منتظم
-        regex_pattern = r'(?<=require\.config\.params\["args"\].=.)[\s\S]*?;'
-        match = re.search(regex_pattern, html_content)
-        if not match:
-            st.error("لم يتم العثور على require.config.params[\"args\"] في ملف HTML")
-            return None
+        regex_patterns = [
+            r'(?<=require\.config\.params\["args"\].=.)[\s\S]*?;',  # النمط الأصلي
+            r'var matchCentreData\s*=\s*(\{[\s\S]*?\});',  # نمط بديل 1
+            r'matchCentreData\s*=\s*(\{[\s\S]*?\});'  # نمط بديل 2
+        ]
         
-        data_txt = match.group(0)
+        data_txt = None
+        for pattern in regex_patterns:
+            match = re.search(pattern, html_content)
+            if match:
+                data_txt = match.group(1) if '(' in pattern else match.group(0)
+                st.write(f"تم العثور على البيانات باستخدام النمط: {pattern[:30]}...")
+                break
+        
+        if not data_txt:
+            st.error("لم يتم العثور على بيانات المباراة في ملف HTML")
+            return None
         
         # تنظيف النص لتحويله إلى JSON صالح
         data_txt = data_txt.replace('matchId', '"matchId"')
@@ -262,37 +268,40 @@ def extract_match_dict_from_html(uploaded_file):
         data_txt = data_txt.replace('formationIdNameMappings', '"formationIdNameMappings"')
         data_txt = data_txt.replace('};', '}')
         
-        # تسجيل معاينة للنص المستخرج
-        st.write("JSON string preview (first 500 chars):", data_txt[:500])
-        st.write("JSON string preview (last 500 chars):", data_txt[-500:])
-        with open("raw_json.txt", "w", encoding="utf-8") as f:
-            f.write(data_txt)
-        st.write("تم حفظ النص المستخرج الخام في raw_json.txt")
-        
-        # التحقق من وجود المفاتيح المتوقعة
-        if '"formationIdNameMappings"' not in data_txt:
-            st.error("النص المستخرج غير مكتمل: لا يحتوي على formationIdNameMappings")
-            with open("failed_json.txt", "w", encoding="utf-8") as f:
-                f.write(data_txt)
-            st.write("تم حفظ النص المستخرج في failed_json.txt للتحقق")
-            return None
-        
         # محاولة تحليل JSON
         try:
             matchdict = json.loads(data_txt)
+            st.write("تم تحليل JSON بنجاح!")
+            
+            # التحقق من بنية البيانات
+            if isinstance(matchdict, dict):
+                if 'matchCentreData' in matchdict:
+                    return matchdict['matchCentreData']
+                else:
+                    # قد تكون البيانات مباشرة في الكائن الرئيسي
+                    if 'events' in matchdict and 'home' in matchdict and 'away' in matchdict:
+                        return matchdict
+            
+            st.error("بنية البيانات غير متوقعة")
+            return None
+            
         except json.JSONDecodeError as json_err:
             st.error(f"خطأ في تحليل JSON: {str(json_err)}")
-            with open("failed_json.txt", "w", encoding="utf-8") as f:
-                f.write(data_txt)
-            st.write("تم حفظ النص المستخرج في failed_json.txt للتحقق")
-            return None
-        
-        # استخراج matchCentreData فقط
-        if 'matchCentreData' not in matchdict:
-            st.error("لم يتم العثور على matchCentreData في البيانات المحللة")
-            return None
-        
-        return matchdict['matchCentreData']
+            # محاولة إصلاح JSON
+            try:
+                # إزالة الفواصل الزائدة
+                data_txt = re.sub(r',\s*}', '}', data_txt)
+                data_txt = re.sub(r',\s*]', ']', data_txt)
+                matchdict = json.loads(data_txt)
+                st.write("تم تحليل JSON بعد الإصلاح!")
+                
+                if 'matchCentreData' in matchdict:
+                    return matchdict['matchCentreData']
+                elif 'events' in matchdict:
+                    return matchdict
+            except:
+                st.error("فشل في إصلاح JSON")
+                return None
     
     except Exception as e:
         st.error(f"خطأ أثناء استخراج البيانات من HTML: {str(e)}")
