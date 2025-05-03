@@ -2090,7 +2090,7 @@ with tab2:
                 # التحقق من أن إطار البيانات ليس فارغًا
                 if df_to_plot.empty:
                     st.warning("لا توجد بيانات متاحة للفترة المختارة.")
-        return
+    return
                 
                 # تصريح تصحيح للتحقق من الأعمدة
                 st.write("الأعمدة في df_to_plot:", df_to_plot.columns.tolist())
