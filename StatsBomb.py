@@ -239,27 +239,21 @@ def extract_match_dict_from_html(uploaded_file):
         # قراءة محتوى ملف HTML
         html_content = uploaded_file.read().decode('utf-8')
         
-        # تسجيل معلومات تشخيصية
-        st.write("تم تحميل ملف HTML بحجم:", len(html_content), "حرف")
+        # تسجيل أول 1000 وآخر 1000 حرف من HTML للتحقق
+        st.write("HTML content preview (first 1000 chars):", html_content[:1000])
+        st.write("HTML content preview (last 1000 chars):", html_content[-1000:])
+        with open("html_content.txt", "w", encoding="utf-8") as f:
+            f.write(html_content)
+        st.write("تم حفظ محتوى HTML الكامل في html_content.txt")
         
         # استخراج نص JSON باستخدام تعبير منتظم
-        regex_patterns = [
-            r'(?<=require\.config\.params\["args"\].=.)[\s\S]*?;',  # النمط الأصلي
-            r'var matchCentreData\s*=\s*(\{[\s\S]*?\});',  # نمط بديل 1
-            r'matchCentreData\s*=\s*(\{[\s\S]*?\});'  # نمط بديل 2
-        ]
-        
-        data_txt = None
-        for pattern in regex_patterns:
-            match = re.search(pattern, html_content)
-            if match:
-                data_txt = match.group(1) if '(' in pattern else match.group(0)
-                st.write(f"تم العثور على البيانات باستخدام النمط: {pattern[:30]}...")
-                break
-        
-        if not data_txt:
-            st.error("لم يتم العثور على بيانات المباراة في ملف HTML")
+        regex_pattern = r'(?<=require\.config\.params\["args"\].=.)[\s\S]*?;'
+        match = re.search(regex_pattern, html_content)
+        if not match:
+            st.error("لم يتم العثور على require.config.params[\"args\"] في ملف HTML")
             return None
+        
+        data_txt = match.group(0)
         
         # تنظيف النص لتحويله إلى JSON صالح
         data_txt = data_txt.replace('matchId', '"matchId"')
@@ -268,40 +262,37 @@ def extract_match_dict_from_html(uploaded_file):
         data_txt = data_txt.replace('formationIdNameMappings', '"formationIdNameMappings"')
         data_txt = data_txt.replace('};', '}')
         
+        # تسجيل معاينة للنص المستخرج
+        st.write("JSON string preview (first 500 chars):", data_txt[:500])
+        st.write("JSON string preview (last 500 chars):", data_txt[-500:])
+        with open("raw_json.txt", "w", encoding="utf-8") as f:
+            f.write(data_txt)
+        st.write("تم حفظ النص المستخرج الخام في raw_json.txt")
+        
+        # التحقق من وجود المفاتيح المتوقعة
+        if '"formationIdNameMappings"' not in data_txt:
+            st.error("النص المستخرج غير مكتمل: لا يحتوي على formationIdNameMappings")
+            with open("failed_json.txt", "w", encoding="utf-8") as f:
+                f.write(data_txt)
+            st.write("تم حفظ النص المستخرج في failed_json.txt للتحقق")
+            return None
+        
         # محاولة تحليل JSON
         try:
             matchdict = json.loads(data_txt)
-            st.write("تم تحليل JSON بنجاح!")
-            
-            # التحقق من بنية البيانات
-            if isinstance(matchdict, dict):
-                if 'matchCentreData' in matchdict:
-                    return matchdict['matchCentreData']
-                else:
-                    # قد تكون البيانات مباشرة في الكائن الرئيسي
-                    if 'events' in matchdict and 'home' in matchdict and 'away' in matchdict:
-                        return matchdict
-            
-            st.error("بنية البيانات غير متوقعة")
-            return None
-            
         except json.JSONDecodeError as json_err:
             st.error(f"خطأ في تحليل JSON: {str(json_err)}")
-            # محاولة إصلاح JSON
-            try:
-                # إزالة الفواصل الزائدة
-                data_txt = re.sub(r',\s*}', '}', data_txt)
-                data_txt = re.sub(r',\s*]', ']', data_txt)
-                matchdict = json.loads(data_txt)
-                st.write("تم تحليل JSON بعد الإصلاح!")
-                
-                if 'matchCentreData' in matchdict:
-                    return matchdict['matchCentreData']
-                elif 'events' in matchdict:
-                    return matchdict
-            except:
-                st.error("فشل في إصلاح JSON")
-                return None
+            with open("failed_json.txt", "w", encoding="utf-8") as f:
+                f.write(data_txt)
+            st.write("تم حفظ النص المستخرج في failed_json.txt للتحقق")
+            return None
+        
+        # استخراج matchCentreData فقط
+        if 'matchCentreData' not in matchdict:
+            st.error("لم يتم العثور على matchCentreData في البيانات المحللة")
+            return None
+        
+        return matchdict['matchCentreData']
     
     except Exception as e:
         st.error(f"خطأ أثناء استخراج البيانات من HTML: {str(e)}")
@@ -1153,14 +1144,14 @@ def analyze_attacking_thirds(df, team_id, team_name, competition_name=None, seas
     opponent_name = json_data['away']['name'] if team_id == json_data['home']['teamId'] else json_data['home']['name']
     opponent_color = acol if team_id == json_data['home']['teamId'] else hcol
 
-    # استخراج أحداث الفريق في الثلث الهجومي فقط (x >= 66.7) - صحيح لنظام 0-100
+    # استخراج أحداث الفريق في الثلث الهجومي فقط (x >= 66.7)
     team_events = df[df['teamId'] == team_id]
     final_third_events = team_events[team_events['x'] >= 66.7]
 
-    # تقسيم الثلث الهجومي إلى ثلاثة مناطق عرضية (باستخدام نظام 0-100)
-    left_zone = final_third_events[final_third_events['y'] <= 33.3]
-    center_zone = final_third_events[(final_third_events['y'] > 33.3) & (final_third_events['y'] <= 66.7)]
-    right_zone = final_third_events[final_third_events['y'] > 66.7]
+    # تقسيم الثلث الهجومي إلى ثلاثة مناطق عرضية
+    left_zone = final_third_events[final_third_events['y'] <= 22.7]
+    center_zone = final_third_events[(final_third_events['y'] > 22.7) & (final_third_events['y'] <= 45.3)]
+    right_zone = final_third_events[final_third_events['y'] > 45.3]
 
     # حساب النسب المئوية
     total = len(left_zone) + len(center_zone) + len(right_zone)
@@ -1168,203 +1159,172 @@ def analyze_attacking_thirds(df, team_id, team_name, competition_name=None, seas
     center_pct = (len(center_zone) / total * 100) if total > 0 else 0
     right_pct = (len(right_zone) / total * 100) if total > 0 else 0
 
-    # تحديد المنطقة ذات النسبة الأعلى لجعلها أكثر وضوحًا (أقل شفافية)
-    percentages = [left_pct, center_pct, right_pct]
-    if total > 0:
-        max_pct_index = percentages.index(max(percentages))
-        min_pct_index = percentages.index(min(percentages))
-        # Handle cases where max and min are the same (e.g., all zones 0% or all 33.3%)
-        if max_pct_index == min_pct_index:
-             mid_pct_index = (max_pct_index + 1) % 3 # Assign arbitrarily if all equal
-        else:
-             mid_pct_index = 3 - max_pct_index - min_pct_index
-    else:
-        max_pct_index, mid_pct_index, min_pct_index = 0, 1, 2 # Default if no events
-
-    # تعيين قيم الشفافية بناءً على النسب (المنطقة ذات النسبة الأعلى تكون أقل شفافية)
-    alpha_values = [0.7, 0.7, 0.7]  # قيم افتراضية
-    alpha_values[max_pct_index] = 0.9  # أقل شفافية للمنطقة ذات النسبة الأعلى
-    alpha_values[mid_pct_index] = 0.7  # شفافية متوسطة
-    alpha_values[min_pct_index] = 0.5  # أكثر شفافية للمنطقة ذات النسبة الأقل
-
-    # رسم الملعب (باستخدام pitch_type='opta')
+    # رسم الملعب
     fig, ax = plt.subplots(figsize=(12, 8), facecolor=bg_color)
-    # استخدمنا opta ليتوافق مع بيانات WhoScored (0-100)
-    pitch = Pitch(pitch_type='opta', pitch_color=bg_color, line_color=line_color, stripe=False, goal_type='box')
+    pitch = Pitch(pitch_type='statsbomb', pitch_color=bg_color, line_color=line_color, stripe=False, goal_type='box')
     pitch.draw(ax=ax)
 
     # تحديد اتجاه الهجوم (من اليسار إلى اليمين)
     attack_direction = 'right'  # يمكن تغييره إلى 'left' حسب الحاجة
 
-    # تلوين كامل الثلث الهجومي (باستخدام نظام 0-100)
+    # رسم مناطق الثلث الهجومي بتدرج لوني جميل
     if attack_direction == 'right':
-        # تلوين الثلث الهجومي بالكامل أولاً (x=66.7 to 100, y=0 to 100)
-        ax.add_patch(patches.Rectangle((66.7, 0), 33.3, 100,
-                                     facecolor=team_color, alpha=0.3,
+        # يسار
+        ax.add_patch(patches.Rectangle((70, 0), 30, 22.7, 
+                                     facecolor=team_color, alpha=0.7, 
+                                     edgecolor='white', linewidth=0.5, zorder=1))
+        # وسط
+        ax.add_patch(patches.Rectangle((70, 22.7), 30, 22.6, 
+                                     facecolor=team_color, alpha=0.8, 
+                                     edgecolor='white', linewidth=0.5, zorder=1))
+        # يمين
+        ax.add_patch(patches.Rectangle((70, 45.3), 30, 22.7, 
+                                     facecolor=team_color, alpha=0.7, 
+                                     edgecolor='white', linewidth=0.5, zorder=1))
+    else:
+        # يسار
+        ax.add_patch(patches.Rectangle((0, 0), 30, 22.7, 
+                                     facecolor=team_color, alpha=0.7, 
+                                     edgecolor='white', linewidth=0.5, zorder=1))
+        # وسط
+        ax.add_patch(patches.Rectangle((0, 22.7), 30, 22.6, 
+                                     facecolor=team_color, alpha=0.8, 
+                                     edgecolor='white', linewidth=0.5, zorder=1))
+        # يمين
+        ax.add_patch(patches.Rectangle((0, 45.3), 30, 22.7, 
+                                     facecolor=team_color, alpha=0.7, 
                                      edgecolor='white', linewidth=0.5, zorder=1))
 
-        # ثم تلوين المناطق الثلاثة بشفافية مختلفة
-        # يسار (y=0 to 33.3)
-        ax.add_patch(patches.Rectangle((66.7, 0), 33.3, 33.3,
-                                     facecolor=team_color, alpha=alpha_values[0],
-                                     edgecolor='white', linewidth=0.5, zorder=2))
-        # وسط (y=33.3 to 66.7)
-        ax.add_patch(patches.Rectangle((66.7, 33.3), 33.3, 33.4,
-                                     facecolor=team_color, alpha=alpha_values[1],
-                                     edgecolor='white', linewidth=0.5, zorder=2))
-        # يمين (y=66.7 to 100)
-        ax.add_patch(patches.Rectangle((66.7, 66.7), 33.3, 33.3,
-                                     facecolor=team_color, alpha=alpha_values[2],
-                                     edgecolor='white', linewidth=0.5, zorder=2))
-    else: # Attack direction left
-        # تلوين الثلث الهجومي بالكامل أولاً (x=0 to 33.3, y=0 to 100)
-        ax.add_patch(patches.Rectangle((0, 0), 33.3, 100,
-                                     facecolor=team_color, alpha=0.3,
-                                     edgecolor='white', linewidth=0.5, zorder=1))
-
-        # ثم تلوين المناطق الثلاثة بشفافية مختلفة
-        # يسار (y=0 to 33.3)
-        ax.add_patch(patches.Rectangle((0, 0), 33.3, 33.3,
-                                     facecolor=team_color, alpha=alpha_values[0],
-                                     edgecolor='white', linewidth=0.5, zorder=2))
-        # وسط (y=33.3 to 66.7)
-        ax.add_patch(patches.Rectangle((0, 33.3), 33.3, 33.4,
-                                     facecolor=team_color, alpha=alpha_values[1],
-                                     edgecolor='white', linewidth=0.5, zorder=2))
-        # يمين (y=66.7 to 100)
-        ax.add_patch(patches.Rectangle((0, 66.7), 33.3, 33.3,
-                                     facecolor=team_color, alpha=alpha_values[2],
-                                     edgecolor='white', linewidth=0.5, zorder=2))
-
-    # إضافة دوائر خلف النسب لتحسين الوضوح (تعديل الإحداثيات لـ 0-100)
+    # كتابة النسب داخل كل منطقة بتصميم عصري
+    # إضافة دوائر خلف النسب لتحسين الوضوح
     if attack_direction == 'right':
-        center_x = 83.3 # مركز الثلث الهجومي أفقيًا
-        # يسار (مركز y = 16.65)
-        circle1 = plt.Circle((center_x, 16.65), 10, color='white', alpha=0.2, zorder=3)
+        # يسار
+        circle1 = plt.Circle((85, 11.35), 7, color='white', alpha=0.2, zorder=2)
         ax.add_artist(circle1)
-        ax.text(center_x, 16.65, f"{left_pct:.1f}%", color='white', fontsize=16,
-                fontweight='bold', ha='center', va='center', zorder=4,
+        ax.text(85, 11.35, f"{left_pct:.1f}%", color='white', fontsize=16, 
+                fontweight='bold', ha='center', va='center', zorder=3,
                 path_effects=[path_effects.withStroke(linewidth=2, foreground='black')])
-
-        # وسط (مركز y = 50)
-        circle2 = plt.Circle((center_x, 50), 10, color='white', alpha=0.2, zorder=3)
+        
+        # وسط
+        circle2 = plt.Circle((85, 34), 7, color='white', alpha=0.2, zorder=2)
         ax.add_artist(circle2)
-        ax.text(center_x, 50, f"{center_pct:.1f}%", color='white', fontsize=16,
-                fontweight='bold', ha='center', va='center', zorder=4,
+        ax.text(85, 34, f"{center_pct:.1f}%", color='white', fontsize=16, 
+                fontweight='bold', ha='center', va='center', zorder=3,
                 path_effects=[path_effects.withStroke(linewidth=2, foreground='black')])
-
-        # يمين (مركز y = 83.35)
-        circle3 = plt.Circle((center_x, 83.35), 10, color='white', alpha=0.2, zorder=3)
+        
+        # يمين
+        circle3 = plt.Circle((85, 56.7), 7, color='white', alpha=0.2, zorder=2)
         ax.add_artist(circle3)
-        ax.text(center_x, 83.35, f"{right_pct:.1f}%", color='white', fontsize=16,
-                fontweight='bold', ha='center', va='center', zorder=4,
+        ax.text(85, 56.7, f"{right_pct:.1f}%", color='white', fontsize=16, 
+                fontweight='bold', ha='center', va='center', zorder=3,
                 path_effects=[path_effects.withStroke(linewidth=2, foreground='black')])
-    else: # Attack direction left
-        center_x = 16.7 # مركز الثلث الهجومي أفقيًا
-        # يسار (مركز y = 16.65)
-        circle1 = plt.Circle((center_x, 16.65), 10, color='white', alpha=0.2, zorder=3)
+    else:
+        # يسار
+        circle1 = plt.Circle((15, 11.35), 7, color='white', alpha=0.2, zorder=2)
         ax.add_artist(circle1)
-        ax.text(center_x, 16.65, f"{left_pct:.1f}%", color='white', fontsize=16,
-                fontweight='bold', ha='center', va='center', zorder=4,
+        ax.text(15, 11.35, f"{left_pct:.1f}%", color='white', fontsize=16, 
+                fontweight='bold', ha='center', va='center', zorder=3,
                 path_effects=[path_effects.withStroke(linewidth=2, foreground='black')])
-
-        # وسط (مركز y = 50)
-        circle2 = plt.Circle((center_x, 50), 10, color='white', alpha=0.2, zorder=3)
+        
+        # وسط
+        circle2 = plt.Circle((15, 34), 7, color='white', alpha=0.2, zorder=2)
         ax.add_artist(circle2)
-        ax.text(center_x, 50, f"{center_pct:.1f}%", color='white', fontsize=16,
-                fontweight='bold', ha='center', va='center', zorder=4,
+        ax.text(15, 34, f"{center_pct:.1f}%", color='white', fontsize=16, 
+                fontweight='bold', ha='center', va='center', zorder=3,
                 path_effects=[path_effects.withStroke(linewidth=2, foreground='black')])
-
-        # يمين (مركز y = 83.35)
-        circle3 = plt.Circle((center_x, 83.35), 10, color='white', alpha=0.2, zorder=3)
+        
+        # يمين
+        circle3 = plt.Circle((15, 56.7), 7, color='white', alpha=0.2, zorder=2)
         ax.add_artist(circle3)
-        ax.text(center_x, 83.35, f"{right_pct:.1f}%", color='white', fontsize=16,
-                fontweight='bold', ha='center', va='center', zorder=4,
+        ax.text(15, 56.7, f"{right_pct:.1f}%", color='white', fontsize=16, 
+                fontweight='bold', ha='center', va='center', zorder=3,
                 path_effects=[path_effects.withStroke(linewidth=2, foreground='black')])
 
-    # --- باقي الكود (الأسهم، الشعارات، العناوين، العلامة المائية) يبقى كما هو ---
-    # --- تأكد من أن إحداثيات هذه العناصر مناسبة للملعب 0-100 ---
-
-    # مثال لتعديل سهم اتجاه الهجوم
+    # إضافة أسهم لتوضيح اتجاه الهجوم
     if attack_direction == 'right':
-        ax.arrow(40, 105, 20, 0, head_width=4, head_length=4, fc='white', ec='white', zorder=5, linewidth=2, alpha=0.8)
-        ax.text(50, 110, reshape_arabic_text("اتجاه الهجوم"), color='white', fontsize=10,
-                fontweight='bold', ha='center', va='center', zorder=5,
+        # سهم كبير في أعلى الملعب
+        ax.arrow(30, 10, 40, 0, head_width=5, head_length=5, fc=team_color, ec=team_color, zorder=3, linewidth=2)
+        # أسهم صغيرة في مناطق الهجوم
+        ax.arrow(75, 11.35, 5, 0, head_width=2, head_length=2, fc='white', ec='white', zorder=4, alpha=0.8)
+        ax.arrow(75, 34, 5, 0, head_width=2, head_length=2, fc='white', ec='white', zorder=4, alpha=0.8)
+        ax.arrow(75, 56.7, 5, 0, head_width=2, head_length=2, fc='white', ec='white', zorder=4, alpha=0.8)
+    else:
+        # سهم كبير في أعلى الملعب
+        ax.arrow(70, 10, -40, 0, head_width=5, head_length=5, fc=team_color, ec=team_color, zorder=3, linewidth=2)
+        # أسهم صغيرة في مناطق الهجوم
+        ax.arrow(25, 11.35, -5, 0, head_width=2, head_length=2, fc='white', ec='white', zorder=4, alpha=0.8)
+        ax.arrow(25, 34, -5, 0, head_width=2, head_length=2, fc='white', ec='white', zorder=4, alpha=0.8)
+        ax.arrow(25, 56.7, -5, 0, head_width=2, head_length=2, fc='white', ec='white', zorder=4, alpha=0.8)
+
+    # إضافة مربعات للفرق مع الشعارات (يمكن استبدالها بشعارات حقيقية)
+    # مربع الفريق الأول
+    team_box = patches.Rectangle((10, 70), 30, 8, facecolor=team_color, alpha=0.8, 
+                               edgecolor='white', linewidth=1, zorder=4)
+    ax.add_patch(team_box)
+    
+    # إضافة دائرة كشعار للفريق (يمكن استبدالها بشعار حقيقي)
+    team_logo = plt.Circle((15, 74), 3, color='white', zorder=5)
+    ax.add_artist(team_logo)
+    
+    # اسم الفريق
+    ax.text(25, 74, reshape_arabic_text(team_name), color='white', fontsize=12, 
+            fontweight='bold', ha='center', va='center', zorder=5,
+            path_effects=[path_effects.withStroke(linewidth=1, foreground='black')])
+    
+    # مربع الفريق الثاني
+    opponent_box = patches.Rectangle((60, 70), 30, 8, facecolor=opponent_color, alpha=0.8, 
+                                   edgecolor='white', linewidth=1, zorder=4)
+    ax.add_patch(opponent_box)
+    
+    # إضافة دائرة كشعار للفريق المنافس
+    opponent_logo = plt.Circle((65, 74), 3, color='white', zorder=5)
+    ax.add_artist(opponent_logo)
+    
+    # اسم الفريق المنافس
+    ax.text(75, 74, reshape_arabic_text(opponent_name), color='white', fontsize=12, 
+            fontweight='bold', ha='center', va='center', zorder=5,
+            path_effects=[path_effects.withStroke(linewidth=1, foreground='black')])
+
+    # إضافة نص يوضح اتجاه الهجوم
+    attack_text = reshape_arabic_text("اتجاه الهجوم")
+    if attack_direction == 'right':
+        ax.text(50, 10, attack_text, color='white', fontsize=10, 
+                fontweight='bold', ha='center', va='center', zorder=3,
                 path_effects=[path_effects.withStroke(linewidth=1, foreground='black')])
     else:
-        ax.arrow(60, 105, -20, 0, head_width=4, head_length=4, fc='white', ec='white', zorder=5, linewidth=2, alpha=0.8)
-        ax.text(50, 110, reshape_arabic_text("اتجاه الهجوم"), color='white', fontsize=10,
-                fontweight='bold', ha='center', va='center', zorder=5,
+        ax.text(50, 10, attack_text, color='white', fontsize=10, 
+                fontweight='bold', ha='center', va='center', zorder=3,
                 path_effects=[path_effects.withStroke(linewidth=1, foreground='black')])
 
-    # تعديل موضع الشعارات والنصوص لتناسب الملعب الجديد
-    # محاولة تحميل شعارات الفرق من الملفات المحلية أو من الإنترنت
-    try:
-        home_logo_path = f"logos/{json_data['home']['teamId']}.png"
-        away_logo_path = f"logos/{json_data['away']['teamId']}.png"
-
-        if os.path.exists(home_logo_path):
-            home_logo = plt.imread(home_logo_path)
-            # تعديل الموضع النسبي للشعار
-            home_logo_ax = fig.add_axes([0.1, 0.88, 0.08, 0.08], anchor='NW', zorder=10)
-            home_logo_ax.imshow(home_logo)
-            home_logo_ax.axis('off')
-        else:
-            home_logo_circle = plt.Circle((15, 90), 5, color=hcol, ec='white', linewidth=1, zorder=10)
-            ax.add_patch(home_logo_circle)
-
-        if os.path.exists(away_logo_path):
-            away_logo = plt.imread(away_logo_path)
-            # تعديل الموضع النسبي للشعار
-            away_logo_ax = fig.add_axes([0.82, 0.88, 0.08, 0.08], anchor='NE', zorder=10)
-            away_logo_ax.imshow(away_logo)
-            away_logo_ax.axis('off')
-        else:
-            away_logo_circle = plt.Circle((85, 90), 5, color=acol, ec='white', linewidth=1, zorder=10)
-            ax.add_patch(away_logo_circle)
-
-    except Exception as e:
-        st.warning(f"لم يتم تحميل شعارات الفرق: {e}")
-        home_logo_circle = plt.Circle((15, 90), 5, color=hcol, ec='white', linewidth=1, zorder=10)
-        away_logo_circle = plt.Circle((85, 90), 5, color=acol, ec='white', linewidth=1, zorder=10)
-        ax.add_patch(home_logo_circle)
-        ax.add_patch(away_logo_circle)
-
-    # إضافة أسماء الفرق بجانب الشعارات (تعديل الموضع)
-    ax.text(25, 90, json_data['home']['name'], fontsize=14, color='white', ha='left', va='center',
-             fontweight='bold', zorder=10, path_effects=[path_effects.withStroke(linewidth=1.5, foreground='black')])
-    ax.text(75, 90, json_data['away']['name'], fontsize=14, color='white', ha='right', va='center',
-             fontweight='bold', zorder=10, path_effects=[path_effects.withStroke(linewidth=1.5, foreground='black')])
-
-    # إضافة خلفية للعنوان (تعديل الموضع النسبي)
-    title_bg = patches.Rectangle((0.25, 0.95), 0.5, 0.05, transform=fig.transFigure,
-                               facecolor='#003366', alpha=0.8, edgecolor='white',
+    # عنوان الرسم بتصميم عصري
+    title_text = f"{team_name} - {opponent_name}"
+    subtitle_text = reshape_arabic_text('تحليل مناطق الهجوم')
+    
+    # إضافة خلفية للعنوان
+    title_bg = patches.Rectangle((0.25, 0.95), 0.5, 0.05, transform=fig.transFigure, 
+                               facecolor=team_color, alpha=0.7, edgecolor='white', 
                                linewidth=1, zorder=9)
     fig.patches.append(title_bg)
-
+    
     # إضافة العنوان الرئيسي
-    title_text = f"{json_data['home']['name']} - {json_data['away']['name']}"
-    fig.text(0.5, 0.975, title_text, fontsize=18, color='white', ha='center',
+    fig.text(0.5, 0.975, title_text, fontsize=20, color='white', ha='center', 
              fontweight='bold', zorder=10,
              path_effects=[path_effects.withStroke(linewidth=2, foreground='black')])
-
+    
     # إضافة العنوان الفرعي
-    subtitle_text = reshape_arabic_text('تحليل مناطق الهجوم')
-    fig.text(0.5, 0.955, subtitle_text, fontsize=14, color='white', ha='center', zorder=10,
+    fig.text(0.5, 0.94, subtitle_text, fontsize=16, color='white', ha='center', zorder=10,
              path_effects=[path_effects.withStroke(linewidth=1.5, foreground='black')])
 
     # إضافة العلامة المائية إذا كانت مفعلة
     if watermark_enabled:
-        add_watermark(fig, text=watermark_text, alpha=watermark_opacity,
+        add_watermark(fig, text=watermark_text, alpha=watermark_opacity, 
                      fontsize=watermark_size, color=watermark_color,
-                     x_pos=watermark_x, y_pos=watermark_y,
+                     x_pos=watermark_x, y_pos=watermark_y, 
                      ha=watermark_ha, va=watermark_va)
 
-    # ضبط التخطيط
-    plt.tight_layout(rect=[0, 0.05, 1, 0.93]) # تعديل rect لتوفير مساحة للعناصر العلوية والسفلية
+    plt.tight_layout(rect=[0, 0, 1, 0.9])
     return fig
 
-# Function to calculate PPDA (Passes Per Defensive Action)
 def calculate_team_ppda(
     events_df: pd.DataFrame,
     team: str,
@@ -1374,83 +1334,196 @@ def calculate_team_ppda(
     period: str = None,
     include_pressure: bool = True,
     simulate_pressure: bool = True,
-    min_def_actions: int = 5,
+    min_def_actions: int = 5,  # زيادة الحد الأدنى للأفعال الدفاعية
     max_pressure_distance: float = 5.0,
     swap_sides_second_half: bool = True,
     use_extended_defs: bool = False,
-    calibration_factor_low_defs: float = 0.7,
-    min_pass_distance: float = 5.0
+    calibration_factor_low_defs: float = 0.7,  # معايرة أقل عدوانية
+    min_pass_distance: float = 5.0  # الحد الأدنى لمسافة التمريرة
 ) -> dict:
     try:
+        # نسخ إطار البيانات والتحقق من الإحداثيات
+        df = events_df.copy()
+        for col in ['x', 'y', 'endX', 'endY']:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors='coerce').clip(0, pitch_units if col in ['x', 'endX'] else 68)
+                if df[col].isna().any():
+                    df = df.dropna(subset=[col])
+
+        # تصفية الفترة
         if period:
-            events_df = events_df[events_df['period'] == period]
+            df = df[df['period'] == period]
+            if df.empty:
+                st.warning(f"لا توجد بيانات للفترة {period} لفريق {team}.")
+                return {}
 
+        # التعامل مع تبديل الجوانب في الشوط الثاني
+        if swap_sides_second_half and not period:
+            first_half_x = df[df['period'] == 'FirstHalf']['x'].mean()
+            second_half_x = df[df['period'] == 'SecondHalf']['x'].mean()
+            if abs(first_half_x - second_half_x) > pitch_units / 3:
+                df.loc[df['period'] == 'SecondHalf', 'x'] = pitch_units - df.loc[df['period'] == 'SecondHalf', 'x']
+                df.loc[df['period'] == 'SecondHalf', 'y'] = 68 - df.loc[df['period'] == 'SecondHalf', 'y']
+                if 'endX' in df.columns and 'endY' in df.columns:
+                    df.loc[df['period'] == 'SecondHalf', 'endX'] = pitch_units - df.loc[df['period'] == 'SecondHalf', 'endX']
+                    df.loc[df['period'] == 'SecondHalf', 'endY'] = 68 - df.loc[df['period'] == 'SecondHalf', 'endY']
+
+        # تحديد الأفعال الدفاعية (استبعاد Fouls غير مؤثرة)
+        defs = ['Tackle', 'Interception', 'BlockedPass', 'Challenge']
+        if include_pressure and 'Pressure' in df['type'].unique():
+            defs.append('Pressure')
+        if use_extended_defs:
+            extended_defs = ['ShieldBallOpp', 'BallRecovery']
+            defs.extend([d for d in extended_defs if d in df['type'].unique()])
+
+        # محاكاة أحداث الضغط (مع وزن أقل)
+        if simulate_pressure and 'Pressure' not in df['type'].unique():
+            passes = df[(df['type'] == 'Pass') & (df['outcomeType'] == 'Successful')]
+            potential_pressure = df[
+                (df['type'].isin(['Tackle', 'Challenge', 'Interception', 'BallRecovery'])) &
+                (df['outcomeType'] == 'Successful') &
+                (~df['qualifiers'].astype(str).str.contains('Error|Missed', na=False))
+            ]
+            pressure_count = 0
+            if not potential_pressure.empty and not passes.empty:
+                pressure_events = []
+                for _, pressure_row in potential_pressure.iterrows():
+                    relevant_passes = passes[
+                        (passes['teamName'] != pressure_row['teamName']) &
+                        (pressure_row['cumulative_mins'] >= passes['cumulative_mins']) &
+                        (pressure_row['cumulative_mins'] <= passes['cumulative_mins'] + 4/60)
+                    ]
+                    for _, pass_row in relevant_passes.iterrows():
+                        distance = ((pressure_row['x'] - pass_row['x'])**2 + (pressure_row['y'] - pass_row['y'])**2)**0.5
+                        if distance <= max_pressure_distance:
+                            pressure_event = pressure_row.copy()
+                            pressure_event['type'] = 'Pressure'
+                            pressure_event['pressure_weight'] = 0.5  # وزن أقل للضغط المحاكى
+                            pressure_events.append(pressure_event)
+                            pressure_count += 1
+                if pressure_events:
+                    pressure_df = pd.DataFrame(pressure_events)
+                    df = pd.concat([df, pressure_df[df.columns.union(['pressure_weight'])]], ignore_index=True)
+                    defs.append('Pressure')
+                    st.write(f"أحداث 'Pressure' المحاكاة لـ {team}: {str(pressure_count)}")
+
+        # تحديد المنطقة
+        team_id = [k for k, v in st.session_state.teams_dict.items() if v == team][0]
+        is_home_team = team_id == min(st.session_state.teams_dict.keys())
         if region == 'opponent_defensive_third':
-            if custom_threshold:
-                threshold = custom_threshold
-            else:
-                threshold = pitch_units * 0.333
-
-        opp_events = events_df[events_df['teamName'] != team].copy()
-        def_events = events_df[events_df['teamName'] == team].copy()
-
-        if swap_sides_second_half:
-            opp_events.loc[opp_events['period'] == 'SecondHalf', ['x', 'endX']] = pitch_units - opp_events.loc[opp_events['period'] == 'SecondHalf', ['x', 'endX']]
-            def_events.loc[def_events['period'] == 'SecondHalf', ['x', 'endX']] = pitch_units - def_events.loc[def_events['period'] == 'SecondHalf', ['x', 'endX']]
-
-        opp_passes = opp_events[
-            (opp_events['type'].str.contains('Pass', case=False, na=False)) &
-            (opp_events['outcomeType'] == 'Successful') &
-            (opp_events['x'] <= threshold)
-        ]
-
-        if min_pass_distance:
-            opp_passes = opp_passes[
-                ((opp_passes['endX'] - opp_passes['x']) ** 2 + (opp_passes['endY'] - opp_passes['y']) ** 2) ** 0.5 >= min_pass_distance
-            ]
-
-        def_actions = def_events[
-            (def_events['type'].isin(['Tackle', 'Interception', 'Clearance'])) &
-            (def_events['outcomeType'] == 'Successful') &
-            (def_events['x'] >= (pitch_units - threshold))
-        ]
-
-        if include_pressure and 'Pressure' in events_df['type'].values:
-            pressure_events = def_events[
-                (def_events['type'] == 'Pressure') &
-                (def_events['x'] >= (pitch_units - threshold))
-            ]
-            if simulate_pressure and not pressure_events.empty:
-                valid_pressures = []
-                for _, pressure in pressure_events.iterrows():
-                    if pressure['x'] and pressure['y']:
-                        pass_within_distance = opp_passes[
-                            ((opp_passes['x'] - pressure['x']) ** 2 + (opp_passes['y'] - pressure['y']) ** 2) ** 0.5 <= max_pressure_distance
-                        ]
-                        if not pass_within_distance.empty:
-                            valid_pressures.append(pressure)
-                if valid_pressures:
-                    valid_pressures = pd.DataFrame(valid_pressures)
-                    def_actions = pd.concat([def_actions, valid_pressures], ignore_index=True)
-
-        num_passes = len(opp_passes)
-        num_def_actions = len(def_actions)
-
-        if num_def_actions < min_def_actions:
-            ppda = num_passes / max(num_def_actions, min_def_actions * calibration_factor_low_defs)
+            x_min = pitch_units * (2 / 3) if is_home_team else 0
+            x_max = pitch_units if is_home_team else pitch_units / 3
+        elif region == 'attacking_third':
+            x_min = pitch_units * (2 / 3)
+            x_max = pitch_units
+        elif region == 'attacking_half':
+            x_min = pitch_units / 2
+            x_max = pitch_units
+        elif region == 'attacking_60':
+            x_min = pitch_units * 0.4
+            x_max = pitch_units
+        elif region == 'whole':
+            x_min = 0
+            x_max = pitch_units
+        elif region == 'custom':
+            if custom_threshold is None:
+                raise ValueError("يجب تحديد custom_threshold.")
+            x_min = custom_threshold
+            x_max = pitch_units
         else:
-            ppda = num_passes / num_def_actions if num_def_actions > 0 else np.inf
+            raise ValueError(f"المنطقة غير معروفة: {region}")
+
+        # تصفية التمريرات الناجحة (مع استبعاد التمريرات القصيرة)
+        opponent = [t for t in df['teamName'].unique() if t != team][0]
+        passes_allowed = df[
+            (df['type'] == 'Pass') &
+            (df['outcomeType'] == 'Successful') &
+            (df['teamName'] == opponent) &
+            (df['x'] >= x_min) &
+            (df['x'] <= x_max) &
+            (~df['qualifiers'].astype(str).str.contains('Corner|Freekick|Throwin|GoalKick', na=False))
+        ]
+        # حساب مسافة التمريرة إذا كانت endX/endY متوفرة
+        if 'endX' in df.columns and 'endY' in df.columns:
+            passes_allowed = passes_allowed.assign(
+                pass_distance=np.sqrt((passes_allowed['endX'] - passes_allowed['x'])**2 + (passes_allowed['endY'] - passes_allowed['y'])**2)
+            )
+            passes_allowed = passes_allowed[passes_allowed['pass_distance'] >= min_pass_distance]
+        num_passes = len(passes_allowed)
+        st.write(f"الفريق: {team}, التمريرات الناجحة المسموح بها (x من {str(x_min)} إلى {str(x_max)}): {str(num_passes)}")
+
+        # تصفية الأفعال الدفاعية (مع وزن للضغط المحاكى)
+        defensive_actions = df[
+            (df['type'].isin(defs)) &
+            (df['teamName'] == team) &
+            (df['x'] >= x_min) &
+            (df['x'] <= x_max) &
+            (~df['qualifiers'].astype(str).str.contains('Offensive|Tactical', na=False))
+        ]
+        # حساب عدد الأفعال الدفاعية مع الأوزان
+        if 'pressure_weight' in defensive_actions.columns:
+            defensive_actions['weight'] = defensive_actions['pressure_weight'].fillna(1.0)
+            num_defs = defensive_actions['weight'].sum()
+        else:
+            num_defs = len(defensive_actions)
+        st.write(f"الفريق: {team}, الأفعال الدفاعية (x من {str(x_min)} إلى {str(x_max)}): {str(round(num_defs, 2))}")
+
+        # حساب PPDA
+        ppda = round(num_passes / num_defs, 2) if num_defs >= min_def_actions else None
+        pressure_ratio = round((num_defs / num_passes) * 100, 2) if num_passes > 0 and num_defs >= min_def_actions else None
+
+        # التحقق من عدم وجود أفعال دفاعية كافية
+        if ppda is None:
+            st.warning(f"لا يمكن حساب PPDA لفريق {team}: عدد الأفعال الدفاعية قليل جدًا ({str(round(num_defs, 2))}).")
+            return {
+                'Region': region,
+                'Threshold_x_min': x_min,
+                'Threshold_x_max': x_max,
+                'Passes Allowed': num_passes,
+                'Defensive Actions': round(num_defs, 2),
+                'PPDA': None,
+                'Pressure Ratio (%)': None,
+                'Action Breakdown': {}
+            }
+
+        # معايرة PPDA (محسنة)
+        calibration_factor = 1.0
+        if ppda > 15 or ppda < 5:
+            total_defs = df[df['type'].isin(defs) & (df['teamName'] == team)]['weight'].sum() if 'weight' in df.columns else len(df[df['type'].isin(defs) & (df['teamName'] == team)])
+            region_def_ratio = num_defs / (total_defs + 1e-10)
+            if ppda > 15:
+                calibration_factor = calibration_factor_low_defs if num_defs < 10 else 0.9  # معايرة أقل عدوانية
+                if region_def_ratio < 0.2:
+                    calibration_factor *= 0.85
+            elif ppda < 5:
+                calibration_factor = 1.2  # زيادة طفيفة للقيم المنخفضة
+            ppda = round(ppda * calibration_factor, 2)
+            st.write(f"PPDA لفريق {team} معاير ({str(ppda)} بعد التصحيح). معامل المعايرة: {str(calibration_factor)}.")
+
+        # تحذير إذا كان عدد الأفعال الدفاعية قليل
+        if num_defs < 10:
+            st.write(f"تحذير: عدد الأفعال الدفاعية لفريق {team} قليل ({str(round(num_defs, 2))}).")
+
+        # توزيع الأفعال الدفاعية
+        breakdown = {a: round(defensive_actions[defensive_actions['type'] == a]['weight'].sum(), 2) if 'weight' in defensive_actions.columns else int((defensive_actions['type'] == a).sum()) for a in defs}
+        st.write(f"توزيع الأفعال الدفاعية لـ {team}: {str(breakdown)}")
 
         return {
-            'PPDA': round(ppda, 2),
-            'passes_allowed': num_passes,
-            'defensive_actions': num_def_actions
+            'Region': region,
+            'Threshold_x_min': x_min,
+            'Threshold_x_max': x_max,
+            'Passes Allowed': num_passes,
+            'Defensive Actions': round(num_defs, 2),
+            'PPDA': ppda,
+            'Pressure Ratio (%)': pressure_ratio,
+            'Action Breakdown': breakdown
         }
-    except Exception as e:
-        st.error(f"خطأ في حساب PPDA للفريق {team}: {str(e)}")
-        return {'PPDA': 0, 'passes_allowed': 0, 'defensive_actions': 0}
 
-# Function to calculate PPDA for both teams
+    except Exception as e:
+        st.error(f"خطأ في حساب PPDA لفريق {team}: {str(e)}")
+        return {}
+
+# دالة لحساب PPDA لكلا الفريقين
 def calculate_ppda_separate(
     events_df: pd.DataFrame,
     region: str = 'opponent_defensive_third',
@@ -1470,10 +1543,6 @@ def calculate_ppda_separate(
             raise ValueError(f"يتوقع وجود فريقين، تم العثور على: {teams}")
 
         results = {}
-        team_params = {
-            teams[0]: {'max_pressure_distance': max_pressure_distance, 'calibration_factor': 0.7},
-            teams[1]: {'max_pressure_distance': max_pressure_distance, 'calibration_factor': 0.7}
-        }
         for team in teams:
             team_max_pressure_distance = team_params.get(team, {}).get('max_pressure_distance', max_pressure_distance)
             team_calibration_factor = team_params.get(team, {}).get('calibration_factor', 0.7)
@@ -1499,279 +1568,106 @@ def calculate_ppda_separate(
         st.error(f"خطأ في حساب PPDA: {str(e)}")
         return {}
 
-# Function to plot match stats
-def plot_match_stats(ax, df, hteamName, ateamName, hcol, acol, bg_color, line_color, watermark_enabled, watermark_text, watermark_opacity, watermark_size, watermark_color, watermark_x, watermark_y, watermark_ha, watermark_va):
-    try:
-        # التحقق من إطار البيانات
-        if df.empty:
-            raise ValueError("إطار البيانات فارغ")
-        required_columns = ['teamName', 'type', 'outcomeType', 'x', 'y', 'qualifiers', 'isTouch']
-        missing_columns = [col for col in required_columns if col not in df.columns]
-        if missing_columns:
-            raise ValueError(f"الأعمدة المفقودة: {missing_columns}")
-        
-        # تسجيل أسماء الفرق
-        st.write(f"الفريق المضيف: {hteamName}, الفريق الضيف: {ateamName}")
-        st.write(f"فرق موجودة في البيانات: {df['teamName'].unique()}")
 
-        # إعداد الملعب
-        pitch = Pitch(pitch_type='uefa', corner_arcs=True, pitch_color=bg_color, line_color=line_color, linewidth=2)
-        pitch.draw(ax=ax)
-        ax.set_xlim(-0.5, 105.5)
-        ax.set_ylim(-5, 68.5)
+# واجهة Streamlit
+st.title("تحليل مباراة كرة القدم")
+uploaded_html = st.file_uploader("قم برفع ملف HTML للمباراة:", type=["html"])
+uploaded_json = st.file_uploader("أو قم بتحميل ملف JSON (اختياري):", type="json")
 
-        # حساب الإحصائيات
-        hpossdf = df[(df['teamName'] == hteamName) & (df['type'] == 'Pass')]
-        apossdf = df[(df['teamName'] == ateamName) & (df['type'] == 'Pass')]
-        total_poss = len(hpossdf) + len(apossdf)
-        hposs = round((len(hpossdf) / total_poss * 100) if total_poss > 0 else 0, 2)
-        aposs = round((len(apossdf) / total_poss * 100) if total_poss > 0 else 0, 2)
-
-        hftdf = df[(df['teamName'] == hteamName) & (df['isTouch'] == True) & (df['x'] >= 70)]
-        aftdf = df[(df['teamName'] == ateamName) & (df['isTouch'] == True) & (df['x'] >= 70)]
-        total_ft = len(hftdf) + len(aftdf)
-        hft = round((len(hftdf) / total_ft * 100) if total_ft > 0 else 0, 2)
-        aft = round((len(aftdf) / total_ft * 100) if total_ft > 0 else 0, 2)
-
-        htotalPass = len(df[(df['teamName'] == hteamName) & (df['type'] == 'Pass')])
-        atotalPass = len(df[(df['teamName'] == ateamName) & (df['type'] == 'Pass')])
-
-        hAccPass = len(df[(df['teamName'] == hteamName) & (df['type'] == 'Pass') & (df['outcomeType'] == 'Successful')])
-        aAccPass = len(df[(df['teamName'] == ateamName) & (df['type'] == 'Pass') & (df['outcomeType'] == 'Successful')])
-
-        hLongB = len(df[(df['teamName'] == hteamName) & (df['type'] == 'Pass') & (df['qualifiers'].str.contains('Longball', na=False)) & (~df['qualifiers'].str.contains('Corner|Cross', na=False))])
-        aLongB = len(df[(df['teamName'] == ateamName) & (df['type'] == 'Pass') & (df['qualifiers'].str.contains('Longball', na=False)) & (~df['qualifiers'].str.contains('Corner|Cross', na=False))])
-
-        hAccLongB = len(df[(df['teamName'] == hteamName) & (df['type'] == 'Pass') & (df['qualifiers'].str.contains('Longball', na=False)) & (df['outcomeType'] == 'Successful') & (~df['qualifiers'].str.contains('Corner|Cross', na=False))])
-        aAccLongB = len(df[(df['teamName'] == ateamName) & (df['type'] == 'Pass') & (df['qualifiers'].str.contains('Longball', na=False)) & (df['outcomeType'] == 'Successful') & (~df['qualifiers'].str.contains('Corner|Cross', na=False))])
-
-        htkl = len(df[(df['teamName'] == hteamName) & (df['type'] == 'Tackle')])
-        atkl = len(df[(df['teamName'] == ateamName) & (df['type'] == 'Tackle')])
-
-        htklw = len(df[(df['teamName'] == hteamName) & (df['type'] == 'Tackle') & (df['outcomeType'] == 'Successful')])
-        atklw = len(df[(df['teamName'] == ateamName) & (df['type'] == 'Tackle') & (df['outcomeType'] == 'Successful')])
-
-        hintc = len(df[(df['teamName'] == hteamName) & (df['type'] == 'Interception')])
-        aintc = len(df[(df['teamName'] == ateamName) & (df['type'] == 'Interception')])
-
-        hclr = len(df[(df['teamName'] == hteamName) & (df['type'] == 'Clearance')])
-        aclr = len(df[(df['teamName'] == ateamName) & (df['type'] == 'Clearance')])
-
-        harl = len(df[(df['teamName'] == hteamName) & (df['type'] == 'Aerial')])
-        aarl = len(df[(df['teamName'] == ateamName) & (df['type'] == 'Aerial')])
-
-        harlw = len(df[(df['teamName'] == hteamName) & (df['type'] == 'Aerial') & (df['outcomeType'] == 'Successful')])
-        aarlw = len(df[(df['teamName'] == ateamName) & (df['type'] == 'Aerial') & (df['outcomeType'] == 'Successful')])
-
-        ppda_results = calculate_ppda_separate(df)
-        home_ppda = ppda_results.get(hteamName, {}).get('PPDA', 0)
-        away_ppda = ppda_results.get(ateamName, {}).get('PPDA', 0)
-
-        # حساب PPS وتسلسلات التمريرات مع التحقق من وجود possession_id
-        PPS_home = 0
-        PPS_away = 0
-        pass_seq_10_more_home = 0
-        pass_seq_10_more_away = 0
-        if 'possession_id' in df.columns:
-            pass_df_home = df[(df['type'] == 'Pass') & (df['teamName'] == hteamName)]
-            pass_counts_home = pass_df_home.groupby('possession_id').size()
-            PPS_home = round(pass_counts_home.mean()) if not pass_counts_home.empty else 0
-            pass_seq_10_more_home = pass_counts_home[pass_counts_home >= 10].count() if not pass_counts_home.empty else 0
-
-            pass_df_away = df[(df['type'] == 'Pass') & (df['teamName'] == ateamName)]
-            pass_counts_away = pass_df_away.groupby('possession_id').size()
-            PPS_away = round(pass_counts_away.mean()) if not pass_counts_away.empty else 0
-            pass_seq_10_more_away = pass_counts_away[pass_counts_away >= 10].count() if not pass_counts_away.empty else 0
-
-        head_y = [62, 68, 68, 62]
-        head_x = [0, 0, 105, 105]
-        ax.fill(head_x, head_y, '#003366', alpha=0.8)
-        ax.text(52.5, 64.5, reshape_arabic_text("إحصائيات المباراة"), ha='center', va='center', color='white', fontsize=25, fontweight='bold', path_effects=[patheffects.withStroke(linewidth=2, foreground='black')])
-
-        stats_title = [58, 58-(1*6), 58-(2*6), 58-(3*6), 58-(4*6), 58-(5*6), 58-(6*6), 58-(7*6), 58-(8*6), 58-(9*6), 58-(10*6)]
-        stats_home = [hposs, hft, htotalPass, hLongB, htkl, hintc, hclr, harl, home_ppda, PPS_home, pass_seq_10_more_home]
-        stats_away = [aposs, aft, atotalPass, aLongB, atkl, aintc, aclr, aarl, away_ppda, PPS_away, pass_seq_10_more_away]
-
-        stats_normalized_home = []
-        stats_normalized_away = []
-        for h, a in zip(stats_home, stats_away):
-            total = h + a
-            if total > 0:
-                stats_normalized_home.append(-(h / total) * 50)
-                stats_normalized_away.append((a / total) * 50)
-            else:
-                stats_normalized_home.append(0)
-                stats_normalized_away.append(0)
-
-        start_x = 52.5
-        ax.barh(stats_title, stats_normalized_home, height=4, color=hcol, left=start_x, alpha=0.9)
-        ax.barh(stats_title, stats_normalized_away, height=4, color=acol, left=start_x, alpha=0.9)
-
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
-        ax.spines['bottom'].set_visible(False)
-        ax.spines['left'].set_visible(False)
-        ax.tick_params(axis='both', which='both', bottom=False, top=False, left=False, right=False)
-        ax.set_xticks([])
-        ax.set_yticks([])
-
-        stat_labels = [
-            "الاستحواذ",
-            "ميلان الملعب",
-            "التمريرات (الناجحة)",
-            "الكرات الطويلة (الناجحة)",
-            "التدخلات (الناجحة)",
-            "الاعتراضات",
-            "التشتيتات",
-            "المواجهات الهوائية (الناجحة)",
-            "PPDA",
-            "متوسط التمريرات/التسلسل",
-            "تسلسلات 10+ تمريرات"
-        ]
-        for i, label in enumerate(stat_labels):
-            ax.text(52.5, stats_title[i], reshape_arabic_text(label), color='white', fontsize=14, ha='center', va='center', fontweight='bold', path_effects=[patheffects.withStroke(linewidth=1.5, foreground='black')])
-
-        ax.text(0, 58, f"{round(hposs)}%", color=line_color, fontsize=16, ha='right', va='center', fontweight='bold')
-        ax.text(0, 58-(1*6), f"{round(hft)}%", color=line_color, fontsize=16, ha='right', va='center', fontweight='bold')
-        ax.text(0, 58-(2*6), f"{htotalPass} ({hAccPass})", color=line_color, fontsize=16, ha='right', va='center', fontweight='bold')
-        ax.text(0, 58-(3*6), f"{hLongB} ({hAccLongB})", color=line_color, fontsize=16, ha='right', va='center', fontweight='bold')
-        ax.text(0, 58-(4*6), f"{htkl} ({htklw})", color=line_color, fontsize=16, ha='right', va='center', fontweight='bold')
-        ax.text(0, 58-(5*6), f"{hintc}", color=line_color, fontsize=16, ha='right', va='center', fontweight='bold')
-        ax.text(0, 58-(6*6), f"{hclr}", color=line_color, fontsize=16, ha='right', va='center', fontweight='bold')
-        ax.text(0, 58-(7*6), f"{harl} ({harlw})", color=line_color, fontsize=16, ha='right', va='center', fontweight='bold')
-        ax.text(0, 58-(8*6), f"{home_ppda}", color=line_color, fontsize=16, ha='right', va='center', fontweight='bold')
-        ax.text(0, 58-(9*6), f"{int(PPS_home)}", color=line_color, fontsize=16, ha='right', va='center', fontweight='bold')
-        ax.text(0, 58-(10*6), f"{pass_seq_10_more_home}", color=line_color, fontsize=16, ha='right', va='center', fontweight='bold')
-
-        ax.text(105, 58, f"{round(aposs)}%", color=line_color, fontsize=16, ha='left', va='center', fontweight='bold')
-        ax.text(105, 58-(1*6), f"{round(aft)}%", color=line_color, fontsize=16, ha='left', va='center', fontweight='bold')
-        ax.text(105, 58-(2*6), f"{atotalPass} ({aAccPass})", color=line_color, fontsize=16, ha='left', va='center', fontweight='bold')
-        ax.text(105, 58-(3*6), f"{aLongB} ({aAccLongB})", color=line_color, fontsize=16, ha='left', va='center', fontweight='bold')
-        ax.text(105, 58-(4*6), f"{atkl} ({atklw})", color=line_color, fontsize=16, ha='left', va='center', fontweight='bold')
-        ax.text(105, 58-(5*6), f"{aintc}", color=line_color, fontsize=16, ha='left', va='center', fontweight='bold')
-        ax.text(105, 58-(6*6), f"{aclr}", color=line_color, fontsize=16, ha='left', va='center', fontweight='bold')
-        ax.text(105, 58-(7*6), f"{aarl} ({aarlw})", color=line_color, fontsize=16, ha='left', va='center', fontweight='bold')
-        ax.text(105, 58-(8*6), f"{away_ppda}", color=line_color, fontsize=16, ha='left', va='center', fontweight='bold')
-        ax.text(105, 58-(9*6), f"{int(PPS_away)}", color=line_color, fontsize=16, ha='left', va='center', fontweight='bold')
-        ax.text(105, 58-(10*6), f"{pass_seq_10_more_away}", color_line_color, fontsize=16, ha='left', va='center', fontweight='bold')
-
-        home_data = {
-            'اسم الفريق': hteamName,
-            'الاستحواذ (%)': hposs,
-            'ميلان الملعب (%)': hft,
-            'إجمالي التمريرات': htotalPass,
-            'التمريرات الناجحة': hAccPass,
-            'الكرات الطويلة': hLongB,
-            'الكرات الطويلة الناجحة': hAccLongB,
-            'التدخلات': htkl,
-            'التدخلات الناجحة': htklw,
-            'الاعتراضات': hintc,
-            'التشتيتات': hclr,
-            'المواجهات الهوائية': harl,
-            'المواجهات هائية الناجحة': harlw,
-            'PPDA': home_ppda,
-            'متوسط التمريرات/التسلسل': PPS_home,
-            'تسلسلات 10+ تمريرات': pass_seq_10_more_home
-        }
-
-        away_data = {
-            'اسم الفريق': ateamName,
-            'الاستحواذ (%)': aposs,
-            'ميلان الملعب (%)': aft,
-            'إجمالي التمريرات': atotalPass,
-            'التمريرات الناجحة': aAccPass,
-            'الكرات الطويلة': aLongB,
-            'الكرات الطويلة الناجحة': aAccLongB,
-            'التدخلات': atkl,
-            'التدخلات الناجحة': atklw,
-            'الاعتراضات': aintc,
-            'التشتيتات': aclr,
-            'المواجهات الهوائية': aarl,
-            'المواجهات هائية الناجحة': aarlw,
-            'PPDA': away_ppda,
-            'متوسط التمريرات/التسلسل': PPS_away,
-            'تسلسلات 10+ تمريرات': pass_seq_10_more_away
-        }
-
-        return pd.DataFrame([home_data, away_data])
-
-    except Exception as e:
-        st.error(f"خطأ في plot_match_stats: {str(e)}")
-        return pd.DataFrame()
-
-# Streamlit app
-def main():
-    st.set_page_config(page_title="تحليل مباراة كرة القدم", layout="wide")
-    st.title(reshape_arabic_text("تحليل مباراة كرة القدم"))
-
-    if 'df' not in st.session_state:
-        st.session_state.df = None
-    if 'json_data' not in st.session_state:
+if st.button("تحليل المباراة"):
+    with st.spinner("جارٍ استخراج بيانات المباراة..."):
         st.session_state.json_data = None
-    if 'teams_dict' not in st.session_state:
-        st.session_state.teams_dict = None
-    if 'players_df' not in st.session_state:
-        st.session_state.players_df = None
-    if 'analysis_triggered' not in st.session_state:
-        st.session_state.analysis_triggered = False
-
-    uploaded_file = st.file_uploader("اختر ملف بيانات المباراة (HTML أو JSON)", type=["html", "json"])
-
-    if uploaded_file is not None:
-        try:
-            if uploaded_file.name.endswith('.json'):
-                st.session_state.json_data = json.load(uploaded_file)
-                st.success("تم تحميل ملف JSON بنجاح!")
-            else:  # HTML file
-                match_data = extract_match_dict_from_html(uploaded_file)
-                if match_data:
-                    st.session_state.json_data = match_data
-                    st.success("تم استخراج البيانات من ملف HTML بنجاح!")
-                else:
-                    st.error("فشل في استخراج البيانات من ملف HTML")
-        except Exception as e:
-            st.error(f"خطأ في تحميل الملف: {str(e)}")
-
-    if st.button("تحليل المباراة"):
-        if st.session_state.json_data is not None:
-            with st.spinner("جارٍ تحليل بيانات المباراة..."):
-                try:
-                    st.session_state.df, st.session_state.teams_dict, st.session_state.players_df = get_event_data(st.session_state.json_data)
-                    st.session_state.analysis_triggered = True
-                    if st.session_state.df is not None and st.session_state.teams_dict and st.session_state.players_df is not None:
-                        st.success("تم تحليل البيانات بنجاح!")
-                    else:
-                        st.error("فشل في معالجة البيانات.")
-                except Exception as e:
-                    st.error(f"خطأ في معالجة البيانات: {str(e)}")
-                    st.exception(e)
-        else:
-            st.warning("يرجى تحميل ملف بيانات أولاً")
-
-    # عرض التحليل إذا كانت البيانات جاهزة
-    if st.session_state.analysis_triggered and st.session_state.df is not None and not st.session_state.df.empty:
-        teams = list(st.session_state.teams_dict.values())
-        if len(teams) >= 2:
-            hteamName, ateamName = teams[0], teams[1]
-        else:
-            st.error("يتطلب وجود فريقين على الأقل في البيانات.")
-            return
-
-        # تعريف الألوان لاستخدامها في التبويبات
-        hcol = '#FF0000'
-        acol = '#0000FF'
-
-        tab1, tab2, tab3 = st.tabs([
-            reshape_arabic_text("الأحداث"),
-            reshape_arabic_text("تشكيلة الفريق"),
-            reshape_arabic_text("إحصائيات المباراة")
-        ])
+        st.session_state.df = pd.DataFrame({
+            'period': ['FirstHalf', 'FirstHalf', 'SecondHalf', 'SecondHalf', 'FirstHalf', 'SecondHalf'],
+            'teamName': ['TeamA', 'TeamA', 'TeamA', 'TeamB', 'TeamB', 'TeamA'],
+            'type': ['Pass', 'Pass', 'Pass', 'Goal', 'Pass', 'Carry'],
+            'outcomeType': ['Successful', 'Successful', 'Successful', 'Successful', 'Successful', 'Successful'],
+            'name': ['Player1', 'Player2', 'Player1', 'Player3', 'Player4', 'Player2'],
+            'x': [10, 20, 30, 90, 50, 40],
+            'y': [10, 20, 30, 34, 40, 50],
+            'endX': [20, 30, 40, np.nan, 60, 50],
+            'endY': [20, 30, 40, np.nan, 50, 60],
+            'qualifiers': ['', '', '', 'Goal', '', ''],
+            'shirtNo': [1, 2, 1, 3, 4, 2],
+            'position': ['DC', 'DC', 'DC', 'FW', 'MC', 'DC'],
+            'isFirstEleven': [True, True, True, True, True, True],
+            'playerId': [101, 102, 101, 103, 104, 102],
+            'isTouch': [True, True, True, True, True, True],
+            'cumulative_mins': [5, 10, 50, 60, 20, 70]
+        })
+        st.session_state.players_df = pd.DataFrame({
+            'name': ['Player1', 'Player2', 'Player3', 'Player4'],
+            'shirtNo': [1, 2, 3, 4],
+            'position': ['DC', 'DC', 'FW', 'MC'],
+            'isFirstEleven': [True, True, True, True],
+            'playerId': [101, 102, 103, 104]
+        })
+        st.session_state.teams_dict = {1: 'TeamA', 2: 'TeamB'}
+        st.session_state.analysis_triggered = True
+        st.success("تم تحميل البيانات التجريبية بنجاح!")
         
-        # ... existing code ...
+        if uploaded_json:
+            try:
+                st.session_state.json_data = json.load(uploaded_json)
+            except Exception as e:
+                st.error(f"خطأ في تحميل ملف JSON: {str(e)}")
+        elif uploaded_html:
+            try:
+                st.session_state.json_data = extract_match_dict_from_html(uploaded_html)
+            except Exception as e:
+                st.error(f"خطأ في معالجة ملف HTML: {str(e)}")
+        else:
+            st.error("يرجى رفع ملف HTML أو JSON للمباراة.")
 
-# استدعاء الدالة الرئيسية
-if __name__ == "__main__":
-    main()
+        if st.session_state.json_data:
+            st.session_state.df, st.session_state.teams_dict, st.session_state.players_df = get_event_data(
+                st.session_state.json_data)
+            st.session_state.analysis_triggered = True
+            if st.session_state.df is not None and st.session_state.teams_dict and st.session_state.players_df is not None:
+                st.success("تم استخراج البيانات بنجاح!")
+            else:
+                st.error("فشل في معالجة البيانات.")
+        else:
+            st.error("فشل في جلب بيانات المباراة.")
+
+# عرض التحليل فقط إذا تم استخراج البيانات
+# عرض التحليل فقط إذا تم استخراج البيانات
+if st.session_state.analysis_triggered and not st.session_state.df.empty and st.session_state.teams_dict and not st.session_state.players_df.empty:
+    hteamID = list(st.session_state.teams_dict.keys())[0]
+    ateamID = list(st.session_state.teams_dict.keys())[1]
+    hteamName = st.session_state.teams_dict[hteamID]
+    ateamName = st.session_state.teams_dict[ateamID]
+
+    homedf = st.session_state.df[(st.session_state.df['teamName'] == hteamName)]
+    awaydf = st.session_state.df[(st.session_state.df['teamName'] == ateamName)]
+    hxT = homedf['xT'].sum().round(2) if 'xT' in homedf.columns else 0
+    axT = awaydf['xT'].sum().round(2) if 'xT' in awaydf.columns else 0
+
+    hgoal_count = len(homedf[(homedf['teamName'] == hteamName) & 
+                             (homedf['type'] == 'Goal') & 
+                             (~homedf['qualifiers'].str.contains('OwnGoal', na=False))])
+    agoal_count = len(awaydf[(awaydf['teamName'] == ateamName) & 
+                             (awaydf['type'] == 'Goal') & 
+                             (~awaydf['qualifiers'].str.contains('OwnGoal', na=False))])
+    hgoal_count += len(awaydf[(awaydf['teamName'] == ateamName) & 
+                              (awaydf['type'] == 'Goal') & 
+                              (awaydf['qualifiers'].str.contains('OwnGoal', na=False))])
+    agoal_count += len(homedf[(homedf['teamName'] == hteamName) & 
+                              (homedf['type'] == 'Goal') & 
+                              (homedf['qualifiers'].str.contains('OwnGoal', na=False))])
+
+    hftmb_tid = fotmob_team_ids.get(hteamName, 0)
+    aftmb_tid = fotmob_team_ids.get(ateamName, 0)
+
+    st.header(f'{hteamName} {hgoal_count} - {agoal_count} {ateamName}')
+
+    # علامات التبويب
+    try:
+        tab1, tab2, tab3, tab4 = st.tabs(
+            ['تحليل الفريق', 'تحليل اللاعبين', 'إحصائيات المباراة', 'أفضل اللاعبين'])
+    except Exception as e:
+        st.error(f"خطأ في إنشاء التبويبات: {str(e)}")
+        st.stop()
 
 with tab1:
     an_tp = st.selectbox('نوع التحليل:', [
@@ -1906,9 +1802,26 @@ with tab1:
     }
     selected_period = period_map[period_choice]
 
-   
+    region_choice = st.selectbox(
+        reshape_arabic_text('اختر المنطقة:'),
+        ['الثلث الدفاعي للخصم', 'الثلث الهجومي', 'نصف الملعب الهجومي', '60% من الملعب الهجومي', 'الملعب بأكمله'],
+        index=0,
+        key='ppda_region'
+    )
+    region_map = {
+        'الثلث الدفاعي للخصم': 'opponent_defensive_third',
+        'الثلث الهجومي': 'attacking_third',
+        'نصف الملعب الهجومي': 'attacking_half',
+        '60% من الملعب الهجومي': 'attacking_60',
+        'الملعب بأكمله': 'whole'
+    }
+    selected_region = region_map[region_choice]
 
-
+    simulate_pressure = st.checkbox(
+        reshape_arabic_text('محاكاة أحداث الضغط (إذا لم تكن متوفرة)'),
+        value=True,
+        key='simulate_pressure'
+    )
 
     st.subheader(reshape_arabic_text('إعدادات مخصصة لكل فريق'))
     teams = st.session_state.df['teamName'].unique()
@@ -2028,88 +1941,3 @@ with tab1:
     except Exception as e:
         st.error(f"خطأ في حساب PPDA: {str(e)}")
         st.write("يرجى التحقق من البيانات المحملة.")
-
-with tab2:
-    st.subheader(reshape_arabic_text("التبويب الثاني"))
-    # إنشاء علامتي تبويب وهميتين داخل Tab 2
-    dummy_tab1, dummy_tab2 = st.tabs([reshape_arabic_text("بيانات وهمية 1"), 
-                                      reshape_arabic_text("بيانات وهمية 2")])
-    
-    # محتوى التبويب الوهمي الأول
-    with dummy_tab1:
-        st.write(reshape_arabic_text("هذا تبويب وهمي 1 داخل التبويب الثاني."))
-        st.markdown(reshape_arabic_text("يمكنك إضافة أي محتوى هنا، مثل نصوص أو رسوم بيانية."))
-        # مثال لبيانات وهمية
-        dummy_data1 = pd.DataFrame({
-            reshape_arabic_text("الفريق"): [hteamName, ateamName],
-            reshape_arabic_text("الأهداف"): [3, 2]
-        })
-        st.dataframe(dummy_data1, use_container_width=True)
-    
-    # محتوى التبويب الوهمي الثاني
-    with dummy_tab2:
-        st.write(reshape_arabic_text("هذا تبويب وهمي 2 داخل التبويب الثاني."))
-        st.markdown(reshape_arabic_text("مثال آخر لمحتوى وهمي."))
-        # مثال لرسم بياني وهمي
-        fig, ax = plt.subplots()
-        ax.bar([reshape_arabic_text(hteamName), reshape_arabic_text(ateamName)], [5, 3], color=[hcol, acol])
-        ax.set_title(reshape_arabic_text("مقارنة وهمية"))
-        st.pyplot(fig)
-
-with tab3:
-            st.subheader(reshape_arabic_text("إحصائيات المباراة"))
-            
-            # إضافة اختيار الفترة
-            period_map = {
-                "المباراة كاملة": None,
-                "الشوط الأول": "FirstHalf",
-                "الشوط الثاني": "SecondHalf"
-            }
-            period_choice = st.selectbox(
-                "اختر الفترة",
-                ["المباراة كاملة", "الشوط الأول", "الشوط الثاني"],
-                key="period_selector_stats"
-            )
-            selected_period = period_map[period_choice]
-
-            try:
-                # تصفية البيانات بناءً على الفترة
-                df_to_plot = st.session_state.df
-                if selected_period:
-                    df_to_plot = st.session_state.df[st.session_state.df['period'] == selected_period]
-                
-                # التحقق من أن إطار البيانات ليس فارغًا
-                if df_to_plot.empty:
-                    st.warning("لا توجد بيانات متاحة للفترة المختارة.")
-                else:
-                    # تصريح تصحيح للتحقق من الأعمدة
-                    st.write("الأعمدة في df_to_plot:", df_to_plot.columns.tolist())
-
-                    fig, ax = plt.subplots(figsize=(12, 10), facecolor='#000000', dpi=150)
-                    stats_df = plot_match_stats(
-                        ax,
-                        df_to_plot,
-                        hteamName,
-                        ateamName,
-                        hcol='#FF0000',
-                        acol='#0000FF',
-                        bg_color='#000000',
-                        line_color='#FFFFFF',
-                        watermark_enabled=False,
-                        watermark_text="",
-                        watermark_opacity=0.5,
-                        watermark_size=10,
-                        watermark_color='#FFFFFF',
-                        watermark_x=0.5,
-                        watermark_y=0.5,
-                        watermark_ha='center',
-                        watermark_va='center'
-                    )
-                    st.pyplot(fig)
-                    st.subheader(reshape_arabic_text("تفاصيل الإحصائيات"))
-                    st.dataframe(stats_df, use_container_width=True)
-            except Exception as e:
-                st.error(f"خطأ في عرض إحصائيات المباراة: {str(e)}")
-
-if __name__ == "__main__":
-    main()
