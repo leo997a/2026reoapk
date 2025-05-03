@@ -2201,6 +2201,10 @@ with tab1:
     except Exception as e:
         st.error(f"خطأ في حساب PPDA: {str(e)}")
         st.write("يرجى التحقق من البيانات المحملة.")
+
+with tab2:
+
+
 with tab3:
     st.subheader(reshape_arabic_text("إحصائيات المباراة"))
     
