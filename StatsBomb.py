@@ -1504,7 +1504,7 @@ with tab1:
                          fontsize=watermark_size, color=watermark_color)
         
         st.pyplot(fig)
-            if pass_btn is not None and not pass_btn.empty:
+        if pass_btn is not None and not pass_btn.empty:
                 st.dataframe(pass_btn, hide_index=True)
             else:
                 st.warning("لا توجد بيانات تمريرات للعرض.")
