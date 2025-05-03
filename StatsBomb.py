@@ -2198,7 +2198,7 @@ with tab3:
         # التحقق من أن إطار البيانات ليس فارغًا
         if df_to_plot.empty:
             st.warning("لا توجد بيانات متاحة للفترة المختارة.")
-        return
+    return
         fig, ax = plt.subplots(figsize=(12, 10), facecolor='#000000', dpi=150)
         stats_df = plot_match_stats(
             ax,
