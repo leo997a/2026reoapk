@@ -1612,31 +1612,6 @@ def plot_match_stats(ax, df, hteamName, ateamName, hcol, acol, bg_color, line_co
         st.write(f"الفريق المضيف: {hteamName}, الفريق الضيف: {ateamName}")
         st.write(f"فرق موجودة في البيانات: {df['teamName'].unique()}")
     
-    Parameters:
-    ax: matplotlib.axes.Axes
-        المحور لرسم الإحصائيات
-    df: pd.DataFrame
-        إطار بيانات الأحداث
-    hteamName, ateamName: str
-        أسماء الفريقين (المضيف والضيف)
-    hcol, acol: str
-        ألوان الفريقين
-    bg_color, line_color: str
-        لون الخلفية ولون الخطوط
-    watermark_enabled: bool
-        تفعيل العلامة المائية
-    watermark_text: str
-        نص العلامة المائية
-    watermark_opacity: float
-        شفافية العلامة المائية
-    watermark_size: int
-        حجم العلامة المائية
-    watermark_color: str
-        لون العلامة المائية
-    watermark_x, watermark_y: float
-        موقع العلامة المائية
-    watermark_ha, watermark_va: str
-        محاذاة العلامة المائية
     
     Returns:
     pd.DataFrame
