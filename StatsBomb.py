@@ -1506,7 +1506,7 @@ with tab1:
         st.pyplot(fig)
         if pass_btn is not None and not pass_btn.empty:
                 st.dataframe(pass_btn, hide_index=True)
-            else:
+        else:
                 st.warning("لا توجد بيانات تمريرات للعرض.")
         except Exception as e:
             st.error(f"خطأ في إنشاء شبكة التمريرات: {str(e)}")
