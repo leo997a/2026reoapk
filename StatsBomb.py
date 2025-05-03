@@ -2198,7 +2198,7 @@ with tab3:
         fig, ax = plt.subplots(figsize=(12, 10), facecolor='#000000', dpi=150)
         stats_df = plot_match_stats(
             ax,
-            df_to_plot,  # استخدام البيانات المصفاة
+            df_to_plot,
             hteamName,
             ateamName,
             hcol='#FF0000',
