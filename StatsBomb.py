@@ -1630,7 +1630,7 @@ with tab1:
         fig.savefig(save_path, dpi=300, bbox_inches='tight', facecolor=bg_color)
         st.success(f"تم حفظ الصورة بنجاح: {save_path}")
 
-    elif an_tp == reshape_arabic_text('Team Domination Zones'):
+    if an_tp == reshape_arabic_text('Team Domination Zones'):
         st.subheader(reshape_arabic_text('مناطق سيطرة الفريق'))
         phase_tag = st.selectbox(
             'اختر الفترة:', ['Full Time', 'First Half', 'Second Half'], key='phase_tag_domination')
