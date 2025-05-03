@@ -1606,7 +1606,7 @@ with tab1:
     
     # تحليل وعرض مناطق الهجوم
     if st.button("تحليل مناطق الهجوم"):
-    st.subheader("تحليل مناطق الهجوم")
+        st.subheader("تحليل مناطق الهجوم")
     
     # اختيار الفريق
     team_ids = list(st.session_state.teams_dict.keys())
