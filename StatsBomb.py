@@ -1599,8 +1599,18 @@ def calculate_ppda_separate(
         return {}
 # دالة لرسم إحصائيات المباراة
 def plot_match_stats(ax, df, hteamName, ateamName, hcol, acol, bg_color, line_color, watermark_enabled, watermark_text, watermark_opacity, watermark_size, watermark_color, watermark_x, watermark_y, watermark_ha, watermark_va):
-    """
-    رسم إحصائيات المباراة للفريقين مع تصميم عربي
+    try:
+        # التحقق من إطار البيانات
+        if df.empty:
+            raise ValueError("إطار البيانات فارغ")
+        required_columns = ['teamName', 'type', 'outcomeType', 'x', 'y', 'qualifiers', 'isTouch']
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            raise ValueError(f"الأعمدة المفقودة: {missing_columns}")
+        
+        # تسجيل أسماء الفرق
+        st.write(f"الفريق المضيف: {hteamName}, الفريق الضيف: {ateamName}")
+        st.write(f"فرق موجودة في البيانات: {df['teamName'].unique()}")
     
     Parameters:
     ax: matplotlib.axes.Axes
