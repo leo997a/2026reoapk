@@ -1364,196 +1364,83 @@ def calculate_team_ppda(
     period: str = None,
     include_pressure: bool = True,
     simulate_pressure: bool = True,
-    min_def_actions: int = 5,  # زيادة الحد الأدنى للأفعال الدفاعية
+    min_def_actions: int = 5,
     max_pressure_distance: float = 5.0,
     swap_sides_second_half: bool = True,
     use_extended_defs: bool = False,
-    calibration_factor_low_defs: float = 0.7,  # معايرة أقل عدوانية
-    min_pass_distance: float = 5.0  # الحد الأدنى لمسافة التمريرة
+    calibration_factor_low_defs: float = 0.7,
+    min_pass_distance: float = 5.0
 ) -> dict:
     try:
-        # نسخ إطار البيانات والتحقق من الإحداثيات
-        df = events_df.copy()
-        for col in ['x', 'y', 'endX', 'endY']:
-            if col in df.columns:
-                df[col] = pd.to_numeric(df[col], errors='coerce').clip(0, pitch_units if col in ['x', 'endX'] else 68)
-                if df[col].isna().any():
-                    df = df.dropna(subset=[col])
-
-        # تصفية الفترة
         if period:
-            df = df[df['period'] == period]
-            if df.empty:
-                st.warning(f"لا توجد بيانات للفترة {period} لفريق {team}.")
-                return {}
+            events_df = events_df[events_df['period'] == period]
 
-        # التعامل مع تبديل الجوانب في الشوط الثاني
-        if swap_sides_second_half and not period:
-            first_half_x = df[df['period'] == 'FirstHalf']['x'].mean()
-            second_half_x = df[df['period'] == 'SecondHalf']['x'].mean()
-            if abs(first_half_x - second_half_x) > pitch_units / 3:
-                df.loc[df['period'] == 'SecondHalf', 'x'] = pitch_units - df.loc[df['period'] == 'SecondHalf', 'x']
-                df.loc[df['period'] == 'SecondHalf', 'y'] = 68 - df.loc[df['period'] == 'SecondHalf', 'y']
-                if 'endX' in df.columns and 'endY' in df.columns:
-                    df.loc[df['period'] == 'SecondHalf', 'endX'] = pitch_units - df.loc[df['period'] == 'SecondHalf', 'endX']
-                    df.loc[df['period'] == 'SecondHalf', 'endY'] = 68 - df.loc[df['period'] == 'SecondHalf', 'endY']
-
-        # تحديد الأفعال الدفاعية (استبعاد Fouls غير مؤثرة)
-        defs = ['Tackle', 'Interception', 'BlockedPass', 'Challenge']
-        if include_pressure and 'Pressure' in df['type'].unique():
-            defs.append('Pressure')
-        if use_extended_defs:
-            extended_defs = ['ShieldBallOpp', 'BallRecovery']
-            defs.extend([d for d in extended_defs if d in df['type'].unique()])
-
-        # محاكاة أحداث الضغط (مع وزن أقل)
-        if simulate_pressure and 'Pressure' not in df['type'].unique():
-            passes = df[(df['type'] == 'Pass') & (df['outcomeType'] == 'Successful')]
-            potential_pressure = df[
-                (df['type'].isin(['Tackle', 'Challenge', 'Interception', 'BallRecovery'])) &
-                (df['outcomeType'] == 'Successful') &
-                (~df['qualifiers'].astype(str).str.contains('Error|Missed', na=False))
-            ]
-            pressure_count = 0
-            if not potential_pressure.empty and not passes.empty:
-                pressure_events = []
-                for _, pressure_row in potential_pressure.iterrows():
-                    relevant_passes = passes[
-                        (passes['teamName'] != pressure_row['teamName']) &
-                        (pressure_row['cumulative_mins'] >= passes['cumulative_mins']) &
-                        (pressure_row['cumulative_mins'] <= passes['cumulative_mins'] + 4/60)
-                    ]
-                    for _, pass_row in relevant_passes.iterrows():
-                        distance = ((pressure_row['x'] - pass_row['x'])**2 + (pressure_row['y'] - pass_row['y'])**2)**0.5
-                        if distance <= max_pressure_distance:
-                            pressure_event = pressure_row.copy()
-                            pressure_event['type'] = 'Pressure'
-                            pressure_event['pressure_weight'] = 0.5  # وزن أقل للضغط المحاكى
-                            pressure_events.append(pressure_event)
-                            pressure_count += 1
-                if pressure_events:
-                    pressure_df = pd.DataFrame(pressure_events)
-                    df = pd.concat([df, pressure_df[df.columns.union(['pressure_weight'])]], ignore_index=True)
-                    defs.append('Pressure')
-                    st.write(f"أحداث 'Pressure' المحاكاة لـ {team}: {str(pressure_count)}")
-
-        # تحديد المنطقة
-        team_id = [k for k, v in st.session_state.teams_dict.items() if v == team][0]
-        is_home_team = team_id == min(st.session_state.teams_dict.keys())
         if region == 'opponent_defensive_third':
-            x_min = pitch_units * (2 / 3) if is_home_team else 0
-            x_max = pitch_units if is_home_team else pitch_units / 3
-        elif region == 'attacking_third':
-            x_min = pitch_units * (2 / 3)
-            x_max = pitch_units
-        elif region == 'attacking_half':
-            x_min = pitch_units / 2
-            x_max = pitch_units
-        elif region == 'attacking_60':
-            x_min = pitch_units * 0.4
-            x_max = pitch_units
-        elif region == 'whole':
-            x_min = 0
-            x_max = pitch_units
-        elif region == 'custom':
-            if custom_threshold is None:
-                raise ValueError("يجب تحديد custom_threshold.")
-            x_min = custom_threshold
-            x_max = pitch_units
-        else:
-            raise ValueError(f"المنطقة غير معروفة: {region}")
+            if custom_threshold:
+                threshold = custom_threshold
+            else:
+                threshold = pitch_units * 0.333
 
-        # تصفية التمريرات الناجحة (مع استبعاد التمريرات القصيرة)
-        opponent = [t for t in df['teamName'].unique() if t != team][0]
-        passes_allowed = df[
-            (df['type'] == 'Pass') &
-            (df['outcomeType'] == 'Successful') &
-            (df['teamName'] == opponent) &
-            (df['x'] >= x_min) &
-            (df['x'] <= x_max) &
-            (~df['qualifiers'].astype(str).str.contains('Corner|Freekick|Throwin|GoalKick', na=False))
+        opp_events = events_df[events_df['teamName'] != team].copy()
+        def_events = events_df[events_df['teamName'] == team].copy()
+
+        if swap_sides_second_half:
+            opp_events.loc[opp_events['period'] == 'SecondHalf', ['x', 'endX']] = pitch_units - opp_events.loc[opp_events['period'] == 'SecondHalf', ['x', 'endX']]
+            def_events.loc[def_events['period'] == 'SecondHalf', ['x', 'endX']] = pitch_units - def_events.loc[def_events['period'] == 'SecondHalf', ['x', 'endX']]
+
+        opp_passes = opp_events[
+            (opp_events['type'].str.contains('Pass', case=False, na=False)) &
+            (opp_events['outcomeType'] == 'Successful') &
+            (opp_events['x'] <= threshold)
         ]
-        # حساب مسافة التمريرة إذا كانت endX/endY متوفرة
-        if 'endX' in df.columns and 'endY' in df.columns:
-            passes_allowed = passes_allowed.assign(
-                pass_distance=np.sqrt((passes_allowed['endX'] - passes_allowed['x'])**2 + (passes_allowed['endY'] - passes_allowed['y'])**2)
-            )
-            passes_allowed = passes_allowed[passes_allowed['pass_distance'] >= min_pass_distance]
-        num_passes = len(passes_allowed)
-        st.write(f"الفريق: {team}, التمريرات الناجحة المسموح بها (x من {str(x_min)} إلى {str(x_max)}): {str(num_passes)}")
 
-        # تصفية الأفعال الدفاعية (مع وزن للضغط المحاكى)
-        defensive_actions = df[
-            (df['type'].isin(defs)) &
-            (df['teamName'] == team) &
-            (df['x'] >= x_min) &
-            (df['x'] <= x_max) &
-            (~df['qualifiers'].astype(str).str.contains('Offensive|Tactical', na=False))
+        if min_pass_distance:
+            opp_passes = opp_passes[
+                ((opp_passes['endX'] - opp_passes['x']) ** 2 + (opp_passes['endY'] - opp_passes['y']) ** 2) ** 0.5 >= min_pass_distance
+            ]
+
+        def_actions = def_events[
+            (def_events['type'].isin(['Tackle', 'Interception', 'Clearance'])) &
+            (def_events['outcomeType'] == 'Successful') &
+            (def_events['x'] >= (pitch_units - threshold))
         ]
-        # حساب عدد الأفعال الدفاعية مع الأوزان
-        if 'pressure_weight' in defensive_actions.columns:
-            defensive_actions['weight'] = defensive_actions['pressure_weight'].fillna(1.0)
-            num_defs = defensive_actions['weight'].sum()
+
+        if include_pressure and 'Pressure' in events_df['type'].values:
+            pressure_events = def_events[
+                (def_events['type'] == 'Pressure') &
+                (def_events['x'] >= (pitch_units - threshold))
+            ]
+            if simulate_pressure and not pressure_events.empty:
+                valid_pressures = []
+                for _, pressure in pressure_events.iterrows():
+                    if pressure['x'] and pressure['y']:
+                        pass_within_distance = opp_passes[
+                            ((opp_passes['x'] - pressure['x']) ** 2 + (opp_passes['y'] - pressure['y']) ** 2) ** 0.5 <= max_pressure_distance
+                        ]
+                        if not pass_within_distance.empty:
+                            valid_pressures.append(pressure)
+                if valid_pressures:
+                    valid_pressures = pd.DataFrame(valid_pressures)
+                    def_actions = pd.concat([def_actions, valid_pressures], ignore_index=True)
+
+        num_passes = len(opp_passes)
+        num_def_actions = len(def_actions)
+
+        if num_def_actions < min_def_actions:
+            ppda = num_passes / max(num_def_actions, min_def_actions * calibration_factor_low_defs)
         else:
-            num_defs = len(defensive_actions)
-        st.write(f"الفريق: {team}, الأفعال الدفاعية (x من {str(x_min)} إلى {str(x_max)}): {str(round(num_defs, 2))}")
-
-        # حساب PPDA
-        ppda = round(num_passes / num_defs, 2) if num_defs >= min_def_actions else None
-        pressure_ratio = round((num_defs / num_passes) * 100, 2) if num_passes > 0 and num_defs >= min_def_actions else None
-
-        # التحقق من عدم وجود أفعال دفاعية كافية
-        if ppda is None:
-            st.warning(f"لا يمكن حساب PPDA لفريق {team}: عدد الأفعال الدفاعية قليل جدًا ({str(round(num_defs, 2))}).")
-            return {
-                'Region': region,
-                'Threshold_x_min': x_min,
-                'Threshold_x_max': x_max,
-                'Passes Allowed': num_passes,
-                'Defensive Actions': round(num_defs, 2),
-                'PPDA': None,
-                'Pressure Ratio (%)': None,
-                'Action Breakdown': {}
-            }
-
-        # معايرة PPDA (محسنة)
-        calibration_factor = 1.0
-        if ppda > 15 or ppda < 5:
-            total_defs = df[df['type'].isin(defs) & (df['teamName'] == team)]['weight'].sum() if 'weight' in df.columns else len(df[df['type'].isin(defs) & (df['teamName'] == team)])
-            region_def_ratio = num_defs / (total_defs + 1e-10)
-            if ppda > 15:
-                calibration_factor = calibration_factor_low_defs if num_defs < 10 else 0.9  # معايرة أقل عدوانية
-                if region_def_ratio < 0.2:
-                    calibration_factor *= 0.85
-            elif ppda < 5:
-                calibration_factor = 1.2  # زيادة طفيفة للقيم المنخفضة
-            ppda = round(ppda * calibration_factor, 2)
-            st.write(f"PPDA لفريق {team} معاير ({str(ppda)} بعد التصحيح). معامل المعايرة: {str(calibration_factor)}.")
-
-        # تحذير إذا كان عدد الأفعال الدفاعية قليل
-        if num_defs < 10:
-            st.write(f"تحذير: عدد الأفعال الدفاعية لفريق {team} قليل ({str(round(num_defs, 2))}).")
-
-        # توزيع الأفعال الدفاعية
-        breakdown = {a: round(defensive_actions[defensive_actions['type'] == a]['weight'].sum(), 2) if 'weight' in defensive_actions.columns else int((defensive_actions['type'] == a).sum()) for a in defs}
-        st.write(f"توزيع الأفعال الدفاعية لـ {team}: {str(breakdown)}")
+            ppda = num_passes / num_def_actions if num_def_actions > 0 else np.inf
 
         return {
-            'Region': region,
-            'Threshold_x_min': x_min,
-            'Threshold_x_max': x_max,
-            'Passes Allowed': num_passes,
-            'Defensive Actions': round(num_defs, 2),
-            'PPDA': ppda,
-            'Pressure Ratio (%)': pressure_ratio,
-            'Action Breakdown': breakdown
+            'PPDA': round(ppda, 2),
+            'passes_allowed': num_passes,
+            'defensive_actions': num_def_actions
         }
-
     except Exception as e:
-        st.error(f"خطأ في حساب PPDA لفريق {team}: {str(e)}")
-        return {}
+        st.error(f"خطأ في حساب PPDA للفريق {team}: {str(e)}")
+        return {'PPDA': 0, 'passes_allowed': 0, 'defensive_actions': 0}
 
-# دالة لحساب PPDA لكلا الفريقين
+# Function to calculate PPDA for both teams
 def calculate_ppda_separate(
     events_df: pd.DataFrame,
     region: str = 'opponent_defensive_third',
@@ -1573,6 +1460,10 @@ def calculate_ppda_separate(
             raise ValueError(f"يتوقع وجود فريقين، تم العثور على: {teams}")
 
         results = {}
+        team_params = {
+            teams[0]: {'max_pressure_distance': max_pressure_distance, 'calibration_factor': 0.7},
+            teams[1]: {'max_pressure_distance': max_pressure_distance, 'calibration_factor': 0.7}
+        }
         for team in teams:
             team_max_pressure_distance = team_params.get(team, {}).get('max_pressure_distance', max_pressure_distance)
             team_calibration_factor = team_params.get(team, {}).get('calibration_factor', 0.7)
@@ -1597,6 +1488,7 @@ def calculate_ppda_separate(
     except Exception as e:
         st.error(f"خطأ في حساب PPDA: {str(e)}")
         return {}
+
 # دالة لرسم إحصائيات المباراة
 def plot_match_stats(ax, df, hteamName, ateamName, hcol, acol, bg_color, line_color, watermark_enabled, watermark_text, watermark_opacity, watermark_size, watermark_color, watermark_x, watermark_y, watermark_ha, watermark_va):
     try:
@@ -2173,54 +2065,61 @@ with tab2:
         ax.set_title(reshape_arabic_text("مقارنة وهمية"))
         st.pyplot(fig)
 
-with tab3:
-    st.subheader(reshape_arabic_text("إحصائيات المباراة"))
-    
-    # إضافة اختيار الفترة
-    period_map = {
-        "المباراة كاملة": None,
-        "الشوط الأول": "FirstHalf",
-        "الشوط الثاني": "SecondHalf"
-    }
-    period_choice = st.selectbox(
-        "اختر الفترة",
-        ["المباراة كاملة", "الشوط الأول", "الشوط الثاني"],
-        key="period_selector_stats"
-    )
-    selected_period = period_map[period_choice]
+        with tab3:
+            st.subheader(reshape_arabic_text("إحصائيات المباراة"))
+            
+            # إضافة اختيار الفترة
+            period_map = {
+                "المباراة كاملة": None,
+                "الشوط الأول": "FirstHalf",
+                "الشوط الثاني": "SecondHalf"
+            }
+            period_choice = st.selectbox(
+                "اختر الفترة",
+                ["المباراة كاملة", "الشوط الأول", "الشوط الثاني"],
+                key="period_selector_stats"
+            )
+            selected_period = period_map[period_choice]
 
-    try:
-        # تصفية البيانات بناءً على الفترة
-        df_to_plot = st.session_state.df
-        if selected_period:
-            df_to_plot = st.session_state.df[st.session_state.df['period'] == selected_period]
-        
-        # التحقق من أن إطار البيانات ليس فارغًا
-        if df_to_plot.empty:
-            st.warning("لا توجد بيانات متاحة للفترة المختارة.")
-    return
-        fig, ax = plt.subplots(figsize=(12, 10), facecolor='#000000', dpi=150)
-        stats_df = plot_match_stats(
-            ax,
-            df_to_plot,
-            hteamName,
-            ateamName,
-            hcol='#FF0000',
-            acol='#0000FF',
-            bg_color='#000000',
-            line_color='#FFFFFF',
-            watermark_enabled=False,
-            watermark_text="",
-            watermark_opacity=0.5,
-            watermark_size=10,
-            watermark_color='#FFFFFF',
-            watermark_x=0.5,
-            watermark_y=0.5,
-            watermark_ha='center',
-            watermark_va='center'
-        )
-        st.pyplot(fig)
-        st.subheader(reshape_arabic_text("تفاصيل الإحصائيات"))
-        st.dataframe(stats_df, use_container_width=True)
-    except Exception as e:
-        st.error(f"خطأ في عرض إحصائيات المباراة: {str(e)}")
+            try:
+                # تصفية البيانات بناءً على الفترة
+                df_to_plot = st.session_state.df
+                if selected_period:
+                    df_to_plot = st.session_state.df[st.session_state.df['period'] == selected_period]
+                
+                # التحقق من أن إطار البيانات ليس فارغًا
+                if df_to_plot.empty:
+                    st.warning("لا توجد بيانات متاحة للفترة المختارة.")
+                    return
+                
+                # تصريح تصحيح للتحقق من الأعمدة
+                st.write("الأعمدة في df_to_plot:", df_to_plot.columns.tolist())
+
+                fig, ax = plt.subplots(figsize=(12, 10), facecolor='#000000', dpi=150)
+                stats_df = plot_match_stats(
+                    ax,
+                    df_to_plot,
+                    hteamName,
+                    ateamName,
+                    hcol='#FF0000',
+                    acol='#0000FF',
+                    bg_color='#000000',
+                    line_color='#FFFFFF',
+                    watermark_enabled=False,
+                    watermark_text="",
+                    watermark_opacity=0.5,
+                    watermark_size=10,
+                    watermark_color='#FFFFFF',
+                    watermark_x=0.5,
+                    watermark_y=0.5,
+                    watermark_ha='center',
+                    watermark_va='center'
+                )
+                st.pyplot(fig)
+                st.subheader(reshape_arabic_text("تفاصيل الإحصائيات"))
+                st.dataframe(stats_df, use_container_width=True)
+            except Exception as e:
+                st.error(f"خطأ في عرض إحصائيات المباراة: {str(e)}")
+
+if __name__ == "__main__":
+    main()
