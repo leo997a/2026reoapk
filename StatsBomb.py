@@ -2358,7 +2358,7 @@ with tab1:
 
 with tab3:
     st.subheader(reshape_arabic_text("إحصائيات المباراة"))
-        try:
+    try:
         # حساب إحصائيات المباراة
         # إحصائيات التمرير
         # نسبة الاستحواذ
