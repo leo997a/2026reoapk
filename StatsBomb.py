@@ -1132,65 +1132,142 @@ def team_domination_zones(
         [path_effects.withStroke(linewidth=2, foreground='black')])
 
 
-def attack_zones_analysis(df, team_id, team_name, competition_name=None, season_name=None):
-    # تصفية الأحداث للفريق المحدد
-    team_events = data[data['team_name'] == team_name]
+def attack_zones_analysisdef(df, team_id, team_name, competition_name=None, season_name=None):
+    """
+    تحليل نسب الهجوم في الأثلاث الثلاثة للملعب (يمين، وسط، يسار)
     
-    # تصفية التمريرات التي تنتهي في الثلث الأخير (x >= 80)
-    passes = team_events[team_events['type_name'] == 'Pass']
-    final_third_passes = passes[passes['pass_end_location'].apply(lambda loc: loc[0] >= 80 if isinstance(loc, list) else False)]
+    المعلمات:
+    df : DataFrame
+        إطار البيانات الذي يحتوي على أحداث المباراة
+    team_id : int
+        معرف الفريق المراد تحليله
+    team_name : str
+        اسم الفريق المراد تحليله
+    competition_name : str, optional
+        اسم المسابقة
+    season_name : str, optional
+        اسم الموسم
+    """
+    # تصفية البيانات للفريق المحدد والأحداث الهجومية
+    team_events = df[(df['teamId'] == team_id) & (df['x'] >= 50)]
     
-    # تقسيم الثلث الأخير إلى 3 مناطق عرضية (يسار، وسط، يمين)
-    left_zone = final_third_passes[final_third_passes['pass_end_location'].apply(lambda loc: loc[1] < 26.67)]
-    center_zone = final_third_passes[final_third_passes['pass_end_location'].apply(lambda loc: 26.67 <= loc[1] < 53.33)]
-    right_zone = final_third_passes[final_third_passes['pass_end_location'].apply(lambda loc: loc[1] >= 53.33)]
+    # تقسيم الملعب إلى ثلاثة أقسام (يمين، وسط، يسار)
+    team_events['attacking_third'] = pd.cut(
+        team_events['y'],
+        bins=[0, 22.67, 45.33, 68],
+        labels=['left', 'center', 'right']
+    )
     
-    # حساب عدد التمريرات في كل منطقة
-    zones = {
-        'يسار': len(left_zone),
-        'وسط': len(center_zone),
-        'يمين': len(right_zone)
+    # حساب عدد اللمسات في كل ثلث
+    third_counts = team_events['attacking_third'].value_counts()
+    total_touches = third_counts.sum()
+    
+    # حساب النسب المئوية
+    percentages = {
+        'left': round((third_counts.get('left', 0) / total_touches) * 100, 1),
+        'center': round((third_counts.get('center', 0) / total_touches) * 100, 1),
+        'right': round((third_counts.get('right', 0) / total_touches) * 100, 1)
     }
     
-    # تحديد المنطقة الأكثر هجومًا
-    most_attacked_zone = max(zones, key=zones.get)
-    max_attacks = zones[most_attacked_zone]
+    # إنشاء الرسم البياني
+    fig, ax = plt.subplots(figsize=(10, 8))
     
-    # ألوان مختلفة لكل منطقة
-    zone_colors = {
-        'يسار': 'red',
-        'وسط': 'green',
-        'يمين': 'blue'
-    }
+    # إعداد الملعب
+    pitch = Pitch(pitch_type='statsbomb', pitch_color='#f4f4f4', line_color='#c7d5cc',
+                  stripe=False, goal_type='box')
+    pitch.draw(ax=ax)
     
-    # مركز كل منطقة (لتحديد نقطة بداية السهم)
-    zone_centers = {
-        'يسار': (100, 13.33),
-        'وسط': (100, 40),
-        'يمين': (100, 66.67)
-    }
+    # تعيين لون الخلفية
+    fig.set_facecolor(bg_color)
+    ax.set_facecolor(bg_color)
     
-    # رسم الأسهم لكل منطقة
-    for zone, count in zones.items():
-        if count > 0:  # رسم السهم فقط إذا كان هناك تمريرات
-            center_x, center_y = zone_centers[zone]
-            arrow_length = (count / max_attacks) * 15  # تكبير السهم بنسبة عدد التمريرات
-            arrow_props = dict(facecolor=zone_colors[zone], edgecolor='black', width=2, headwidth=6, headlength=6)
-            arrow = ax.add_patch(Arrow(center_x, center_y, arrow_length, 0, **arrow_props))
-            # إضافة ظل للسهم
-            arrow.set_path_effects([withStroke(linewidth=4, foreground='black', alpha=0.3)])
-            
-            # إضافة نص يوضح عدد التمريرات
-            text = ax.text(center_x, center_y + 5, f"{count} تمريرة", color='white', fontsize=12, ha='center',
-                           bbox=dict(facecolor='black', alpha=0.5, edgecolor='none'))
-            text.set_path_effects([withStroke(linewidth=2, foreground='white', alpha=0.5)])
+    # إنشاء مناطق الأثلاث الثلاثة مع التدرج اللوني حسب النسب
+    max_percentage = max(percentages.values())
     
-    # عنوان الرسم
-    title = reshape_arabic_text(f"مناطق الهجوم لفريق {team_name}")
-    title_text = ax.text(60, 130, title, color='white', fontsize=16, ha='center', weight='bold')
-    title_text.set_path_effects([withStroke(linewidth=3, foreground='black', alpha=0.7)])
+    # تحديد ألوان التدرج
+    cmap = LinearSegmentedColormap.from_list('custom_cmap', ['#ffcccb', '#ff6b6b', '#ff0000'])
     
-    return zones, most_attacked_zone
+    # رسم المستطيلات للأثلاث الثلاثة
+    # الثلث الأيسر
+    left_alpha = 0.3 + (percentages['left'] / max_percentage) * 0.7
+    left_rect = patches.Rectangle((50, 0), 50, 22.67, linewidth=1, 
+                                 facecolor=cmap(percentages['left'] / 100), 
+                                 alpha=left_alpha, zorder=2)
+    ax.add_patch(left_rect)
+    
+    # الثلث الأوسط
+    center_alpha = 0.3 + (percentages['center'] / max_percentage) * 0.7
+    center_rect = patches.Rectangle((50, 22.67), 50, 22.66, linewidth=1, 
+                                   facecolor=cmap(percentages['center'] / 100), 
+                                   alpha=center_alpha, zorder=2)
+    ax.add_patch(center_rect)
+    
+    # الثلث الأيمن
+    right_alpha = 0.3 + (percentages['right'] / max_percentage) * 0.7
+    right_rect = patches.Rectangle((50, 45.33), 50, 22.67, linewidth=1, 
+                                  facecolor=cmap(percentages['right'] / 100), 
+                                  alpha=right_alpha, zorder=2)
+    ax.add_patch(right_rect)
+    
+    # إضافة الأسهم والنسب المئوية
+    # الثلث الأيسر
+    ax.arrow(75, 11.33, 0, -5, head_width=2, head_length=2, fc='black', ec='black', zorder=3, linewidth=2)
+    ax.text(75, 11.33 - 15, f"{percentages['left']}%", ha='center', va='center', fontsize=30, 
+            color='black', fontweight='bold', zorder=3)
+    
+    # الثلث الأوسط
+    ax.arrow(75, 34, 0, -5, head_width=2, head_length=2, fc='black', ec='black', zorder=3, linewidth=2)
+    ax.text(75, 34 - 15, f"{percentages['center']}%", ha='center', va='center', fontsize=30, 
+            color='black', fontweight='bold', zorder=3)
+    
+    # الثلث الأيمن
+    ax.arrow(75, 56.67, 0, -5, head_width=2, head_length=2, fc='black', ec='black', zorder=3, linewidth=2)
+    ax.text(75, 56.67 - 15, f"{percentages['right']}%", ha='center', va='center', fontsize=30, 
+            color='black', fontweight='bold', zorder=3)
+    
+    # إضافة العناوين
+    title_text = f"{team_name} Attacking Thirds"
+    subtitle_text = competition_name if competition_name else ""
+    
+    fig.text(0.12, 0.95, title_text, fontsize=24, fontweight='bold', color='white')
+    fig.text(0.12, 0.91, subtitle_text, fontsize=16, color='white')
+    
+    # إضافة شعار الفريق (إذا كان متاحًا)
+    try:
+        team_logo_url = f"https://images.fotmob.com/image_resources/logo/teamlogo/{fotmob_team_ids.get(team_name, '').strip()}.png"
+        response = requests.get(team_logo_url)
+        if response.status_code == 200:
+            team_logo = Image.open(BytesIO(response.content))
+            logo_ax = fig.add_axes([0.05, 0.91, 0.06, 0.06])
+            logo_ax.imshow(team_logo)
+            logo_ax.axis('off')
+    except:
+        pass
+    
+    # إضافة شعار Opta Analyst
+    try:
+        opta_logo_url = "https://secure.cache.images.core.optasports.com/soccer/teams/30x30/uuid_2uc7u1qdpvx131h6t7ykumroi.png"
+        response = requests.get(opta_logo_url)
+        if response.status_code == 200:
+            opta_logo = Image.open(BytesIO(response.content))
+            opta_ax = fig.add_axes([0.88, 0.91, 0.06, 0.06])
+            opta_ax.imshow(opta_logo)
+            opta_ax.axis('off')
+    except:
+        pass
+    
+    # إضافة نص توضيحي أسفل الرسم
+    fig.text(0.5, 0.05, "Looking at the % of total attacking touches that occur within each third", 
+             ha='center', fontsize=12, color='white')
+    
+    # إضافة العلامة المائية
+    if watermark_enabled:
+        fig = add_watermark(fig, text=watermark_text, alpha=watermark_opacity, 
+                           fontsize=watermark_size, color=watermark_color,
+                           x_pos=watermark_x, y_pos=watermark_y, 
+                           ha=watermark_ha, va=watermark_va)
+    
+    return fig
 
 def calculate_team_ppda(
     events_df: pd.DataFrame,
