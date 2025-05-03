@@ -2360,7 +2360,7 @@ with tab1:
                        ha=watermark_ha, va=watermark_va)
             
             st.pyplot(fig)
-elif an_tp == 'مناطق الهجوم':
+if an_tp == 'مناطق الهجوم':
     st.header(reshape_arabic_text("إحصائيات المباراة"))
     try:
         fig, ax = plt.subplots(figsize=(12, 10), facecolor=bg_color)
