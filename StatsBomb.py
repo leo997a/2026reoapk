@@ -2083,6 +2083,13 @@ if st.session_state.analysis_triggered and not st.session_state.df.empty and st.
 
     st.header(f'{hteamName} {hgoal_count} - {agoal_count} {ateamName}')
 
+    # تعريف علامات التبويب داخل try-except
+    try:
+        tab1, tab2, tab3, tab4 = st.tabs(['تحليل الفريق', 'تحليل اللاعبين', 'إحصائيات المباراة', 'أفضل اللاعبين'])
+    except Exception as e:
+        st.error(f"خطأ في إنشاء التبويبات: {str(e)}")
+        st.stop()
+
     # علامات التبويب
 
         tab1, tab2, tab3, tab4 = st.tabs(
