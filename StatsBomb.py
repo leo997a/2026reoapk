@@ -1134,131 +1134,58 @@ def team_domination_zones(
 
 def analyze_attacking_thirds(df, team_id, team_name, competition_name=None, season_name=None):
     """
-    تحليل نسب الهجوم في الأثلاث الثلاثة للملعب (يمين، وسط، يسار)
+    تحليل نسب الهجوم في الأثلاث الثلاثة للثلث الهجومي (يسار، وسط، يمين)
     """
-    # استخدام st.session_state.json_data بدلاً من json_data
     json_data = st.session_state.json_data
-    
-    # إنشاء قاموس للفرق من البيانات المتاحة
-    teams_dict = {}
-    for tid in df['teamId'].unique():
-        team_rows = df[df['teamId'] == tid]
-        if not team_rows.empty:
-            teams_dict[tid] = json_data.get('home', {}).get('name', "فريق") if tid == json_data.get('home', {}).get('teamId') else json_data.get('away', {}).get('name', "فريق منافس")
-    
-    # تحديد الفريق المنافس
-    all_teams = df['teamId'].unique()
-    opponent_id = [t for t in all_teams if t != team_id][0] if len(all_teams) > 1 else None
-    opponent_name = teams_dict.get(opponent_id, "الفريق المنافس") if opponent_id else "الفريق المنافس"
-    
-    # تحديد اتجاه الهجوم (من اليسار إلى اليمين أو العكس)
-    team_events = df[df['teamId'] == team_id]
-    
+
     # تحديد ألوان الفريق
     team_color = hcol if team_id == json_data['home']['teamId'] else acol
-    
-    # تحليل الهجمات في الأثلاث الثلاثة
-    # تقسيم الملعب إلى ثلاثة أقسام عرضية (يمين، وسط، يسار)
-    team_events_in_final_third = team_events[team_events['x'] >= 66.7]
-    
-    # حساب عدد الهجمات في كل ثلث
-    left_third = team_events_in_final_third[(team_events_in_final_third['y'] <= 33.3)]
-    center_third = team_events_in_final_third[(team_events_in_final_third['y'] > 33.3) & (team_events_in_final_third['y'] <= 66.7)]
-    right_third = team_events_in_final_third[(team_events_in_final_third['y'] > 66.7)]
-    
+
+    # استخراج أحداث الفريق في الثلث الهجومي فقط (x >= 66.7)
+    team_events = df[df['teamId'] == team_id]
+    final_third_events = team_events[team_events['x'] >= 66.7]
+
+    # تقسيم الثلث الهجومي إلى ثلاثة مناطق عرضية
+    left_zone = final_third_events[final_third_events['y'] <= 22.7]
+    center_zone = final_third_events[(final_third_events['y'] > 22.7) & (final_third_events['y'] <= 45.3)]
+    right_zone = final_third_events[final_third_events['y'] > 45.3]
+
     # حساب النسب المئوية
-    total_attacks = len(left_third) + len(center_third) + len(right_third)
-    if total_attacks > 0:
-        left_pct = len(left_third) / total_attacks * 100
-        center_pct = len(center_third) / total_attacks * 100
-        right_pct = len(right_third) / total_attacks * 100
-    else:
-        left_pct = center_pct = right_pct = 0
-    
-    # إنشاء الرسم البياني
-    fig, ax = plt.subplots(figsize=(12, 8), facecolor=bg_color)
-    
+    total = len(left_zone) + len(center_zone) + len(right_zone)
+    left_pct = (len(left_zone) / total * 100) if total > 0 else 0
+    center_pct = (len(center_zone) / total * 100) if total > 0 else 0
+    right_pct = (len(right_zone) / total * 100) if total > 0 else 0
+
     # رسم الملعب
-    pitch = Pitch(pitch_type='statsbomb', pitch_color=bg_color, line_color=line_color,
-                  stripe=False, goal_type='box')
+    fig, ax = plt.subplots(figsize=(12, 8), facecolor=bg_color)
+    pitch = Pitch(pitch_type='statsbomb', pitch_color=bg_color, line_color=line_color, stripe=False, goal_type='box')
     pitch.draw(ax=ax)
-    
-    # تلوين الثلث الهجومي
-    attacking_third = patches.Rectangle((68, 0), 32, 80, 
-                                       facecolor='red', alpha=0.3, 
-                                       edgecolor='none', zorder=1)
-    ax.add_patch(attacking_third)
-    
-    # تقسيم الثلث الهجومي إلى ثلاثة أقسام
-    left_zone = patches.Rectangle((68, 0), 32, 26.7, 
-                                 facecolor='red', alpha=0.3, 
-                                 edgecolor='none', zorder=1)
-    center_zone = patches.Rectangle((68, 26.7), 32, 26.6, 
-                                   facecolor='red', alpha=0.3, 
-                                   edgecolor='none', zorder=1)
-    right_zone = patches.Rectangle((68, 53.3), 32, 26.7, 
-                                  facecolor='red', alpha=0.3, 
-                                  edgecolor='none', zorder=1)
-    
-    ax.add_patch(left_zone)
-    ax.add_patch(center_zone)
-    ax.add_patch(right_zone)
-    
-    # إضافة النسب المئوية
-    # استخدام القيم المطلقة للأرقام
-    ax.text(84, 13.35, f"{left_pct:.1f}%", color='white', fontsize=20, 
-            fontweight='bold', ha='center', va='center', zorder=2,
-            path_effects=[path_effects.withStroke(linewidth=2, foreground='black')])
-    
-    ax.text(84, 40, f"{center_pct:.1f}%", color='white', fontsize=20, 
-            fontweight='bold', ha='center', va='center', zorder=2,
-            path_effects=[path_effects.withStroke(linewidth=2, foreground='black')])
-    
-    ax.text(84, 66.7, f"{right_pct:.1f}%", color='white', fontsize=20, 
-            fontweight='bold', ha='center', va='center', zorder=2,
-            path_effects=[path_effects.withStroke(linewidth=2, foreground='black')])
-    
-    # إضافة عنوان الرسم البياني
-    title_text = f"{reshape_arabic_text(team_name)} - {reshape_arabic_text(opponent_name)}"
-    subtitle_text = f"{reshape_arabic_text('تحليل مناطق الهجوم')}"
-    
-    # إضافة العنوان الرئيسي
-    fig.text(0.5, 0.95, title_text, fontsize=20, color='white', ha='center', 
-             fontweight='bold', path_effects=[path_effects.withStroke(linewidth=2, foreground='black')])
-    
-    # إضافة العنوان الفرعي
-    fig.text(0.5, 0.9, subtitle_text, fontsize=16, color='white', ha='center',
-             path_effects=[path_effects.withStroke(linewidth=1.5, foreground='black')])
-    
-    # إضافة معلومات الفريق
-    team_direction_y = 20
-    
-    # استخدام المعلمات الصحيحة لـ Rectangle
-    team_bg = patches.Rectangle(
-        (20, team_direction_y-8),  # موضع المستطيل
-        60, 16,                    # العرض والارتفاع
-        facecolor=team_color,      # لون الخلفية
-        alpha=0.7,                 # الشفافية
-        edgecolor='none',          # لون الحدود
-        zorder=2                   # ترتيب الطبقة
-    )
-    ax.add_patch(team_bg)
-    
-    # إضافة اسم الفريق
-    ax.text(50, team_direction_y, reshape_arabic_text(team_name), color='white', fontsize=12, 
-            fontweight='bold', ha='center', va='center', zorder=3)
-    
+
+    # رسم مناطق الثلث الهجومي
+    # يسار
+    ax.add_patch(patches.Rectangle((70, 0), 30, 22.7, facecolor=team_color, alpha=0.6, edgecolor='none', zorder=1))
+    # وسط
+    ax.add_patch(patches.Rectangle((70, 22.7), 30, 22.6, facecolor=team_color, alpha=0.8, edgecolor='none', zorder=1))
+    # يمين
+    ax.add_patch(patches.Rectangle((70, 45.3), 30, 22.7, facecolor=team_color, alpha=0.6, edgecolor='none', zorder=1))
+
+    # كتابة النسب داخل كل منطقة
+    ax.text(85, 11.35, f"{left_pct:.1f}%", color='white', fontsize=22, fontweight='bold', ha='center', va='center', zorder=2, path_effects=[path_effects.withStroke(linewidth=2, foreground='black')])
+    ax.text(85, 34, f"{center_pct:.1f}%", color='white', fontsize=22, fontweight='bold', ha='center', va='center', zorder=2, path_effects=[path_effects.withStroke(linewidth=2, foreground='black')])
+    ax.text(85, 56.7, f"{right_pct:.1f}%", color='white', fontsize=22, fontweight='bold', ha='center', va='center', zorder=2, path_effects=[path_effects.withStroke(linewidth=2, foreground='black')])
+
+    # عنوان الرسم
+    title_text = f"{team_name} - {json_data['away']['name'] if team_id == json_data['home']['teamId'] else json_data['home']['name']}"
+    fig.text(0.5, 0.95, title_text, fontsize=20, color='white', ha='center', fontweight='bold', path_effects=[path_effects.withStroke(linewidth=2, foreground='black')])
+    fig.text(0.5, 0.91, reshape_arabic_text('تحليل مناطق الهجوم'), fontsize=16, color='white', ha='center', path_effects=[path_effects.withStroke(linewidth=1.5, foreground='black')])
+
     # إضافة العلامة المائية إذا كانت مفعلة
     if watermark_enabled:
-        add_watermark(fig, text=watermark_text, alpha=watermark_opacity, 
-                     fontsize=watermark_size, color=watermark_color,
-                     x_pos=watermark_x, y_pos=watermark_y, 
-                     ha=watermark_ha, va=watermark_va)
-    
-    # تعديل حدود الرسم البياني
+        add_watermark(fig, text=watermark_text, alpha=watermark_opacity, fontsize=watermark_size, color=watermark_color, x_pos=watermark_x, y_pos=watermark_y, ha=watermark_ha, va=watermark_va)
+
     plt.tight_layout(rect=[0, 0, 1, 0.9])
-    
     return fig
+// ... existing code ...
 
 def calculate_team_ppda(
     events_df: pd.DataFrame,
