@@ -1151,7 +1151,7 @@ def analyze_attacking_thirds(df, team_id, team_name, competition_name=None, seas
          (team_df['endX'] > 66.6))  # الثلث الهجومي
     ]
     
-    # حساب عدد الهجمات في كل منطقة
+    # حساب عدد الهجمات في كل منطقة بشكل صحيح
     left_attacks = attacking_events[attacking_events['endY'] < 33.3].shape[0]
     center_attacks = attacking_events[(attacking_events['endY'] >= 33.3) & (attacking_events['endY'] <= 66.6)].shape[0]
     right_attacks = attacking_events[attacking_events['endY'] > 66.6].shape[0]
@@ -1169,57 +1169,65 @@ def analyze_attacking_thirds(df, team_id, team_name, competition_name=None, seas
     
     # إنشاء الرسم البياني بتصميم عصري
     pitch = Pitch(pitch_type='statsbomb', pitch_color=bg_color, line_color=line_color,
-                 goal_type='line', pitch_length=100, pitch_width=100)
+                 goal_type='line', pitch_length=120, pitch_width=80, line_alpha=0.7)
     
-    fig, ax = pitch.draw(figsize=(12, 8))
+    fig, ax = pitch.draw(figsize=(14, 10), constrained_layout=True)
     fig.set_facecolor(bg_color)
     
     # تحديد ألوان الفريقين
     team_color = hcol if team_id == json_data['home']['teamId'] else acol
     opponent_color = acol if team_id == json_data['home']['teamId'] else hcol
     
+    # إنشاء تدرجات لونية أكثر جاذبية
+    team_cmap = LinearSegmentedColormap.from_list('team_cmap', [to_rgba(team_color, 0.3), to_rgba(team_color, 0.8)])
+    
     # تحديد درجات الشفافية للمناطق المختلفة
-    left_alpha = 0.7
-    center_alpha = 0.6
-    right_alpha = 0.7
+    left_alpha = 0.8
+    center_alpha = 0.7
+    right_alpha = 0.8
     
     # رسم مناطق الهجوم بتدرج لوني أكثر جاذبية
-    # الثلث الأيمن (من منظور الهجوم)
-    ax.fill_rectangle(xy1=(66.6, 0), xy2=(100, 33.3), 
-                     color=to_rgba(team_color, left_alpha), 
-                     alpha=left_alpha, zorder=2)
-    # الثلث الأوسط
-    ax.fill_rectangle(xy1=(66.6, 33.3), xy2=(100, 66.6), 
-                     color=to_rgba(team_color, center_alpha), 
-                     alpha=center_alpha, zorder=2)
     # الثلث الأيسر (من منظور الهجوم)
-    ax.fill_rectangle(xy1=(66.6, 66.6), xy2=(100, 100), 
-                     color=to_rgba(team_color, right_alpha), 
-                     alpha=right_alpha, zorder=2)
+    left_rect = patches.Rectangle((66.6, 0), 33.4, 33.3, 
+                                 color=to_rgba(team_color, left_alpha), 
+                                 alpha=left_alpha, zorder=2, ec='white', lw=1.5)
+    ax.add_patch(left_rect)
+    
+    # الثلث الأوسط
+    center_rect = patches.Rectangle((66.6, 33.3), 33.4, 33.3, 
+                                   color=to_rgba(team_color, center_alpha), 
+                                   alpha=center_alpha, zorder=2, ec='white', lw=1.5)
+    ax.add_patch(center_rect)
+    
+    # الثلث الأيمن (من منظور الهجوم)
+    right_rect = patches.Rectangle((66.6, 66.6), 33.4, 33.4, 
+                                  color=to_rgba(team_color, right_alpha), 
+                                  alpha=right_alpha, zorder=2, ec='white', lw=1.5)
+    ax.add_patch(right_rect)
     
     # إضافة النسب المئوية الصحيحة مع تأثيرات نصية محسنة
-    # الثلث الأيمن
-    ax.text(83, 16.5, f"{right_percentage:.1f}%", fontsize=22, 
+    # الثلث الأيسر
+    ax.text(83, 16.5, f"{left_percentage:.1f}%", fontsize=24, 
            color='white', ha='center', va='center', fontweight='bold',
-           path_effects=[path_effects.withStroke(linewidth=2, foreground='black')])
+           path_effects=[path_effects.withStroke(linewidth=3, foreground='black')])
     
     # الثلث الأوسط
-    ax.text(83, 50, f"{center_percentage:.1f}%", fontsize=22, 
+    ax.text(83, 50, f"{center_percentage:.1f}%", fontsize=24, 
            color='white', ha='center', va='center', fontweight='bold',
-           path_effects=[path_effects.withStroke(linewidth=2, foreground='black')])
-    
-    # الثلث الأيسر
-    ax.text(83, 83.5, f"{left_percentage:.1f}%", fontsize=22, 
-           color='white', ha='center', va='center', fontweight='bold',
-           path_effects=[path_effects.withStroke(linewidth=2, foreground='black')])
-    
-    # إضافة أسهم اتجاه الهجوم بالاتجاه الصحيح
-    arrow_color = 'white'
-    arrow_width = 2.5
-    arrow_head_width = 7
-    arrow_head_length = 5
+           path_effects=[path_effects.withStroke(linewidth=3, foreground='black')])
     
     # الثلث الأيمن
+    ax.text(83, 83.5, f"{right_percentage:.1f}%", fontsize=24, 
+           color='white', ha='center', va='center', fontweight='bold',
+           path_effects=[path_effects.withStroke(linewidth=3, foreground='black')])
+    
+    # إضافة أسهم اتجاه الهجوم بالاتجاه الصحيح وبتصميم عصري
+    arrow_color = 'white'
+    arrow_width = 3
+    arrow_head_width = 8
+    arrow_head_length = 6
+    
+    # الثلث الأيسر
     ax.arrow(75, 16.5, 8, 0, head_width=arrow_head_width, head_length=arrow_head_length, 
             fc=arrow_color, ec='black', linewidth=arrow_width, zorder=4)
     
@@ -1227,31 +1235,73 @@ def analyze_attacking_thirds(df, team_id, team_name, competition_name=None, seas
     ax.arrow(75, 50, 8, 0, head_width=arrow_head_width, head_length=arrow_head_length, 
             fc=arrow_color, ec='black', linewidth=arrow_width, zorder=4)
     
-    # الثلث الأيسر
+    # الثلث الأيمن
     ax.arrow(75, 83.5, 8, 0, head_width=arrow_head_width, head_length=arrow_head_length, 
             fc=arrow_color, ec='black', linewidth=arrow_width, zorder=4)
     
     # إضافة معلومات اتجاه الهجوم للفريقين بتصميم عصري
+    # إضافة أيقونات وأسهم للفريقين
     # فريق المستخدم
-    ax.text(50, -10, f"{team_name} →", fontsize=16, 
-           color=team_color, ha='center', va='center', fontweight='bold',
-           path_effects=[path_effects.withStroke(linewidth=1.5, foreground='black')])
+    team_direction_y = 110
+    opponent_direction_y = -10
     
-    # الفريق المنافس
-    ax.text(50, 110, f"← {opponent_name}", fontsize=16, 
-           color=opponent_color, ha='center', va='center', fontweight='bold',
-           path_effects=[path_effects.withStroke(linewidth=1.5, foreground='black')])
+    # إضافة خلفية للنص
+    team_bg = patches.Rectangle((20, team_direction_y-8), 60, 16, 
+                              color=to_rgba(team_color, 0.8), 
+                              alpha=0.8, zorder=5, ec='white', lw=1, 
+                              corner_radius=8)
+    ax.add_patch(team_bg)
+    
+    # إضافة نص الفريق المضيف
+    ax.text(50, team_direction_y, f"{team_name} ⟶", fontsize=16, 
+           color='white', ha='center', va='center', fontweight='bold',
+           path_effects=[path_effects.withStroke(linewidth=1.5, foreground='black')],
+           zorder=6)
+    
+    # إضافة خلفية للنص
+    opponent_bg = patches.Rectangle((20, opponent_direction_y-8), 60, 16, 
+                                  color=to_rgba(opponent_color, 0.8), 
+                                  alpha=0.8, zorder=5, ec='white', lw=1, 
+                                  corner_radius=8)
+    ax.add_patch(opponent_bg)
+    
+    # إضافة نص الفريق الضيف
+    ax.text(50, opponent_direction_y, f"⟵ {opponent_name}", fontsize=16, 
+           color='white', ha='center', va='center', fontweight='bold',
+           path_effects=[path_effects.withStroke(linewidth=1.5, foreground='black')],
+           zorder=6)
     
     # إضافة العنوان بتصميم عصري
-    title_text = f"{team_name} Attacking Thirds"
-    fig_text(0.5, 0.95, title_text, fontsize=22, color='white', 
-            ha='center', va='center', fontweight='bold',
-            path_effects=[path_effects.withStroke(linewidth=2, foreground='black')])
+    title_text = f"تحليل مناطق الهجوم - {team_name}"
     
-    # إضافة نص توضيحي
-    fig_text(0.5, 0.02, "Looking at the % of total attacking touches that occur within each third", 
-            fontsize=12, color='white', ha='center', va='center',
-            path_effects=[path_effects.withStroke(linewidth=1, foreground='black')])
+    # إضافة خلفية للعنوان
+    title_bg = patches.Rectangle((0.25, 0.95), 0.5, 0.06, 
+                               transform=fig.transFigure,
+                               color=to_rgba(team_color, 0.8), 
+                               alpha=0.8, zorder=5, ec='white', lw=1, 
+                               corner_radius=8)
+    fig.add_artist(title_bg)
+    
+    fig_text(0.5, 0.98, title_text, fontsize=24, color='white', 
+            ha='center', va='center', fontweight='bold',
+            path_effects=[path_effects.withStroke(linewidth=3, foreground='black')],
+            zorder=6)
+    
+    # إضافة نص توضيحي بتصميم عصري
+    subtitle_text = "النسب المئوية للهجمات في كل ثلث من الملعب"
+    
+    # إضافة خلفية للنص التوضيحي
+    subtitle_bg = patches.Rectangle((0.25, 0.02), 0.5, 0.04, 
+                                  transform=fig.transFigure,
+                                  color='black', 
+                                  alpha=0.6, zorder=5, ec='white', lw=1, 
+                                  corner_radius=8)
+    fig.add_artist(subtitle_bg)
+    
+    fig_text(0.5, 0.04, subtitle_text, fontsize=14, color='white', 
+            ha='center', va='center', fontweight='bold',
+            path_effects=[path_effects.withStroke(linewidth=1.5, foreground='black')],
+            zorder=6)
     
     # إضافة العلامة المائية إذا كانت مفعلة
     if watermark_enabled:
