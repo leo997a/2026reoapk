@@ -1132,7 +1132,7 @@ def team_domination_zones(
         [path_effects.withStroke(linewidth=2, foreground='black')])
 
 
-def attack_zones_analysis(fig, ax, hteamName, ateamName, hcol, acol, hteamID, ateamID):
+def attack_zones_analysis(df, team_id, team_name, competition_name=None, season_name=None):
     # تصفية الأحداث للفريق المحدد
     team_events = data[data['team_name'] == team_name]
     
