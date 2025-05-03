@@ -1611,83 +1611,77 @@ def plot_match_stats(ax, df, hteamName, ateamName, hcol, acol, bg_color, line_co
         # تسجيل أسماء الفرق
         st.write(f"الفريق المضيف: {hteamName}, الفريق الضيف: {ateamName}")
         st.write(f"فرق موجودة في البيانات: {df['teamName'].unique()}")
-    
-    
-        return pd.DataFrame([home_data, away_data])
 
-        except Exception as e:
-        st.error(f"خطأ في plot_match_stats: {str(e)}")
-        raise e  # إعادة إلقاء الخطأ لتسجيل التفاصيل
-    # إعداد الملعب
+        # إعداد الملعب
         pitch = Pitch(pitch_type='uefa', corner_arcs=True, pitch_color=bg_color, line_color=bg_color, linewidth=2)
         pitch.draw(ax=ax)
         ax.set_xlim(-0.5, 105.5)
         ax.set_ylim(-5, 68.5)
 
-    # حساب الإحصائيات
-    # الاستحواذ
+        # حساب الإحصائيات
+        # الاستحواذ
         hpossdf = df[(df['teamName'] == hteamName) & (df['type'] == 'Pass')]
         apossdf = df[(df['teamName'] == ateamName) & (df['type'] == 'Pass')]
         total_poss = len(hpossdf) + len(apossdf)
         hposs = round((len(hpossdf) / total_poss * 100) if total_poss > 0 else 0, 2)
         aposs = round((len(apossdf) / total_poss * 100) if total_poss > 0 else 0, 2)
 
-    # ميلان الملعب (Field Tilt)
+        # ميلان الملعب (Field Tilt)
         hftdf = df[(df['teamName'] == hteamName) & (df['isTouch'] == True) & (df['x'] >= 70)]
         aftdf = df[(df['teamName'] == ateamName) & (df['isTouch'] == True) & (df['x'] >= 70)]
         total_ft = len(hftdf) + len(aftdf)
         hft = round((len(hftdf) / total_ft * 100) if total_ft > 0 else 0, 2)
         aft = round((len(aftdf) / total_ft * 100) if total_ft > 0 else 0, 2)
 
-    # إجمالي التمريرات
+        # إجمالي التمريرات
         htotalPass = len(df[(df['teamName'] == hteamName) & (df['type'] == 'Pass')])
         atotalPass = len(df[(df['teamName'] == ateamName) & (df['type'] == 'Pass')])
 
-    # التمريرات الناجحة
+        # التمريرات الناجحة
         hAccPass = len(df[(df['teamName'] == hteamName) & (df['type'] == 'Pass') & (df['outcomeType'] == 'Successful')])
         aAccPass = len(df[(df['teamName'] == ateamName) & (df['type'] == 'Pass') & (df['outcomeType'] == 'Successful')])
 
-    # الكرات الطويلة
+        # الكرات الطويلة
         hLongB = len(df[(df['teamName'] == hteamName) & (df['type'] == 'Pass') & (df['qualifiers'].str.contains('Longball', na=False)) & (~df['qualifiers'].str.contains('Corner|Cross', na=False))])
         aLongB = len(df[(df['teamName'] == ateamName) & (df['type'] == 'Pass') & (df['qualifiers'].str.contains('Longball', na=False)) & (~df['qualifiers'].str.contains('Corner|Cross', na=False))])
 
-    # الكرات الطويلة الناجحة
+        # الكرات الطويلة الناجحة
         hAccLongB = len(df[(df['teamName'] == hteamName) & (df['type'] == 'Pass') & (df['qualifiers'].str.contains('Longball', na=False)) & (df['outcomeType'] == 'Successful') & (~df['qualifiers'].str.contains('Corner|Cross', na=False))])
         aAccLongB = len(df[(df['teamName'] == ateamName) & (df['type'] == 'Pass') & (df['qualifiers'].str.contains('Longball', na=False)) & (df['outcomeType'] == 'Successful') & (~df['qualifiers'].str.contains('Corner|Cross', na=False))])
 
-    # التدخلات
+        # التدخلات
         htkl = len(df[(df['teamName'] == hteamName) & (df['type'] == 'Tackle')])
         atkl = len(df[(df['teamName'] == ateamName) & (df['type'] == 'Tackle')])
 
-    # التدخلات الناجحة
+        # التدخلات الناجحة
         htklw = len(df[(df['teamName'] == hteamName) & (df['type'] == 'Tackle') & (df['outcomeType'] == 'Successful')])
         atklw = len(df[(df['teamName'] == ateamName) & (df['type'] == 'Tackle') & (df['outcomeType'] == 'Successful')])
 
-    # الاعتراضات
+        # الاعتراضات
         hintc = len(df[(df['teamName'] == hteamName) & (df['type'] == 'Interception')])
         aintc = len(df[(df['teamName'] == ateamName) & (df['type'] == 'Interception')])
 
-    # التشتيتات
+        # التشتيتات
         hclr = len(df[(df['teamName'] == hteamName) & (df['type'] == 'Clearance')])
         aclr = len(df[(df['teamName'] == ateamName) & (df['type'] == 'Clearance')])
 
-    # المواجهات الهوائية
+        # المواجهات الهوائية
         harl = len(df[(df['teamName'] == hteamName) & (df['type'] == 'Aerial')])
         aarl = len(df[(df['teamName'] == ateamName) & (df['type'] == 'Aerial')])
 
-    # المواجهات الهوائية الناجحة
+        # المواجهات الهوائية الناجحة
         harlw = len(df[(df['teamName'] == hteamName) & (df['type'] == 'Aerial') & (df['outcomeType'] == 'Successful')])
         aarlw = len(df[(df['teamName'] == ateamName) & (df['type'] == 'Aerial') & (df['outcomeType'] == 'Successful')])
 
-    # PPDA (معادلة مبسطة)
+        # PPDA (معادلة مبسطة)
         home_def_acts = df[(df['teamName'] == hteamName) & (df['type'].str.contains('Interception|Foul|Challenge|BlockedPass|Tackle', na=False)) & (df['x'] > 35)]
         away_def_acts = df[(df['teamName'] == ateamName) & (df['type'].str.contains('Interception|Foul|Challenge|BlockedPass|Tackle', na=False)) & (df['x'] > 35)]
-        home_pass = df[(df['teamName'] == hteamName) & (df['type'] == 'Pass') & (df['outcomeType'] == 'Successful') & (df['x'] < 70)]
-        away_pass = df[(df['teamName'] == ateamName) & (df['type'] == 'Pass') & (df['outcomeType'] == 'Successful') & (df['x'] < 70)]
-        home_ppda = round(len(away_pass) / len(home_def_acts), 2) if len(home_def_acts) > 0 else 0
-        away_ppda = round(len(home_pass) / len(away_def_acts), 2) if len(away_def_acts) > 0 else 0
+        home_pass = df[(df['teamName'] == ateamName) & (df['type'] == 'Pass') & (df['outcomeType'] == 'Successful') & (df['x'] < 70)]
+        away_pass = df[(df['teamName'] == hteamName) & (df['type'] == 'Pass') & (df['outcomeType'] == 'Successful') & (df['x'] < 70)]
+        home_ppda = round(len(home_pass) / len(home_def_acts), 2) if len(home_def_acts) > 0 else 0
+        away_ppda = round(len(away_pass) / len(away_def_acts), 2) if len(away_def_acts) > 0 else 0
 
-    # متوسط التمريرات لكل تسلسل
+        # متوسط التمريرات لكل تسلسل
         pass_df_home = df[(df['type'] == 'Pass') & (df['teamName'] == hteamName)]
         pass_counts_home = pass_df_home.groupby('possession_id').size()
         PPS_home = round(pass_counts_home.mean()) if not pass_counts_home.empty else 0
@@ -1695,23 +1689,23 @@ def plot_match_stats(ax, df, hteamName, ateamName, hcol, acol, bg_color, line_co
         pass_counts_away = pass_df_away.groupby('possession_id').size()
         PPS_away = round(pass_counts_away.mean()) if not pass_counts_away.empty else 0
 
-    # عدد التسلسلات التي تحتوي على 10+ تمريرات
+        # عدد التسلسلات التي تحتوي على 10+ تمريرات
         pass_seq_10_more_home = pass_counts_home[pass_counts_home >= 10].count() if not pass_counts_home.empty else 0
         pass_seq_10_more_away = pass_counts_away[pass_counts_away >= 10].count() if not pass_counts_away.empty else 0
 
-    # إعداد الرسم
-    # صندوق العنوان
+        # إعداد الرسم
+        # صندوق العنوان
         head_y = [62, 68, 68, 62]
         head_x = [0, 0, 105, 105]
-        ax.fill(head_x, head_y, '#003366', alpha=0.8)  # لون أزرق داكن بدلاً من البرتقالي
+        ax.fill(head_x, head_y, '#003366', alpha=0.8)
         ax.text(52.5, 64.5, reshape_arabic_text("إحصائيات المباراة"), ha='center', va='center', color='white', fontsize=25, fontweight='bold', path_effects=[path_effects.withStroke(linewidth=2, foreground='black')])
 
-    # إعداد الأشرطة
-        stats_title = [58, 58-(1*6), 58-(2*6), 58-(3*6), 58-(4*6), 58-(5*6), 58-(6*6), 58-(7*6), 58-(8*6), 58-(9*6), 58-(10*6)]  # مواقع الأشرطة على المحور y
+        # إعداد الأشرطة
+        stats_title = [58, 58-(1*6), 58-(2*6), 58-(3*6), 58-(4*6), 58-(5*6), 58-(6*6), 58-(7*6), 58-(8*6), 58-(9*6), 58-(10*6)]
         stats_home = [hposs, hft, htotalPass, hLongB, htkl, hintc, hclr, harl, home_ppda, PPS_home, pass_seq_10_more_home]
         stats_away = [aposs, aft, atotalPass, aLongB, atkl, aintc, aclr, aarl, away_ppda, PPS_away, pass_seq_10_more_away]
 
-    # تطبيع القيم للأشرطة
+        # تطبيع القيم للأشرطة
         stats_normalized_home = []
         stats_normalized_away = []
         for h, a in zip(stats_home, stats_away):
@@ -1727,7 +1721,7 @@ def plot_match_stats(ax, df, hteamName, ateamName, hcol, acol, bg_color, line_co
         ax.barh(stats_title, stats_normalized_home, height=4, color=hcol, left=start_x, alpha=0.9)
         ax.barh(stats_title, stats_normalized_away, height=4, color=acol, left=start_x, alpha=0.9)
 
-    # إيقاف عناصر المحاور
+        # إيقاف عناصر المحاور
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
         ax.spines['bottom'].set_visible(False)
@@ -1736,7 +1730,7 @@ def plot_match_stats(ax, df, hteamName, ateamName, hcol, acol, bg_color, line_co
         ax.set_xticks([])
         ax.set_yticks([])
 
-    # النصوص (العناوين)
+        # النصوص (العناوين)
         stat_labels = [
             "الاستحواذ",
             "ميلان الملعب",
@@ -1753,7 +1747,7 @@ def plot_match_stats(ax, df, hteamName, ateamName, hcol, acol, bg_color, line_co
         for i, label in enumerate(stat_labels):
             ax.text(52.5, stats_title[i], reshape_arabic_text(label), color='white', fontsize=14, ha='center', va='center', fontweight='bold', path_effects=[path_effects.withStroke(linewidth=1.5, foreground='black')])
 
-    # النصوص (القيم)
+        # النصوص (القيم)
         ax.text(0, 58, f"{round(hposs)}%", color=line_color, fontsize=16, ha='right', va='center', fontweight='bold')
         ax.text(0, 58-(1*6), f"{round(hft)}%", color=line_color, fontsize=16, ha='right', va='center', fontweight='bold')
         ax.text(0, 58-(2*6), f"{htotalPass} ({hAccPass})", color=line_color, fontsize=16, ha='right', va='center', fontweight='bold')
@@ -1768,56 +1762,9 @@ def plot_match_stats(ax, df, hteamName, ateamName, hcol, acol, bg_color, line_co
 
         ax.text(105, 58, f"{round(aposs)}%", color=line_color, fontsize=16, ha='left', va='center', fontweight='bold')
         ax.text(105, 58-(1*6), f"{round(aft)}%", color=line_color, fontsize=16, ha='left', va='center', fontweight='bold')
-        ax.text(105, 58-(2*6), f"{atotalPass} ({aAccPass})", color=line_color, fontsize=16, ha='left', va='center', fontweight='bold')
-        ax.text(105, 58-(3*6), f"{aLongB} ({aAccLongB})", color=line_color, fontsize=16, ha='left', va='center', fontweight='bold')
-        ax.text(105, 58-(4*6), f"{atkl} ({atklw})", color=line_color, fontsize=16, ha='left', va='center', fontweight='bold')
-        ax.text(105, 58-(5*6), f"{aintc}", color=line_color, fontsize=16, ha='left', va='center', fontweight='bold')
-        ax.text(105, 58-(6*6), f"{aclr}", color=line_color, fontsize=16, ha='left', va='center', fontweight='bold')
-        ax.text(105, 58-(7*6), f"{aarl} ({aarlw})", color=line_color, fontsize=16, ha='left', va='center', fontweight='bold')
-        ax.text(105, 58-(8*6), f"{away_ppda}", color=line_color, fontsize=16, ha='left', va='center', fontweight='bold')
-        ax.text(105, 58-(9*6), f"{int(PPS_away)}", color=line_color, fontsize=16, ha='left', va='center', fontweight='bold')
-        ax.text(105, 58-(10*6), f"{pass_seq_10_more_away}", color=line_color, fontsize=16, ha='left', va='center', fontweight='bold')
-
-    # إنشاء إطار بيانات الإحصائيات
-        home_data = {
-            'اسم الفريق': hteamName,
-            'الاستحواذ (%)': hposs,
-            'ميلان الملعب (%)': hft,
-            'إجمالي التمريرات': htotalPass,
-            'التمريرات الناجحة': hAccPass,
-            'الكرات الطويلة': hLongB,
-            'الكرات الطويلة الناجحة': hAccLongB,
-            'التدخلات': htkl,
-            'التدخلات الناجحة': htklw,
-            'الاعتراضات': hintc,
-            'التشتيتات': hclr,
-            'المواجهات الهوائية': harl,
-            'المواجهات هائية الناجحة': harlw,
-            'PPDA': home_ppda,
-            'متوسط التمريرات/التسلسل': PPS_home,
-            'تسلسلات 10+ تمريرات': pass_seq_10_more_home
-        }
-
-        away_data = {
-            'اسم الفريق': ateamName,
-            'الاستحواذ (%)': aposs,
-            'ميلان الملعب (%)': aft,
-            'إجمالي التمريرات': atotalPass,
-            'التمريرات الناجحة': aAccPass,
-            'الكرات الطويلة': aLongB,
-            'الكرات الطويلة الناجحة': aAccLongB,
-            'التدخلات': atkl,
-            'التدخلات الناجحة': atklw,
-            'الاعتراضات': aintc,
-            'التشتيتات': aclr,
-            'المواجهات الهوائية': aarl,
-            'المواجهات هائية الناجحة': aarlw,
-            'PPDA': away_ppda,
-            'متوسط التمريرات/التسلسل': PPS_away,
-            'تسلسلات 10+ تمريرات': pass_seq_10_more_away
-       }
-
-        return pd.DataFrame([home_data, away_data])
+        ax.text(105, 58-(2*6), f"{atotalPass} ({aAccPass})", color=line_color, fontsize=16, ha='left', va='center SCRIPT_2.py', line 1821, in <module>
+    st.title("تحليل مباراة كرة القدم")
+SyntaxError: expected 'except' or 'finally' block
 
 # واجهة Streamlit
 st.title("تحليل مباراة كرة القدم")
