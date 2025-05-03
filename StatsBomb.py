@@ -31,6 +31,35 @@ import requests
 from io import StringIO, BytesIO
 import matplotlib.font_manager as fm
 
+# دالة إضافة العلامة المائية
+def add_watermark(fig, text="reo show", alpha=0.3, fontsize=15, color='white'):
+    """
+    إضافة علامة مائية إلى الرسم البياني
+    
+    المعلمات:
+    fig : matplotlib.figure.Figure
+        الرسم البياني المراد إضافة العلامة المائية إليه
+    text : str
+        نص العلامة المائية (اسم القناة)
+    alpha : float
+        شفافية العلامة المائية (0-1)
+    fontsize : int
+        حجم خط العلامة المائية
+    color : str
+        لون العلامة المائية
+    """
+    # إضافة نص العلامة المائية في الزاوية السفلية اليمنى
+    fig.text(0.95, 0.05, text, 
+             fontsize=fontsize, 
+             color=color,
+             ha='right',
+             va='bottom',
+             alpha=alpha,
+             transform=fig.transFigure,
+             fontweight='bold',
+             path_effects=[path_effects.withStroke(linewidth=2, foreground='black')])
+    return fig
+
 # إضافة الخطوط يدويًا من مجلد fonts
 font_dir = os.path.join(os.getcwd(), 'fonts')
 if os.path.exists(font_dir):
@@ -139,6 +168,14 @@ gradient_colors = [gradient_start, gradient_end]
 line_color = st.sidebar.color_picker(
     'لون الخطوط', '#ffffff', key='line_color_picker')
 selected_font = st.sidebar.selectbox("اختر الخط للنصوص:", available_font_options, index=0)
+
+# إضافة إعدادات العلامة المائية
+st.sidebar.title('إعدادات العلامة المائية')
+watermark_enabled = st.sidebar.checkbox('تفعيل العلامة المائية', value=True)
+watermark_text = st.sidebar.text_input('نص العلامة المائية', value='reo show')
+watermark_opacity = st.sidebar.slider('شفافية العلامة المائية', min_value=0.1, max_value=1.0, value=0.3, step=0.1)
+watermark_size = st.sidebar.slider('حجم العلامة المائية', min_value=8, max_value=30, value=15, step=1)
+watermark_color = st.sidebar.color_picker('لون العلامة المائية', value='#FFFFFF')
 
 plt.rcParams['font.family'] = 'sans-serif'
 plt.rcParams['font.sans-serif'] = [selected_font, 'DejaVu Sans', 'Arial']
@@ -1496,14 +1533,11 @@ with tab1:
                 ateamID
             )
             # إضافة العلامة المائية إذا كانت مفعلة
-        except Exception as e:
-            st.error(f"خطأ في إنشاء شبكة التمريرات: {str(e)}")
-        
-        if watermark_enabled:
-            add_watermark(fig, text=watermark_text, alpha=watermark_opacity, 
-                         fontsize=watermark_size, color=watermark_color)
-        
-        st.pyplot(fig)
+            if watermark_enabled:
+                add_watermark(fig, text=watermark_text, alpha=watermark_opacity, 
+                             fontsize=watermark_size, color=watermark_color)
+            
+            st.pyplot(fig)
             if pass_btn is not None and not pass_btn.empty:
                 st.dataframe(pass_btn, hide_index=True)
             else:
@@ -1700,11 +1734,11 @@ with tab1:
 
             plt.tight_layout()
             # إضافة العلامة المائية إذا كانت مفعلة
-        if watermark_enabled:
-            add_watermark(fig, text=watermark_text, alpha=watermark_opacity, 
-                         fontsize=watermark_size, color=watermark_color)
-        
-        st.pyplot(fig)
+            if watermark_enabled:
+                add_watermark(fig, text=watermark_text, alpha=watermark_opacity, 
+                             fontsize=watermark_size, color=watermark_color)
+            
+            st.pyplot(fig)
 
     except Exception as e:
         st.error(f"خطأ في حساب PPDA: {str(e)}")
