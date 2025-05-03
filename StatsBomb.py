@@ -2236,8 +2236,12 @@ with tab2:
 with tab3:
     st.subheader(reshape_arabic_text("إحصائيات المباراة"))
     
-    # إنشاء الرسم
+    # اختبار رسم بسيط
     fig, ax = plt.subplots(figsize=(12, 10), facecolor=bg_color, dpi=150)
+    pitch = Pitch(pitch_type='uefa', pitch_color=bg_color, line_color=line_color)
+    pitch.draw(ax=ax)
+    ax.text(52.5, 34, reshape_arabic_text("اختبار الملعب"), color='white', ha='center', va='center', fontsize=20)
+    st.pyplot(fig)
     
     try:
         # استدعاء دالة plot_match_stats
