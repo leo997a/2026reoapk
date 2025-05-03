@@ -1590,34 +1590,19 @@ with tab1:
             st.error(f"خطأ في إنشاء شبكة التمريرات: {str(e)}")
 
     elif an_tp == 'مناطق الهجوم':
-        st.subheader("تحليل مناطق الهجوم")
+    st.subheader("تحليل مناطق الهجوم")
     
-    # اختيار الفريق
-    team_ids = list(st.session_state.teams_dict.keys())
-    team_names = list(st.session_state.teams_dict.values())
-    selected_team_index = st.selectbox("اختر الفريق:", range(len(team_ids)), 
-                                      format_func=lambda x: team_names[x])
-    
-    selected_team_id = team_ids[selected_team_index]
-    selected_team_name = team_names[selected_team_index]
-    
-    # اختيار المسابقة والموسم (اختياري)
-    competition_name = st.text_input("اسم المسابقة (اختياري):", "")
-    
-    # تحليل وعرض مناطق الهجوم
-    if st.button("تحليل مناطق الهجوم"):
-        st.subheader("تحليل مناطق الهجوم")
-    
-    # اختيار الفريق
+    # اختيار الفريق مع إضافة key فريد
     team_ids = list(st.session_state.teams_dict.keys())
     team_names = list(st.session_state.teams_dict.values())
     selected_team_index = st.selectbox("اختر الفريق:", range(len(team_ids)),
-                                      format_func=lambda x: team_names[x])
+                                      format_func=lambda x: team_names[x],
+                                      key="attacking_thirds_team_select")  # إضافة key فريد
     selected_team_id = team_ids[selected_team_index]
     selected_team_name = team_names[selected_team_index]
     
     # اختيار المسابقة والموسم (اختياري)
-    competition_name = st.text_input("اسم المسابقة (اختياري):", "")
+    competition_name = st.text_input("اسم المسابقة (اختياري):", "", key="attacking_thirds_competition")  # إضافة key فريد
     
     # تحليل وعرض مناطق الهجوم مباشرة بدون زر
     with st.spinner("جاري تحليل مناطق الهجوم..."):
