@@ -1185,7 +1185,6 @@ def analyze_attacking_thirds(df, team_id, team_name, competition_name=None, seas
 
     plt.tight_layout(rect=[0, 0, 1, 0.9])
     return fig
-// ... existing code ...
 
 def calculate_team_ppda(
     events_df: pd.DataFrame,
