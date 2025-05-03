@@ -1617,10 +1617,10 @@ def plot_match_stats(ax, df, hteamName, ateamName, hcol, acol, bg_color, line_co
 
     
     # إعداد الملعب
-    pitch = Pitch(pitch_type='uefa', corner_arcs=True, pitch_color=bg_color, line_color=bg_color, linewidth=2)
-    pitch.draw(ax=ax)
-    ax.set_xlim(-0.5, 105.5)
-    ax.set_ylim(-5, 68.5)
+        pitch = Pitch(pitch_type='uefa', corner_arcs=True, pitch_color=bg_color, line_color=bg_color, linewidth=2)
+        pitch.draw(ax=ax)
+        ax.set_xlim(-0.5, 105.5)
+        ax.set_ylim(-5, 68.5)
 
     # حساب الإحصائيات
     # الاستحواذ
