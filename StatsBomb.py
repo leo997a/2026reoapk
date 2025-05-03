@@ -32,7 +32,7 @@ from io import StringIO, BytesIO
 import matplotlib.font_manager as fm
 
 # دالة إضافة العلامة المائية
-def add_watermark(fig, text="reo show", alpha=0.3, fontsize=15, color='white'):
+def add_watermark(fig, text="reo show", alpha=0.3, fontsize=15, color='white', x_pos=0.5, y_pos=0.5, ha='center', va='center'):
     """
     إضافة علامة مائية إلى الرسم البياني
     
@@ -47,13 +47,21 @@ def add_watermark(fig, text="reo show", alpha=0.3, fontsize=15, color='white'):
         حجم خط العلامة المائية
     color : str
         لون العلامة المائية
+    x_pos : float
+        موضع العلامة المائية على المحور الأفقي (0-1)
+    y_pos : float
+        موضع العلامة المائية على المحور الرأسي (0-1)
+    ha : str
+        محاذاة أفقية ('left', 'center', 'right')
+    va : str
+        محاذاة رأسية ('top', 'center', 'bottom')
     """
-    # إضافة نص العلامة المائية في الزاوية السفلية اليمنى
-    fig.text(0.95, 0.05, text, 
+    # إضافة نص العلامة المائية في الموضع المحدد
+    fig.text(x_pos, y_pos, text, 
              fontsize=fontsize, 
              color=color,
-             ha='right',
-             va='bottom',
+             ha=ha,
+             va=va,
              alpha=alpha,
              transform=fig.transFigure,
              fontweight='bold',
@@ -176,6 +184,46 @@ watermark_text = st.sidebar.text_input('نص العلامة المائية', val
 watermark_opacity = st.sidebar.slider('شفافية العلامة المائية', min_value=0.1, max_value=1.0, value=0.3, step=0.1)
 watermark_size = st.sidebar.slider('حجم العلامة المائية', min_value=8, max_value=30, value=15, step=1)
 watermark_color = st.sidebar.color_picker('لون العلامة المائية', value='#FFFFFF')
+
+# إضافة خيارات موضع العلامة المائية
+st.sidebar.subheader('موضع العلامة المائية')
+watermark_position = st.sidebar.selectbox(
+    'موضع العلامة المائية',
+    ['وسط', 'أعلى اليمين', 'أعلى اليسار', 'أسفل اليمين', 'أسفل اليسار', 'مخصص'],
+    index=0
+)
+
+# تعيين قيم الموضع بناءً على الاختيار
+if watermark_position == 'وسط':
+    watermark_x = 0.5
+    watermark_y = 0.5
+    watermark_ha = 'center'
+    watermark_va = 'center'
+elif watermark_position == 'أعلى اليمين':
+    watermark_x = 0.95
+    watermark_y = 0.95
+    watermark_ha = 'right'
+    watermark_va = 'top'
+elif watermark_position == 'أعلى اليسار':
+    watermark_x = 0.05
+    watermark_y = 0.95
+    watermark_ha = 'left'
+    watermark_va = 'top'
+elif watermark_position == 'أسفل اليمين':
+    watermark_x = 0.95
+    watermark_y = 0.05
+    watermark_ha = 'right'
+    watermark_va = 'bottom'
+elif watermark_position == 'أسفل اليسار':
+    watermark_x = 0.05
+    watermark_y = 0.05
+    watermark_ha = 'left'
+    watermark_va = 'bottom'
+else:  # مخصص
+    watermark_x = st.sidebar.slider('الموضع الأفقي (X)', min_value=0.0, max_value=1.0, value=0.5, step=0.05)
+    watermark_y = st.sidebar.slider('الموضع الرأسي (Y)', min_value=0.0, max_value=1.0, value=0.5, step=0.05)
+    watermark_ha = st.sidebar.selectbox('المحاذاة الأفقية', ['left', 'center', 'right'], index=1)
+    watermark_va = st.sidebar.selectbox('المحاذاة الرأسية', ['top', 'center', 'bottom'], index=1)
 
 plt.rcParams['font.family'] = 'sans-serif'
 plt.rcParams['font.sans-serif'] = [selected_font, 'DejaVu Sans', 'Arial']
