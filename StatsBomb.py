@@ -1148,7 +1148,7 @@ def analyze_attacking_thirds(df, team_id, team_name, competition_name=None, seas
     # تحديد الفريق المنافس
     all_teams = df['teamId'].unique()
     opponent_id = [t for t in all_teams if t != team_id][0] if len(all_teams) > 1 else None
-    opponent_name = teams_dict.get(opponent_id, "الفريق المنافس") if opponent_id else "الفريق المنافس"
+    opponent_name = st.session_state.teams_dict.get(opponent_id, "الفريق المنافس") if opponent_id else "الفريق المنافس"
     
     # تصفية البيانات للفريق المحدد
     team_df = df[df['teamId'] == team_id]
@@ -1183,8 +1183,8 @@ def analyze_attacking_thirds(df, team_id, team_name, competition_name=None, seas
     fig.set_facecolor(bg_color)
     
     # تحديد ألوان الفريقين
-    team_color = hcol if team_id == json_data['home']['teamId'] else acol
-    opponent_color = acol if team_id == json_data['home']['teamId'] else hcol
+    team_color = hcol if team_id == st.session_state.json_data['home']['teamId'] else acol
+    opponent_color = acol if team_id == st.session_state.json_data['home']['teamId'] else hcol
     
     # إنشاء تدرجات لونية أكثر جاذبية
     team_cmap = LinearSegmentedColormap.from_list('team_cmap', [to_rgba(team_color, 0.3), to_rgba(team_color, 0.8)])
