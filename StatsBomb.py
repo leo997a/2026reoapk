@@ -1582,8 +1582,10 @@ with tab1:
             )
             # إضافة العلامة المائية إذا كانت مفعلة
             if watermark_enabled:
-                add_watermark(fig, text=watermark_text, alpha=watermark_opacity, 
-                             fontsize=watermark_size, color=watermark_color)
+                fig = add_watermark(fig, text=watermark_text, alpha=watermark_opacity, 
+                       fontsize=watermark_size, color=watermark_color,
+                       x_pos=watermark_x, y_pos=watermark_y, 
+                       ha=watermark_ha, va=watermark_va)
             
             st.pyplot(fig)
             if pass_btn is not None and not pass_btn.empty:
