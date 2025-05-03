@@ -1673,7 +1673,7 @@ with tab1:
             st.error(f"خطأ في إنشاء شبكة التمريرات: {str(e)}")
 
     elif an_tp == 'مناطق الهجوم':
-    st.subheader("تحليل مناطق الهجوم")
+        st.subheader("تحليل مناطق الهجوم")
     
     # اختيار الفريق
     team_ids = list(st.session_state.teams_dict.keys())
