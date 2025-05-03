@@ -1607,15 +1607,29 @@ with tab1:
     
     # تحليل وعرض مناطق الهجوم
     if st.button("تحليل مناطق الهجوم"):
-        with st.spinner("جاري تحليل مناطق الهجوم..."):
-            fig = analyze_attacking_thirds(st.session_state.df, selected_team_id, 
-                                          selected_team_name, competition_name)
-            st.pyplot(fig)
-            
-            # حفظ الصورة
-            save_path = f"{selected_team_name}_attacking_thirds.png"
-            fig.savefig(save_path, dpi=300, bbox_inches='tight', facecolor=bg_color)
-            st.success(f"تم حفظ الصورة بنجاح: {save_path}")
+    st.subheader("تحليل مناطق الهجوم")
+    
+    # اختيار الفريق
+    team_ids = list(st.session_state.teams_dict.keys())
+    team_names = list(st.session_state.teams_dict.values())
+    selected_team_index = st.selectbox("اختر الفريق:", range(len(team_ids)),
+                                      format_func=lambda x: team_names[x])
+    selected_team_id = team_ids[selected_team_index]
+    selected_team_name = team_names[selected_team_index]
+    
+    # اختيار المسابقة والموسم (اختياري)
+    competition_name = st.text_input("اسم المسابقة (اختياري):", "")
+    
+    # تحليل وعرض مناطق الهجوم مباشرة بدون زر
+    with st.spinner("جاري تحليل مناطق الهجوم..."):
+        fig = analyze_attacking_thirds(st.session_state.df, selected_team_id,
+                                      selected_team_name, competition_name)
+        st.pyplot(fig)
+        
+        # حفظ الصورة
+        save_path = f"{selected_team_name}_attacking_thirds.png"
+        fig.savefig(save_path, dpi=300, bbox_inches='tight', facecolor=bg_color)
+        st.success(f"تم حفظ الصورة بنجاح: {save_path}")
 
     elif an_tp == reshape_arabic_text('Team Domination Zones'):
         st.subheader(reshape_arabic_text('مناطق سيطرة الفريق'))
