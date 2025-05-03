@@ -1355,6 +1355,7 @@ def analyze_attacking_thirds(df, team_id, team_name, competition_name=None, seas
     plt.tight_layout(rect=[0, 0.05, 1, 0.93]) # تعديل rect لتوفير مساحة للعناصر العلوية والسفلية
     return fig
 
+# Function to calculate PPDA (Passes Per Defensive Action)
 def calculate_team_ppda(
     events_df: pd.DataFrame,
     team: str,
@@ -1489,13 +1490,13 @@ def calculate_ppda_separate(
         st.error(f"خطأ في حساب PPDA: {str(e)}")
         return {}
 
-# دالة لرسم إحصائيات المباراة
+# Function to plot match stats
 def plot_match_stats(ax, df, hteamName, ateamName, hcol, acol, bg_color, line_color, watermark_enabled, watermark_text, watermark_opacity, watermark_size, watermark_color, watermark_x, watermark_y, watermark_ha, watermark_va):
     try:
         # التحقق من إطار البيانات
         if df.empty:
             raise ValueError("إطار البيانات فارغ")
-        required_columns = ['teamName', 'type', 'outcomeType', 'x', 'y', 'qualifiers', 'isTouch', 'possession_id']
+        required_columns = ['teamName', 'type', 'outcomeType', 'x', 'y', 'qualifiers', 'isTouch']
         missing_columns = [col for col in required_columns if col not in df.columns]
         if missing_columns:
             raise ValueError(f"الأعمدة المفقودة: {missing_columns}")
@@ -1557,20 +1558,26 @@ def plot_match_stats(ax, df, hteamName, ateamName, hcol, acol, bg_color, line_co
         home_ppda = ppda_results.get(hteamName, {}).get('PPDA', 0)
         away_ppda = ppda_results.get(ateamName, {}).get('PPDA', 0)
 
-        pass_df_home = df[(df['type'] == 'Pass') & (df['teamName'] == hteamName)]
-        pass_counts_home = pass_df_home.groupby('possession_id').size()
-        PPS_home = round(pass_counts_home.mean()) if not pass_counts_home.empty else 0
-        pass_df_away = df[(df['type'] == 'Pass') & (df['teamName'] == ateamName)]
-        pass_counts_away = pass_df_away.groupby('possession_id').size()
-        PPS_away = round(pass_counts_away.mean()) if not pass_counts_away.empty else 0
+        # حساب PPS وتسلسلات التمريرات مع التحقق من وجود possession_id
+        PPS_home = 0
+        PPS_away = 0
+        pass_seq_10_more_home = 0
+        pass_seq_10_more_away = 0
+        if 'possession_id' in df.columns:
+            pass_df_home = df[(df['type'] == 'Pass') & (df['teamName'] == hteamName)]
+            pass_counts_home = pass_df_home.groupby('possession_id').size()
+            PPS_home = round(pass_counts_home.mean()) if not pass_counts_home.empty else 0
+            pass_seq_10_more_home = pass_counts_home[pass_counts_home >= 10].count() if not pass_counts_home.empty else 0
 
-        pass_seq_10_more_home = pass_counts_home[pass_counts_home >= 10].count() if not pass_counts_home.empty else 0
-        pass_seq_10_more_away = pass_counts_away[pass_counts_away >= 10].count() if not pass_counts_away.empty else 0
+            pass_df_away = df[(df['type'] == 'Pass') & (df['teamName'] == ateamName)]
+            pass_counts_away = pass_df_away.groupby('possession_id').size()
+            PPS_away = round(pass_counts_away.mean()) if not pass_counts_away.empty else 0
+            pass_seq_10_more_away = pass_counts_away[pass_counts_away >= 10].count() if not pass_counts_away.empty else 0
 
         head_y = [62, 68, 68, 62]
         head_x = [0, 0, 105, 105]
         ax.fill(head_x, head_y, '#003366', alpha=0.8)
-        ax.text(52.5, 64.5, reshape_arabic_text("إحصائيات المباراة"), ha='center', va='center', color='white', fontsize=25, fontweight='bold', path_effects=[path_effects.withStroke(linewidth=2, foreground='black')])
+        ax.text(52.5, 64.5, reshape_arabic_text("إحصائيات المباراة"), ha='center', va='center', color='white', fontsize=25, fontweight='bold', path_effects=[patheffects.withStroke(linewidth=2, foreground='black')])
 
         stats_title = [58, 58-(1*6), 58-(2*6), 58-(3*6), 58-(4*6), 58-(5*6), 58-(6*6), 58-(7*6), 58-(8*6), 58-(9*6), 58-(10*6)]
         stats_home = [hposs, hft, htotalPass, hLongB, htkl, hintc, hclr, harl, home_ppda, PPS_home, pass_seq_10_more_home]
@@ -1613,7 +1620,7 @@ def plot_match_stats(ax, df, hteamName, ateamName, hcol, acol, bg_color, line_co
             "تسلسلات 10+ تمريرات"
         ]
         for i, label in enumerate(stat_labels):
-            ax.text(52.5, stats_title[i], reshape_arabic_text(label), color='white', fontsize=14, ha='center', va='center', fontweight='bold', path_effects=[path_effects.withStroke(linewidth=1.5, foreground='black')])
+            ax.text(52.5, stats_title[i], reshape_arabic_text(label), color='white', fontsize=14, ha='center', va='center', fontweight='bold', path_effects=[patheffects.withStroke(linewidth=1.5, foreground='black')])
 
         ax.text(0, 58, f"{round(hposs)}%", color=line_color, fontsize=16, ha='right', va='center', fontweight='bold')
         ax.text(0, 58-(1*6), f"{round(hft)}%", color=line_color, fontsize=16, ha='right', va='center', fontweight='bold')
@@ -1637,7 +1644,7 @@ def plot_match_stats(ax, df, hteamName, ateamName, hcol, acol, bg_color, line_co
         ax.text(105, 58-(7*6), f"{aarl} ({aarlw})", color=line_color, fontsize=16, ha='left', va='center', fontweight='bold')
         ax.text(105, 58-(8*6), f"{away_ppda}", color=line_color, fontsize=16, ha='left', va='center', fontweight='bold')
         ax.text(105, 58-(9*6), f"{int(PPS_away)}", color=line_color, fontsize=16, ha='left', va='center', fontweight='bold')
-        ax.text(105, 58-(10*6), f"{pass_seq_10_more_away}", color=line_color, fontsize=16, ha='left', va='center', fontweight='bold')
+        ax.text(105, 58-(10*6), f"{pass_seq_10_more_away}", color_line_color, fontsize=16, ha='left', va='center', fontweight='bold')
 
         home_data = {
             'اسم الفريق': hteamName,
@@ -1682,6 +1689,7 @@ def plot_match_stats(ax, df, hteamName, ateamName, hcol, acol, bg_color, line_co
     except Exception as e:
         st.error(f"خطأ في plot_match_stats: {str(e)}")
         return pd.DataFrame()
+
 # واجهة Streamlit
 st.title("تحليل مباراة كرة القدم")
 uploaded_html = st.file_uploader("قم برفع ملف HTML للمباراة:", type=["html"])
