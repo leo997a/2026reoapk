@@ -1937,7 +1937,19 @@ with tab1:
                        ha=watermark_ha, va=watermark_va)
             
             st.pyplot(fig)
-
+with tab3:  # تبويب إحصائيات المباراة
+    st.header(reshape_arabic_text("إحصائيات المباراة"))
+    try:
+        fig, ax = plt.subplots(figsize=(12, 10), facecolor=bg_color)
+        stats_df = plot_match_stats(ax, st.session_state.df, hteamName, ateamName, hcol, acol, bg_color, line_color)
+        st.pyplot(fig)
+        
+        # عرض الإحصائيات كجدول تفاعلي أيضًا
+        st.subheader(reshape_arabic_text("جدول الإحصائيات التفصيلي"))
+        st.dataframe(stats_df)
+    except Exception as e:
+        st.error(f"خطأ في عرض إحصائيات المباراة: {str(e)}")
+        st.exception(e)  # عرض تفاصيل الخطأ للتشخيص
     except Exception as e:
         st.error(f"خطأ في حساب PPDA: {str(e)}")
         st.write("يرجى التحقق من البيانات المحملة.")
