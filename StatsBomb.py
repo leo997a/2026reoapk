@@ -2395,8 +2395,8 @@ with tab3:
             raise ValueError("لا توجد فرق كافية في teams_dict لعرض الإحصائيات.")
 
         # تعريف أسماء الفرق
-        hteamName = "Barcelona"  # استبدل بـ st.session_state.teams_dict[team_ids[0]]['name'] إذا كان لديك قاموس الفرق
-        ateamName = "Inter"      # استبدل بـ st.session_state.teams_dict[team_ids[1]]['name']
+        hteamName = st.session_state.teams_dict[team_ids[0]]['home_team_name']
+        ateamName = st.session_state.teams_dict[team_ids[1]]['away_team_name']
 
         # نسبة الاستحواذ
         hpossdf = df[(df['teamId'] == team_ids[0]) & (df['type'] == 'Pass')]
@@ -2533,6 +2533,14 @@ with tab3:
             (reshape_arabic_text('PPDA'), home_ppda, away_ppda, False)
         ]
 
+        # إعداد الألوان
+        bg_color = '#1e1e2f'
+        text_color = '#ffffff'
+        home_color = '#ff4d4d'  # لون الفريق المضيف
+        away_color = '#4d79ff'  # لون الفريق الضيف
+        gradient_colors = [home_color, '#ffffff', away_color]
+        cmap = plt.cm.colors.LinearSegmentedColormap.from_list("custom_gradient", gradient_colors)
+
         # إعداد الرسم
         fig, ax = plt.subplots(figsize=(12, 14), facecolor=bg_color)
         ax.set_facecolor(bg_color)
@@ -2543,29 +2551,16 @@ with tab3:
         gradient = np.vstack((gradient, gradient))
         ax.imshow(gradient, aspect='auto', cmap='Blues', alpha=0.1, extent=[0, 12, 0, 14])
 
-        # إضافة شعاري الناديين
-        def add_logo(ax, image_path, x, y, zoom=0.15):
-            img = plt.imread(image_path)
-            imagebox = OffsetImage(img, zoom=zoom)
-            ab = AnnotationBbox(imagebox, (x, y), frameon=False, boxcoords="axes fraction")
-            ax.add_artist(ab)
-
-        # استبدل المسارات التالية بمسارات أو روابط فعلية لشعاري الناديين
-        home_team_logo = "path_to_barcelona_logo.png"  # استبدل بمسار شعار برشلونة
-        away_team_logo = "path_to_inter_logo.png"      # استبدل بمسار شعار إنتر
-        add_logo(ax, home_team_logo, 0.25, 0.95)
-        add_logo(ax, away_team_logo, 0.75, 0.95)
-
-        # إضافة أسماء الفرق أسفل الشعارات
+        # إضافة أسماء الفرق أعلى التصميم
         ax.text(0.25, 0.90, hteamName, color=home_color, fontsize=16, fontweight='bold', ha='center', va='center', transform=ax.transAxes)
         ax.text(0.75, 0.90, ateamName, color=away_color, fontsize=16, fontweight='bold', ha='center', va='center', transform=ax.transAxes)
 
         # إضافة عنوان
-        ax.text(0.5, 0.85, reshape_arabic_text('إحصائيات المباراة'), color=text_color, fontsize=20, fontweight='bold', ha='center', va='center', transform=ax.transAxes, bbox=dict(facecolor='none', edgecolor='white', alpha=0.2, boxstyle='round,pad=0.5'))
+        ax.text(0.5, 0.85, reshape_arabic_text('إحصائيات المباراة'), color=text_color, fontsize=20, fontweight='bold', ha='center', va='center', transform=ax.transAxes)
 
         # إعداد مواقع الإحصائيات
         y_positions = np.linspace(0.80, 0.05, len(stats))
-        bar_width = 0.4  # عرض الشريط
+        bar_width = 0.4
 
         for i, (stat_name, home_value, away_value, is_percentage) in enumerate(stats):
             y = y_positions[i]
@@ -2591,37 +2586,14 @@ with tab3:
                 away_ratio = 0.5
 
             # رسم الشريط بين القيمتين
-            bar_x_start = 0.35  # بداية الشريط
-            bar_x_end = 0.65    # نهاية الشريط
+            bar_x_start = 0.35
+            bar_x_end = 0.65
             bar_length = bar_x_end - bar_x_start
-            home_bar_length = bar_length * home_ratio
-            away_bar_length = bar_length * away_ratio
-
-            # رسم الشريط بتدرج لوني
             bar_gradient = np.linspace(0, 1, 256)
             bar_gradient = np.vstack((bar_gradient, bar_gradient))
             ax.imshow(bar_gradient, aspect='auto', cmap=cmap, extent=[bar_x_start, bar_x_end, y-0.01, y+0.01], transform=ax.transAxes, alpha=0.8)
 
-            # إضافة تأثير ظل للشريط
-            from matplotlib.patches import FancyBboxPatch
-            bar_box = FancyBboxPatch((bar_x_start, y-0.01), bar_length, 0.02, boxstyle="round,pad=0.02", transform=ax.transAxes, facecolor='none', edgecolor='white', alpha=0.3)
-            ax.add_patch(bar_box)
-
-        # إضافة خطوط فاصلة لتحسين التصميم
-        for y in y_positions:
-            ax.axhline(y, xmin=0.1, xmax=0.9, color='white', alpha=0.1, linestyle='--', transform=ax.transAxes)
-
-        # إضافة تأثير ضبابي للخلفية (محاكاة Blur)
-        ax.imshow(np.ones((512, 512)), aspect='auto', cmap='Greys', alpha=0.05, extent=[0, 1, 0, 1], transform=ax.transAxes)
-
-        # إضافة العلامة المائية إذا كانت مفعلة
-        if watermark_enabled:
-            add_watermark(plt.gcf(), text=watermark_text, alpha=watermark_opacity,
-                         fontsize=watermark_size, color=watermark_color,
-                         x_pos=watermark_x, y_pos=watermark_y,
-                         ha=watermark_ha, va=watermark_va)
-
-        # عرض الرسم في Streamlit
+        # عرض الرسم
         st.pyplot(fig)
 
     except Exception as e:
