@@ -2084,11 +2084,6 @@ if st.session_state.analysis_triggered and not st.session_state.df.empty and st.
     st.header(f'{hteamName} {hgoal_count} - {agoal_count} {ateamName}')
 
     # علامات التبويب
-    try:
-        tab1, tab2, tab3, tab4 = st.tabs(
-            ['تحليل الفريق', 'إحصائيات المباراة', 'تحليل اللاعبين', 'أفضل اللاعبين'])
-    except Exception as e:
-    st.error(f"حدث خطأ: {e}")
 
 with tab1:
     an_tp = st.selectbox('نوع التحليل:', [
