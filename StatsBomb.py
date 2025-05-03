@@ -2358,9 +2358,7 @@ with tab1:
                        fontsize=watermark_size, color=watermark_color,
                        x_pos=watermark_x, y_pos=watermark_y, 
                        ha=watermark_ha, va=watermark_va)
-            
-            st.pyplot(fig)
-
+        
 
 
 
