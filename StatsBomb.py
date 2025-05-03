@@ -1132,48 +1132,47 @@ def team_domination_zones(
         [path_effects.withStroke(linewidth=2, foreground='black')])
 
 
-def attack_zones_analysisdef(df, team_id, team_name, competition_name=None, season_name=None):
+def analyze_attacking_thirds(df, team_id, team_name, competition_name=None, season_name=None):
     """
     تحليل نسب الهجوم في الأثلاث الثلاثة للملعب (يمين، وسط، يسار)
-    
-    المعلمات:
-    df : DataFrame
-        إطار البيانات الذي يحتوي على أحداث المباراة
-    team_id : int
-        معرف الفريق المراد تحليله
-    team_name : str
-        اسم الفريق المراد تحليله
-    competition_name : str, optional
-        اسم المسابقة
-    season_name : str, optional
-        اسم الموسم
+    مع إظهار اتجاه هجوم كل فريق بشكل واضح
     """
-    # تصفية البيانات للفريق المحدد والأحداث الهجومية
-    team_events = df[(df['teamId'] == team_id) & (df['x'] >= 50)]
+    # تحديد الفريق المنافس
+    all_teams = df['teamId'].unique()
+    opponent_id = [t for t in all_teams if t != team_id][0] if len(all_teams) > 1 else None
+    opponent_name = st.session_state.teams_dict.get(opponent_id, "الفريق المنافس") if opponent_id else "الفريق المنافس"
+    
+    # تصفية البيانات للفريق المحدد
+    team_df = df[df['teamId'] == team_id]
     
     # تقسيم الملعب إلى ثلاثة أقسام (يمين، وسط، يسار)
-    team_events['attacking_third'] = pd.cut(
-        team_events['y'],
-        bins=[0, 22.67, 45.33, 68],
-        labels=['left', 'center', 'right']
-    )
+    # تحديد الأحداث الهجومية (مثل التمريرات والتسديدات والمراوغات في الثلث الهجومي)
+    attacking_events = team_df[
+        ((team_df['type'].isin(['Pass', 'Shot', 'TakeOn', 'Carry'])) & 
+         (team_df['endX'] > 66.6))  # الثلث الهجومي
+    ]
     
-    # حساب عدد اللمسات في كل ثلث
-    third_counts = team_events['attacking_third'].value_counts()
-    total_touches = third_counts.sum()
+    # حساب عدد الهجمات في كل منطقة
+    left_attacks = attacking_events[attacking_events['endY'] < 22.67].shape[0]
+    center_attacks = attacking_events[(attacking_events['endY'] >= 22.67) & (attacking_events['endY'] <= 45.33)].shape[0]
+    right_attacks = attacking_events[attacking_events['endY'] > 45.33].shape[0]
+    
+    total_attacks = left_attacks + center_attacks + right_attacks
+    
+    if total_attacks == 0:
+        st.warning("لا توجد بيانات كافية لتحليل مناطق الهجوم")
+        return None
     
     # حساب النسب المئوية
-    percentages = {
-        'left': round((third_counts.get('left', 0) / total_touches) * 100, 1),
-        'center': round((third_counts.get('center', 0) / total_touches) * 100, 1),
-        'right': round((third_counts.get('right', 0) / total_touches) * 100, 1)
-    }
+    left_percentage = (left_attacks / total_attacks) * 100
+    center_percentage = (center_attacks / total_attacks) * 100
+    right_percentage = (right_attacks / total_attacks) * 100
     
     # إنشاء الرسم البياني
-    fig, ax = plt.subplots(figsize=(10, 8))
+    fig, ax = plt.subplots(figsize=(12, 8))
     
     # إعداد الملعب
-    pitch = Pitch(pitch_type='statsbomb', pitch_color='#f4f4f4', line_color='#c7d5cc',
+    pitch = Pitch(pitch_type='statsbomb', pitch_color=bg_color, line_color=line_color,
                   stripe=False, goal_type='box')
     pitch.draw(ax=ax)
     
@@ -1181,56 +1180,76 @@ def attack_zones_analysisdef(df, team_id, team_name, competition_name=None, seas
     fig.set_facecolor(bg_color)
     ax.set_facecolor(bg_color)
     
+    # تحديد ألوان الفريقين
+    team_color = hcol if team_id == min(st.session_state.teams_dict.keys()) else acol
+    opponent_color = acol if team_id == min(st.session_state.teams_dict.keys()) else hcol
+    
     # إنشاء مناطق الأثلاث الثلاثة مع التدرج اللوني حسب النسب
-    max_percentage = max(percentages.values())
+    max_percentage = max(left_percentage, center_percentage, right_percentage)
     
     # تحديد ألوان التدرج
     cmap = LinearSegmentedColormap.from_list('custom_cmap', ['#ffcccb', '#ff6b6b', '#ff0000'])
     
     # رسم المستطيلات للأثلاث الثلاثة
     # الثلث الأيسر
-    left_alpha = 0.3 + (percentages['left'] / max_percentage) * 0.7
-    left_rect = patches.Rectangle((50, 0), 50, 22.67, linewidth=1, 
-                                 facecolor=cmap(percentages['left'] / 100), 
+    left_alpha = 0.3 + (left_percentage / max_percentage) * 0.7
+    left_rect = patches.Rectangle((66.6, 0), 33.4, 22.67, linewidth=1, 
+                                 facecolor=cmap(left_percentage / 100), 
                                  alpha=left_alpha, zorder=2)
     ax.add_patch(left_rect)
     
     # الثلث الأوسط
-    center_alpha = 0.3 + (percentages['center'] / max_percentage) * 0.7
-    center_rect = patches.Rectangle((50, 22.67), 50, 22.66, linewidth=1, 
-                                   facecolor=cmap(percentages['center'] / 100), 
+    center_alpha = 0.3 + (center_percentage / max_percentage) * 0.7
+    center_rect = patches.Rectangle((66.6, 22.67), 33.4, 22.66, linewidth=1, 
+                                   facecolor=cmap(center_percentage / 100), 
                                    alpha=center_alpha, zorder=2)
     ax.add_patch(center_rect)
     
     # الثلث الأيمن
-    right_alpha = 0.3 + (percentages['right'] / max_percentage) * 0.7
-    right_rect = patches.Rectangle((50, 45.33), 50, 22.67, linewidth=1, 
-                                  facecolor=cmap(percentages['right'] / 100), 
+    right_alpha = 0.3 + (right_percentage / max_percentage) * 0.7
+    right_rect = patches.Rectangle((66.6, 45.33), 33.4, 22.67, linewidth=1, 
+                                  facecolor=cmap(right_percentage / 100), 
                                   alpha=right_alpha, zorder=2)
     ax.add_patch(right_rect)
     
     # إضافة الأسهم والنسب المئوية
     # الثلث الأيسر
-    ax.arrow(75, 11.33, 0, -5, head_width=2, head_length=2, fc='black', ec='black', zorder=3, linewidth=2)
-    ax.text(75, 11.33 - 15, f"{percentages['left']}%", ha='center', va='center', fontsize=30, 
-            color='black', fontweight='bold', zorder=3)
+    ax.arrow(83, 11.33, 8, 0, head_width=3, head_length=3, fc='white', ec='black', zorder=3, linewidth=1.5)
+    ax.text(83, 11.33, f"{left_percentage:.1f}%", ha='center', va='center', fontsize=20, 
+            color='white', fontweight='bold', zorder=3,
+            path_effects=[path_effects.withStroke(linewidth=2, foreground='black')])
     
     # الثلث الأوسط
-    ax.arrow(75, 34, 0, -5, head_width=2, head_length=2, fc='black', ec='black', zorder=3, linewidth=2)
-    ax.text(75, 34 - 15, f"{percentages['center']}%", ha='center', va='center', fontsize=30, 
-            color='black', fontweight='bold', zorder=3)
+    ax.arrow(83, 34, 8, 0, head_width=3, head_length=3, fc='white', ec='black', zorder=3, linewidth=1.5)
+    ax.text(83, 34, f"{center_percentage:.1f}%", ha='center', va='center', fontsize=20, 
+            color='white', fontweight='bold', zorder=3,
+            path_effects=[path_effects.withStroke(linewidth=2, foreground='black')])
     
     # الثلث الأيمن
-    ax.arrow(75, 56.67, 0, -5, head_width=2, head_length=2, fc='black', ec='black', zorder=3, linewidth=2)
-    ax.text(75, 56.67 - 15, f"{percentages['right']}%", ha='center', va='center', fontsize=30, 
-            color='black', fontweight='bold', zorder=3)
+    ax.arrow(83, 56.67, 8, 0, head_width=3, head_length=3, fc='white', ec='black', zorder=3, linewidth=1.5)
+    ax.text(83, 56.67, f"{right_percentage:.1f}%", ha='center', va='center', fontsize=20, 
+            color='white', fontweight='bold', zorder=3,
+            path_effects=[path_effects.withStroke(linewidth=2, foreground='black')])
+    
+    # إضافة معلومات اتجاه الهجوم للفريقين
+    # فريق المستخدم
+    ax.text(50, 75, f"{team_name} ⟶", fontsize=14, 
+           color=team_color, ha='center', va='center', fontweight='bold',
+           path_effects=[path_effects.withStroke(linewidth=1.5, foreground='black')])
+    
+    # الفريق المنافس
+    ax.text(50, -5, f"⟵ {opponent_name}", fontsize=14, 
+           color=opponent_color, ha='center', va='center', fontweight='bold',
+           path_effects=[path_effects.withStroke(linewidth=1.5, foreground='black')])
     
     # إضافة العناوين
     title_text = f"{team_name} Attacking Thirds"
-    subtitle_text = competition_name if competition_name else ""
+    fig.text(0.5, 0.95, title_text, fontsize=20, fontweight='bold', color='white', ha='center',
+            path_effects=[path_effects.withStroke(linewidth=2, foreground='black')])
     
-    fig.text(0.12, 0.95, title_text, fontsize=24, fontweight='bold', color='white')
-    fig.text(0.12, 0.91, subtitle_text, fontsize=16, color='white')
+    if competition_name:
+        fig.text(0.5, 0.91, competition_name, fontsize=16, color='white', ha='center',
+                path_effects=[path_effects.withStroke(linewidth=1, foreground='black')])
     
     # إضافة شعار الفريق (إذا كان متاحًا)
     try:
@@ -1244,21 +1263,10 @@ def attack_zones_analysisdef(df, team_id, team_name, competition_name=None, seas
     except:
         pass
     
-    # إضافة شعار Opta Analyst
-    try:
-        opta_logo_url = "https://secure.cache.images.core.optasports.com/soccer/teams/30x30/uuid_2uc7u1qdpvx131h6t7ykumroi.png"
-        response = requests.get(opta_logo_url)
-        if response.status_code == 200:
-            opta_logo = Image.open(BytesIO(response.content))
-            opta_ax = fig.add_axes([0.88, 0.91, 0.06, 0.06])
-            opta_ax.imshow(opta_logo)
-            opta_ax.axis('off')
-    except:
-        pass
-    
     # إضافة نص توضيحي أسفل الرسم
     fig.text(0.5, 0.05, "Looking at the % of total attacking touches that occur within each third", 
-             ha='center', fontsize=12, color='white')
+             ha='center', fontsize=12, color='white',
+             path_effects=[path_effects.withStroke(linewidth=1, foreground='black')])
     
     # إضافة العلامة المائية
     if watermark_enabled:
@@ -1268,12 +1276,6 @@ def attack_zones_analysisdef(df, team_id, team_name, competition_name=None, seas
                            ha=watermark_ha, va=watermark_va)
     
     return fig
-
-def analyze_attacking_thirds(df, team_id, team_name, competition_name=None, season_name=None):
-    """
-    تحليل نسب الهجوم في الأثلاث الثلاثة للملعب (يمين، وسط، يسار)
-    """
-    return attack_zones_analysisdef(df, team_id, team_name, competition_name, season_name)
 
 def calculate_team_ppda(
     events_df: pd.DataFrame,
