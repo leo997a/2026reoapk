@@ -1496,7 +1496,10 @@ with tab1:
                 ateamID
             )
             # إضافة العلامة المائية إذا كانت مفعلة
-    if watermark_enabled:
+        except Exception as e:
+            st.error(f"خطأ في إنشاء شبكة التمريرات: {str(e)}")
+        
+        if watermark_enabled:
             add_watermark(fig, text=watermark_text, alpha=watermark_opacity, 
                          fontsize=watermark_size, color=watermark_color)
         
