@@ -1613,7 +1613,7 @@ def plot_match_stats(ax, df, hteamName, ateamName, hcol, acol, bg_color, line_co
         st.write(f"فرق موجودة في البيانات: {df['teamName'].unique()}")
     
     
-    return pd.DataFrame([home_data, away_data])
+        return pd.DataFrame([home_data, away_data])
 
     
     # إعداد الملعب
