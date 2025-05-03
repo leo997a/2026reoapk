@@ -2203,7 +2203,31 @@ with tab1:
         st.write("يرجى التحقق من البيانات المحملة.")
 
 with tab2:
-
+    st.subheader(reshape_arabic_text("التبويب الثاني"))
+    # إنشاء علامتي تبويب وهميتين داخل Tab 2
+    dummy_tab1, dummy_tab2 = st.tabs([reshape_arabic_text("بيانات وهمية 1"), 
+                                      reshape_arabic_text("بيانات وهمية 2")])
+    
+    # محتوى التبويب الوهمي الأول
+    with dummy_tab1:
+        st.write(reshape_arabic_text("هذا تبويب وهمي 1 داخل التبويب الثاني."))
+        st.markdown(reshape_arabic_text("يمكنك إضافة أي محتوى هنا، مثل نصوص أو رسوم بيانية."))
+        # مثال لبيانات وهمية
+        dummy_data1 = pd.DataFrame({
+            reshape_arabic_text("الفريق"): [hteamName, ateamName],
+            reshape_arabic_text("الأهداف"): [3, 2]
+        })
+        st.dataframe(dummy_data1, use_container_width=True)
+    
+    # محتوى التبويب الوهمي الثاني
+    with dummy_tab2:
+        st.write(reshape_arabic_text("هذا تبويب وهمي 2 داخل التبويب الثاني."))
+        st.markdown(reshape_arabic_text("مثال آخر لمحتوى وهمي."))
+        # مثال لرسم بياني وهمي
+        fig, ax = plt.subplots()
+        ax.bar([reshape_arabic_text(hteamName), reshape_arabic_text(ateamName)], [5, 3], color=[hcol, acol])
+        ax.set_title(reshape_arabic_text("مقارنة وهمية"))
+        st.pyplot(fig)
 
 with tab3:
     st.subheader(reshape_arabic_text("إحصائيات المباراة"))
