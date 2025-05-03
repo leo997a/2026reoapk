@@ -307,21 +307,33 @@ def extract_match_dict_from_html(uploaded_file):
         return None
 def get_event_data(json_data):
     events_dict = json_data["events"]
-    teams_dict = {json_data['home']['teamId']: json_data['home']['name'],
-                  json_data['away']['teamId']: json_data['away']['name']}
+    # إنشاء teams_dict مع مفاتيح أعداد صحيحة وهيكلية صحيحة
+    teams_dict = {
+        int(json_data['home']['teamId']): {
+            'home_team_name': json_data['home']['name'],
+            'home_team_kit_colour': '#ff0000'  # استبدل باللون المناسب إذا كان متاحًا
+        },
+        int(json_data['away']['teamId']): {
+            'away_team_name': json_data['away']['name'],
+            'away_team_kit_colour': '#0000ff'  # استبدل باللون المناسب إذا كان متاحًا
+        }
+    }
     players_dict = json_data["playerIdNameDictionary"]
     
     # إنشاء إطار بيانات اللاعبين
     players_home_df = pd.DataFrame(json_data['home']['players'])
-    players_home_df["teamId"] = json_data['home']['teamId']
+    players_home_df["teamId"] = int(json_data['home']['teamId'])
     players_away_df = pd.DataFrame(json_data['away']['players'])
-    players_away_df["teamId"] = json_data['away']['teamId']
+    players_away_df["teamId"] = int(json_data['away']['teamId'])
     players_df = pd.concat([players_home_df, players_away_df])
     players_df['name'] = players_df['name'].astype(str)
     players_df['name'] = players_df['name'].apply(unidecode)
     
     df = pd.DataFrame(events_dict)
     dfp = pd.DataFrame(players_df)
+    
+    # تحويل teamId إلى عدد صحيح في DataFrame
+    df['teamId'] = pd.to_numeric(df['teamId'], errors='coerce').astype('Int64')
     
     # استخراج displayName من الأنواع
     df['type'] = df['type'].apply(lambda x: x.get('displayName') if isinstance(x, dict) else str(x))
@@ -337,7 +349,6 @@ def get_event_data(json_data):
         'SecondPeriodOfExtraTime': 'SecondPeriodOfExtraTime',
         'PenaltyShootout': 'PenaltyShootout', 'PostGame': 'PostGame',
         'PreMatch': 'PreMatch',
-        # التعامل مع القيم الرقمية أو غير المتوقعة
         1: 'FirstHalf', 2: 'SecondHalf', 3: 'FirstPeriodOfExtraTime',
         4: 'SecondPeriodOfExtraTime', 5: 'PenaltyShootout', 14: 'PostGame',
         16: 'PreMatch'
