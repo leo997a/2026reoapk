@@ -2361,9 +2361,9 @@ with tab1:
         
 
 
-
+('نوع التحليل:'
 with tab3:
-    st.header(reshape_arabic_text("إحصائيات المباراة"))
+    reshape_arabic_text("إحصائيات المباراة"))
         try:
         # حساب إحصائيات المباراة
         # إحصائيات التمرير
