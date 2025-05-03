@@ -2088,8 +2088,7 @@ if st.session_state.analysis_triggered and not st.session_state.df.empty and st.
         tab1, tab2, tab3, tab4 = st.tabs(
             ['تحليل الفريق', 'إحصائيات المباراة', 'تحليل اللاعبين', 'أفضل اللاعبين'])إحصائيات المباراة
     except Exception as e:
-        st.error(f"خطأ في إنشاء التبويبات: {str(e)}")
-        st.stop()
+    st.error(f"حدث خطأ: {e}")
 
 with tab1:
     an_tp = st.selectbox('نوع التحليل:', [
