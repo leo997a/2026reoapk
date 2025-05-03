@@ -2361,7 +2361,7 @@ with tab1:
             
             st.pyplot(fig)
             
-with tab3:  # تبويب إحصائيات المباراة
+with tab3:
     st.header(reshape_arabic_text("إحصائيات المباراة"))
         try:
         # حساب إحصائيات المباراة
