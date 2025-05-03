@@ -2475,7 +2475,15 @@ with tab3:
         else:
             aglkl = 0
         
-        # إنشاء قاموس للإحصائيات مع تطبيق reshape_arabic_text على النصوص العربية
+        # حساب PPDA
+        home_def_acts = st.session_state.df[(st.session_state.df['teamId'] == list(st.session_state.teams_dict.keys())[0]) & (st.session_state.df['type'].str.contains('Interception|Foul|Challenge|BlockedPass|Tackle')) & (st.session_state.df['x'] > 35)]
+        away_def_acts = st.session_state.df[(st.session_state.df['teamId'] == list(st.session_state.teams_dict.keys())[1]) & (st.session_state.df['type'].str.contains('Interception|Foul|Challenge|BlockedPass|Tackle')) & (st.session_state.df['x'] > 35)]
+        home_pass = st.session_state.df[(st.session_state.df['teamId'] == list(st.session_state.teams_dict.keys())[0]) & (st.session_state.df['type'] == 'Pass') & (st.session_state.df['outcomeType'] == 'Successful') & (st.session_state.df['x'] < 70)]
+        away_pass = st.session_state.df[(st.session_state.df['teamId'] == list(st.session_state.teams_dict.keys())[1]) & (st.session_state.df['type'] == 'Pass') & (st.session_state.df['outcomeType'] == 'Successful') & (st.session_state.df['x'] < 70)]
+        home_ppda = round((len(away_pass) / len(home_def_acts)) if len(home_def_acts) > 0 else 0, 2)
+        away_ppda = round((len(home_pass) / len(away_def_acts)) if len(away_def_acts) > 0 else 0, 2)
+        
+        # إنشاء قاموس للإحصائيات مع إضافة PPDA
         stats_dict = {
             reshape_arabic_text('الإحصائية'): [
                 reshape_arabic_text('الاستحواذ %'),
@@ -2497,19 +2505,22 @@ with tab3:
                 reshape_arabic_text('متوسط طول ركلات المرمى'),
                 reshape_arabic_text('المراوغات'),
                 reshape_arabic_text('المراوغات الناجحة'),
-                reshape_arabic_text('نسبة نجاح المراوغات %')
+                reshape_arabic_text('نسبة نجاح المراوغات %'),
+                reshape_arabic_text('PPDA')  # إضافة PPDA
             ],
             hteamName: [
                 hposs, hft, htotalPass, hAccPass, round((hAccPass/htotalPass)*100, 2) if htotalPass > 0 else 0,
                 hAccPasswdt, hLongB, hAccLongB, round((hAccLongB/hLongB)*100, 2) if hLongB > 0 else 0,
                 hCrss, hAccCrss, round((hAccCrss/hCrss)*100, 2) if hCrss > 0 else 0, hfk, hCor, htins,
-                hglkk, hglkl, htotalDrb, hAccDrb, round((hAccDrb/htotalDrb)*100, 2) if htotalDrb > 0 else 0
+                hglkk, hglkl, htotalDrb, hAccDrb, round((hAccDrb/htotalDrb)*100, 2) if htotalDrb > 0 else 0,
+                home_ppda  # إضافة قيمة PPDA للفريق المضيف
             ],
             ateamName: [
                 aposs, aft, atotalPass, aAccPass, round((aAccPass/atotalPass)*100, 2) if atotalPass > 0 else 0,
                 aAccPasswdt, aLongB, aAccLongB, round((aAccLongB/aLongB)*100, 2) if aLongB > 0 else 0,
                 aCrss, aAccCrss, round((aAccCrss/aCrss)*100, 2) if aCrss > 0 else 0, afk, aCor, atins,
-                aglkk, aglkl, atotalDrb, aAccDrb, round((aAccDrb/atotalDrb)*100, 2) if atotalDrb > 0 else 0
+                aglkk, aglkl, atotalDrb, aAccDrb, round((aAccDrb/atotalDrb)*100, 2) if atotalDrb > 0 else 0,
+                away_ppda  # إضافة قيمة PPDA للفريق الضيف
             ]
         }
         
@@ -2577,6 +2588,9 @@ with tab3:
         
         st.pyplot(fig)
         
+    except Exception as e:
+        st.error(f"خطأ في عرض إحصائيات المباراة: {str(e)}")
+        st.exception(e)
     except Exception as e:
         st.error(f"خطأ في عرض إحصائيات المباراة: {str(e)}")
         st.exception(e)
