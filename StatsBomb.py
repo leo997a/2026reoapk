@@ -1149,15 +1149,27 @@ def analyze_attacking_thirds(df, team_id, team_name, competition_name=None, seas
     final_third_events = team_events[team_events['x'] >= 66.7]
 
     # تقسيم الثلث الهجومي إلى ثلاثة مناطق عرضية
-    left_zone = final_third_events[final_third_events['y'] <= 22.7]
-    center_zone = final_third_events[(final_third_events['y'] > 22.7) & (final_third_events['y'] <= 45.3)]
-    right_zone = final_third_events[final_third_events['y'] > 45.3]
+    left_zone = final_third_events[final_third_events['y'] <= 26.7]
+    center_zone = final_third_events[(final_third_events['y'] > 26.7) & (final_third_events['y'] <= 53.3)]
+    right_zone = final_third_events[final_third_events['y'] > 53.3]
 
     # حساب النسب المئوية
     total = len(left_zone) + len(center_zone) + len(right_zone)
     left_pct = (len(left_zone) / total * 100) if total > 0 else 0
     center_pct = (len(center_zone) / total * 100) if total > 0 else 0
     right_pct = (len(right_zone) / total * 100) if total > 0 else 0
+
+    # تحديد المنطقة ذات النسبة الأعلى لجعلها أكثر وضوحًا (أقل شفافية)
+    percentages = [left_pct, center_pct, right_pct]
+    max_pct_index = percentages.index(max(percentages))
+    min_pct_index = percentages.index(min(percentages))
+    mid_pct_index = 3 - max_pct_index - min_pct_index  # مجموع الفهارس الثلاثة = 0+1+2 = 3
+
+    # تعيين قيم الشفافية بناءً على النسب (المنطقة ذات النسبة الأعلى تكون أقل شفافية)
+    alpha_values = [0.7, 0.7, 0.7]  # قيم افتراضية
+    alpha_values[max_pct_index] = 0.9  # أقل شفافية للمنطقة ذات النسبة الأعلى
+    alpha_values[mid_pct_index] = 0.7  # شفافية متوسطة
+    alpha_values[min_pct_index] = 0.5  # أكثر شفافية للمنطقة ذات النسبة الأقل
 
     # رسم الملعب
     fig, ax = plt.subplots(figsize=(12, 8), facecolor=bg_color)
@@ -1167,152 +1179,166 @@ def analyze_attacking_thirds(df, team_id, team_name, competition_name=None, seas
     # تحديد اتجاه الهجوم (من اليسار إلى اليمين)
     attack_direction = 'right'  # يمكن تغييره إلى 'left' حسب الحاجة
 
-    # رسم مناطق الثلث الهجومي بتدرج لوني جميل
+    # تلوين كامل الثلث الهجومي
     if attack_direction == 'right':
+        # تلوين الثلث الهجومي بالكامل أولاً
+        ax.add_patch(patches.Rectangle((66.7, 0), 33.3, 80, 
+                                     facecolor=team_color, alpha=0.3, 
+                                     edgecolor='white', linewidth=0.5, zorder=1))
+        
+        # ثم تلوين المناطق الثلاثة بشفافية مختلفة
         # يسار
-        ax.add_patch(patches.Rectangle((70, 0), 30, 22.7, 
-                                     facecolor=team_color, alpha=0.7, 
-                                     edgecolor='white', linewidth=0.5, zorder=1))
+        ax.add_patch(patches.Rectangle((66.7, 0), 33.3, 26.7, 
+                                     facecolor=team_color, alpha=alpha_values[0], 
+                                     edgecolor='white', linewidth=0.5, zorder=2))
         # وسط
-        ax.add_patch(patches.Rectangle((70, 22.7), 30, 22.6, 
-                                     facecolor=team_color, alpha=0.8, 
-                                     edgecolor='white', linewidth=0.5, zorder=1))
+        ax.add_patch(patches.Rectangle((66.7, 26.7), 33.3, 26.6, 
+                                     facecolor=team_color, alpha=alpha_values[1], 
+                                     edgecolor='white', linewidth=0.5, zorder=2))
         # يمين
-        ax.add_patch(patches.Rectangle((70, 45.3), 30, 22.7, 
-                                     facecolor=team_color, alpha=0.7, 
-                                     edgecolor='white', linewidth=0.5, zorder=1))
+        ax.add_patch(patches.Rectangle((66.7, 53.3), 33.3, 26.7, 
+                                     facecolor=team_color, alpha=alpha_values[2], 
+                                     edgecolor='white', linewidth=0.5, zorder=2))
     else:
+        # تلوين الثلث الهجومي بالكامل أولاً
+        ax.add_patch(patches.Rectangle((0, 0), 33.3, 80, 
+                                     facecolor=team_color, alpha=0.3, 
+                                     edgecolor='white', linewidth=0.5, zorder=1))
+        
+        # ثم تلوين المناطق الثلاثة بشفافية مختلفة
         # يسار
-        ax.add_patch(patches.Rectangle((0, 0), 30, 22.7, 
-                                     facecolor=team_color, alpha=0.7, 
-                                     edgecolor='white', linewidth=0.5, zorder=1))
+        ax.add_patch(patches.Rectangle((0, 0), 33.3, 26.7, 
+                                     facecolor=team_color, alpha=alpha_values[0], 
+                                     edgecolor='white', linewidth=0.5, zorder=2))
         # وسط
-        ax.add_patch(patches.Rectangle((0, 22.7), 30, 22.6, 
-                                     facecolor=team_color, alpha=0.8, 
-                                     edgecolor='white', linewidth=0.5, zorder=1))
+        ax.add_patch(patches.Rectangle((0, 26.7), 33.3, 26.6, 
+                                     facecolor=team_color, alpha=alpha_values[1], 
+                                     edgecolor='white', linewidth=0.5, zorder=2))
         # يمين
-        ax.add_patch(patches.Rectangle((0, 45.3), 30, 22.7, 
-                                     facecolor=team_color, alpha=0.7, 
-                                     edgecolor='white', linewidth=0.5, zorder=1))
+        ax.add_patch(patches.Rectangle((0, 53.3), 33.3, 26.7, 
+                                     facecolor=team_color, alpha=alpha_values[2], 
+                                     edgecolor='white', linewidth=0.5, zorder=2))
 
-    # كتابة النسب داخل كل منطقة بتصميم عصري
     # إضافة دوائر خلف النسب لتحسين الوضوح
     if attack_direction == 'right':
         # يسار
-        circle1 = plt.Circle((85, 11.35), 7, color='white', alpha=0.2, zorder=2)
+        circle1 = plt.Circle((83, 13.35), 8, color='white', alpha=0.2, zorder=3)
         ax.add_artist(circle1)
-        ax.text(85, 11.35, f"{left_pct:.1f}%", color='white', fontsize=16, 
-                fontweight='bold', ha='center', va='center', zorder=3,
+        ax.text(83, 13.35, f"{left_pct:.1f}%", color='white', fontsize=16, 
+                fontweight='bold', ha='center', va='center', zorder=4,
                 path_effects=[path_effects.withStroke(linewidth=2, foreground='black')])
         
         # وسط
-        circle2 = plt.Circle((85, 34), 7, color='white', alpha=0.2, zorder=2)
+        circle2 = plt.Circle((83, 40), 8, color='white', alpha=0.2, zorder=3)
         ax.add_artist(circle2)
-        ax.text(85, 34, f"{center_pct:.1f}%", color='white', fontsize=16, 
-                fontweight='bold', ha='center', va='center', zorder=3,
+        ax.text(83, 40, f"{center_pct:.1f}%", color='white', fontsize=16, 
+                fontweight='bold', ha='center', va='center', zorder=4,
                 path_effects=[path_effects.withStroke(linewidth=2, foreground='black')])
         
         # يمين
-        circle3 = plt.Circle((85, 56.7), 7, color='white', alpha=0.2, zorder=2)
+        circle3 = plt.Circle((83, 66.7), 8, color='white', alpha=0.2, zorder=3)
         ax.add_artist(circle3)
-        ax.text(85, 56.7, f"{right_pct:.1f}%", color='white', fontsize=16, 
-                fontweight='bold', ha='center', va='center', zorder=3,
+        ax.text(83, 66.7, f"{right_pct:.1f}%", color='white', fontsize=16, 
+                fontweight='bold', ha='center', va='center', zorder=4,
                 path_effects=[path_effects.withStroke(linewidth=2, foreground='black')])
     else:
         # يسار
-        circle1 = plt.Circle((15, 11.35), 7, color='white', alpha=0.2, zorder=2)
+        circle1 = plt.Circle((17, 13.35), 8, color='white', alpha=0.2, zorder=3)
         ax.add_artist(circle1)
-        ax.text(15, 11.35, f"{left_pct:.1f}%", color='white', fontsize=16, 
-                fontweight='bold', ha='center', va='center', zorder=3,
+        ax.text(17, 13.35, f"{left_pct:.1f}%", color='white', fontsize=16, 
+                fontweight='bold', ha='center', va='center', zorder=4,
                 path_effects=[path_effects.withStroke(linewidth=2, foreground='black')])
         
         # وسط
-        circle2 = plt.Circle((15, 34), 7, color='white', alpha=0.2, zorder=2)
+        circle2 = plt.Circle((17, 40), 8, color='white', alpha=0.2, zorder=3)
         ax.add_artist(circle2)
-        ax.text(15, 34, f"{center_pct:.1f}%", color='white', fontsize=16, 
-                fontweight='bold', ha='center', va='center', zorder=3,
+        ax.text(17, 40, f"{center_pct:.1f}%", color='white', fontsize=16, 
+                fontweight='bold', ha='center', va='center', zorder=4,
                 path_effects=[path_effects.withStroke(linewidth=2, foreground='black')])
         
         # يمين
-        circle3 = plt.Circle((15, 56.7), 7, color='white', alpha=0.2, zorder=2)
+        circle3 = plt.Circle((17, 66.7), 8, color='white', alpha=0.2, zorder=3)
         ax.add_artist(circle3)
-        ax.text(15, 56.7, f"{right_pct:.1f}%", color='white', fontsize=16, 
-                fontweight='bold', ha='center', va='center', zorder=3,
+        ax.text(17, 66.7, f"{right_pct:.1f}%", color='white', fontsize=16, 
+                fontweight='bold', ha='center', va='center', zorder=4,
                 path_effects=[path_effects.withStroke(linewidth=2, foreground='black')])
 
     # إضافة أسهم لتوضيح اتجاه الهجوم
     if attack_direction == 'right':
         # سهم كبير في أعلى الملعب
-        ax.arrow(30, 10, 40, 0, head_width=5, head_length=5, fc=team_color, ec=team_color, zorder=3, linewidth=2)
-        # أسهم صغيرة في مناطق الهجوم
-        ax.arrow(75, 11.35, 5, 0, head_width=2, head_length=2, fc='white', ec='white', zorder=4, alpha=0.8)
-        ax.arrow(75, 34, 5, 0, head_width=2, head_length=2, fc='white', ec='white', zorder=4, alpha=0.8)
-        ax.arrow(75, 56.7, 5, 0, head_width=2, head_length=2, fc='white', ec='white', zorder=4, alpha=0.8)
+        ax.arrow(40, 10, 20, 0, head_width=4, head_length=4, fc='white', ec='white', zorder=5, linewidth=2, alpha=0.8)
+        # نص اتجاه الهجوم
+        ax.text(50, 15, reshape_arabic_text("اتجاه الهجوم"), color='white', fontsize=10, 
+                fontweight='bold', ha='center', va='center', zorder=5,
+                path_effects=[path_effects.withStroke(linewidth=1, foreground='black')])
     else:
         # سهم كبير في أعلى الملعب
-        ax.arrow(70, 10, -40, 0, head_width=5, head_length=5, fc=team_color, ec=team_color, zorder=3, linewidth=2)
-        # أسهم صغيرة في مناطق الهجوم
-        ax.arrow(25, 11.35, -5, 0, head_width=2, head_length=2, fc='white', ec='white', zorder=4, alpha=0.8)
-        ax.arrow(25, 34, -5, 0, head_width=2, head_length=2, fc='white', ec='white', zorder=4, alpha=0.8)
-        ax.arrow(25, 56.7, -5, 0, head_width=2, head_length=2, fc='white', ec='white', zorder=4, alpha=0.8)
-
-    # إضافة مربعات للفرق مع الشعارات (يمكن استبدالها بشعارات حقيقية)
-    # مربع الفريق الأول
-    team_box = patches.Rectangle((10, 70), 30, 8, facecolor=team_color, alpha=0.8, 
-                               edgecolor='white', linewidth=1, zorder=4)
-    ax.add_patch(team_box)
-    
-    # إضافة دائرة كشعار للفريق (يمكن استبدالها بشعار حقيقي)
-    team_logo = plt.Circle((15, 74), 3, color='white', zorder=5)
-    ax.add_artist(team_logo)
-    
-    # اسم الفريق
-    ax.text(25, 74, reshape_arabic_text(team_name), color='white', fontsize=12, 
-            fontweight='bold', ha='center', va='center', zorder=5,
-            path_effects=[path_effects.withStroke(linewidth=1, foreground='black')])
-    
-    # مربع الفريق الثاني
-    opponent_box = patches.Rectangle((60, 70), 30, 8, facecolor=opponent_color, alpha=0.8, 
-                                   edgecolor='white', linewidth=1, zorder=4)
-    ax.add_patch(opponent_box)
-    
-    # إضافة دائرة كشعار للفريق المنافس
-    opponent_logo = plt.Circle((65, 74), 3, color='white', zorder=5)
-    ax.add_artist(opponent_logo)
-    
-    # اسم الفريق المنافس
-    ax.text(75, 74, reshape_arabic_text(opponent_name), color='white', fontsize=12, 
-            fontweight='bold', ha='center', va='center', zorder=5,
-            path_effects=[path_effects.withStroke(linewidth=1, foreground='black')])
-
-    # إضافة نص يوضح اتجاه الهجوم
-    attack_text = reshape_arabic_text("اتجاه الهجوم")
-    if attack_direction == 'right':
-        ax.text(50, 10, attack_text, color='white', fontsize=10, 
-                fontweight='bold', ha='center', va='center', zorder=3,
-                path_effects=[path_effects.withStroke(linewidth=1, foreground='black')])
-    else:
-        ax.text(50, 10, attack_text, color='white', fontsize=10, 
-                fontweight='bold', ha='center', va='center', zorder=3,
+        ax.arrow(60, 10, -20, 0, head_width=4, head_length=4, fc='white', ec='white', zorder=5, linewidth=2, alpha=0.8)
+        # نص اتجاه الهجوم
+        ax.text(50, 15, reshape_arabic_text("اتجاه الهجوم"), color='white', fontsize=10, 
+                fontweight='bold', ha='center', va='center', zorder=5,
                 path_effects=[path_effects.withStroke(linewidth=1, foreground='black')])
 
-    # عنوان الرسم بتصميم عصري
-    title_text = f"{team_name} - {opponent_name}"
-    subtitle_text = reshape_arabic_text('تحليل مناطق الهجوم')
-    
+    # إضافة شعارات الفرق كما في قسم شبكة التمريرات
+    # محاولة تحميل شعارات الفرق من الملفات المحلية أو من الإنترنت
+    try:
+        # تحديد مسارات الشعارات
+        home_logo_path = f"logos/{json_data['home']['teamId']}.png"
+        away_logo_path = f"logos/{json_data['away']['teamId']}.png"
+        
+        # التحقق من وجود الشعارات محليًا
+        if os.path.exists(home_logo_path):
+            home_logo = plt.imread(home_logo_path)
+            home_logo_ax = fig.add_axes([0.15, 0.85, 0.1, 0.1], anchor='NE', zorder=10)
+            home_logo_ax.imshow(home_logo)
+            home_logo_ax.axis('off')
+        else:
+            # إذا لم يتم العثور على الشعار، استخدم دائرة بيضاء
+            home_logo_circle = plt.Circle((0.15, 0.85), 0.03, transform=fig.transFigure, 
+                                        facecolor=hcol, edgecolor='white', linewidth=1, zorder=10)
+            fig.patches.append(home_logo_circle)
+        
+        if os.path.exists(away_logo_path):
+            away_logo = plt.imread(away_logo_path)
+            away_logo_ax = fig.add_axes([0.85, 0.85, 0.1, 0.1], anchor='NW', zorder=10)
+            away_logo_ax.imshow(away_logo)
+            away_logo_ax.axis('off')
+        else:
+            # إذا لم يتم العثور على الشعار، استخدم دائرة بيضاء
+            away_logo_circle = plt.Circle((0.85, 0.85), 0.03, transform=fig.transFigure, 
+                                        facecolor=acol, edgecolor='white', linewidth=1, zorder=10)
+            fig.patches.append(away_logo_circle)
+    except Exception as e:
+        st.warning(f"لم يتم تحميل شعارات الفرق: {e}")
+        # استخدام دوائر بدلاً من الشعارات
+        home_logo_circle = plt.Circle((0.15, 0.85), 0.03, transform=fig.transFigure, 
+                                    facecolor=hcol, edgecolor='white', linewidth=1, zorder=10)
+        away_logo_circle = plt.Circle((0.85, 0.85), 0.03, transform=fig.transFigure, 
+                                    facecolor=acol, edgecolor='white', linewidth=1, zorder=10)
+        fig.patches.append(home_logo_circle)
+        fig.patches.append(away_logo_circle)
+
+    # إضافة أسماء الفرق بجانب الشعارات
+    fig.text(0.25, 0.85, json_data['home']['name'], fontsize=14, color='white', ha='left', va='center', 
+             fontweight='bold', zorder=10, path_effects=[path_effects.withStroke(linewidth=1.5, foreground='black')])
+    fig.text(0.75, 0.85, json_data['away']['name'], fontsize=14, color='white', ha='right', va='center', 
+             fontweight='bold', zorder=10, path_effects=[path_effects.withStroke(linewidth=1.5, foreground='black')])
+
     # إضافة خلفية للعنوان
     title_bg = patches.Rectangle((0.25, 0.95), 0.5, 0.05, transform=fig.transFigure, 
-                               facecolor=team_color, alpha=0.7, edgecolor='white', 
+                               facecolor='#003366', alpha=0.8, edgecolor='white', 
                                linewidth=1, zorder=9)
     fig.patches.append(title_bg)
     
     # إضافة العنوان الرئيسي
-    fig.text(0.5, 0.975, title_text, fontsize=20, color='white', ha='center', 
+    title_text = f"{json_data['home']['name']} - {json_data['away']['name']}"
+    fig.text(0.5, 0.975, title_text, fontsize=18, color='white', ha='center', 
              fontweight='bold', zorder=10,
              path_effects=[path_effects.withStroke(linewidth=2, foreground='black')])
     
     # إضافة العنوان الفرعي
-    fig.text(0.5, 0.94, subtitle_text, fontsize=16, color='white', ha='center', zorder=10,
+    subtitle_text = reshape_arabic_text('تحليل مناطق الهجوم')
+    fig.text(0.5, 0.955, subtitle_text, fontsize=14, color='white', ha='center', zorder=10,
              path_effects=[path_effects.withStroke(linewidth=1.5, foreground='black')])
 
     # إضافة العلامة المائية إذا كانت مفعلة
