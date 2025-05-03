@@ -2194,6 +2194,11 @@ with tab3:
         df_to_plot = st.session_state.df
         if selected_period:
             df_to_plot = st.session_state.df[st.session_state.df['period'] == selected_period]
+        
+        # التحقق من أن إطار البيانات ليس فارغًا
+        if df_to_plot.empty:
+            st.warning("لا توجد بيانات متاحة للفترة المختارة.")
+            return
 
         fig, ax = plt.subplots(figsize=(12, 10), facecolor='#000000', dpi=150)
         stats_df = plot_match_stats(
