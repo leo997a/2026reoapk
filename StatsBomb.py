@@ -1451,278 +1451,261 @@ if st.session_state.analysis_triggered and not st.session_state.df.empty and st.
         st.error(f"خطأ في إنشاء التبويبات: {str(e)}")
         st.stop()
 
-import streamlit as st
-import matplotlib.pyplot as plt
-import seaborn as sns
-import pandas as pd
-from matplotlib import path_effects
-
-# افتراض أن reshape_arabic_text معرفة مسبقًا
-def reshape_arabic_text(text):
-    # يمكن استبدال هذه الدالة بالمنطق الفعلي لإعادة تشكيل النصوص العربية
-    return text
-
 with tab1:
-    try:
-        # اختيار نوع التحليل
-        an_tp = st.selectbox('نوع التحليل:', [
-            'شبكة التمريرات',
-            'مناطق الهجوم',
-            'Defensive Actions Heatmap',
-            'Progressive Passes',
-            'Progressive Carries',
-            'Shotmap',
-            'إحصائيات الحراس',
-            'Match Momentum',
-            reshape_arabic_text('Zone14 & Half-Space Passes'),
-            reshape_arabic_text('Final Third Entries'),
-            reshape_arabic_text('Box Entries'),
-            reshape_arabic_text('High-Turnovers'),
-            reshape_arabic_text('Chances Creating Zones'),
-            reshape_arabic_text('Crosses'),
-            reshape_arabic_text('Team Domination Zones'),
-            reshape_arabic_text('Pass Target Zones'),
-            'Attacking Thirds',
-            reshape_arabic_text('PPDA')
-        ], index=0, key='analysis_type')
+    an_tp = st.selectbox('نوع التحليل:', [
+        'شبكة التمريرات',
+        'مناطق الهجوم',
+        'Defensive Actions Heatmap',
+        'Progressive Passes',
+        'Progressive Carries',
+        'Shotmap',
+        'إحصائيات الحراس',
+        'Match Momentum',
+        reshape_arabic_text('Zone14 & Half-Space Passes'),
+        reshape_arabic_text('Final Third Entries'),
+        reshape_arabic_text('Box Entries'),
+        reshape_arabic_text('High-Turnovers'),
+        reshape_arabic_text('Chances Creating Zones'),
+        reshape_arabic_text('Crosses'),
+        reshape_arabic_text('Team Domination Zones'),
+        reshape_arabic_text('Pass Target Zones'),
+        'Attacking Thirds',
+        reshape_arabic_text('PPDA')
+    ], index=0, key='analysis_type')
 
-        # قسم شبكة التمريرات
-        if an_tp == 'شبكة التمريرات':
-            st.subheader('شبكة التمريرات')
-            team_choice = st.selectbox('اختر الفريق:', [hteamName, ateamName], key='team_choice')
-            phase_tag = st.selectbox('اختر الفترة:', ['Full Time', 'First Half', 'Second Half'], key='phase_tag')
-            
-            # إنشاء الرسم
-            fig, ax = plt.subplots(figsize=(10, 10), facecolor=bg_color, dpi=150)
-            
-            try:
-                pass_btn = pass_network(
-                    ax,
-                    team_choice,
-                    hcol if team_choice == hteamName else acol,
-                    phase_tag,
-                    hteamName,
-                    ateamName,
-                    hgoal_count,
-                    agoal_count,
-                    hteamID,
-                    ateamID
-                )
-                # إضافة العلامة المائية إذا كانت مفعلة
-                if watermark_enabled:
-                    add_watermark(fig, text=watermark_text, alpha=watermark_opacity, 
-                                 fontsize=watermark_size, color=watermark_color)
-                
-                st.pyplot(fig)
-                if pass_btn is not None and not pass_btn.empty:
-                    st.dataframe(pass_btn, hide_index=True)
-                else:
-                    st.warning("لا توجد بيانات تمريرات للعرض.")
-            except Exception as e:
-                st.error(f"خطأ في إنشاء شبكة التمريرات: {str(e)}")
-
-        # قسم مناطق الهجوم
-        elif an_tp == 'مناطق الهجوم':
-            st.subheader('تحليل مناطق الهجوم')
-            fig, ax = plt.subplots(figsize=(10, 10), facecolor=bg_color)
-            attack_summary, fig_heatmap, fig_bar = attack_zones_analysis(
-                fig, ax, hteamName, ateamName, hcol, acol, hteamID, ateamID)
-            
-            # عرض خريطة حرارية
-            st.pyplot(fig_heatmap)
-            
-            # عرض الرسم البياني الشريطي
-            st.pyplot(fig_bar)
-            
-            # عرض الجدول الإحصائي
-            st.subheader('إحصائيات مناطق الهجوم')
-            st.dataframe(attack_summary, hide_index=True)
-
-        # قسم مناطق سيطرة الفريق
-        elif an_tp == reshape_arabic_text('Team Domination Zones'):
-            st.subheader(reshape_arabic_text('مناطق سيطرة الفريق'))
-            phase_tag = st.selectbox(
-                'اختر الفترة:', ['Full Time', 'First Half', 'Second Half'], key='phase_tag_domination')
-            fig, ax = plt.subplots(figsize=(12, 8), facecolor=bg_color)
-            team_domination_zones(
+    if an_tp == 'شبكة التمريرات':
+        st.subheader('شبكة التمريرات')
+        team_choice = st.selectbox('اختر الفريق:', [hteamName, ateamName], key='team_choice')
+        phase_tag = st.selectbox('اختر الفترة:', ['Full Time', 'First Half', 'Second Half'], key='phase_tag')
+        
+        # إنشاء الرسم
+        fig, ax = plt.subplots(figsize=(10, 10), facecolor=bg_color, dpi=150)
+        
+        # استدعاء pass_network
+        try:
+            pass_btn = pass_network(
                 ax,
+                team_choice,
+                hcol if team_choice == hteamName else acol,
                 phase_tag,
                 hteamName,
                 ateamName,
-                hcol,
-                acol,
-                bg_color,
-                line_color,
-                gradient_colors)
-            # إضافة عنوان أعلى الرسم
-            fig.text(
-                0.5, 0.98,
-                reshape_arabic_text(f'{hteamName} {hgoal_count} - {agoal_count} {ateamName}'),
-                fontsize=16, fontweight='bold', ha='center', va='center', color='white')
-            fig.text(0.5, 0.94, reshape_arabic_text('مناطق السيطرة'),
-                     fontsize=14, ha='center', va='center', color='white')
+                hgoal_count,
+                agoal_count,
+                hteamID,
+                ateamID
+            )
             # إضافة العلامة المائية إذا كانت مفعلة
-            if watermark_enabled:
-                add_watermark(fig, text=watermark_text, alpha=watermark_opacity, 
-                             fontsize=watermark_size, color=watermark_color)
-            
-            st.pyplot(fig)
+        except Exception as e:
+            st.error(f"خطأ في إنشاء شبكة التمريرات: {str(e)}")
+        
+        if watermark_enabled:
+            add_watermark(fig, text=watermark_text, alpha=watermark_opacity, 
+                         fontsize=watermark_size, color=watermark_color)
+        
+        st.pyplot(fig)
+            if pass_btn is not None and not pass_btn.empty:
+                st.dataframe(pass_btn, hide_index=True)
+            else:
+                st.warning("لا توجد بيانات تمريرات للعرض.")
+        except Exception as e:
+            st.error(f"خطأ في إنشاء شبكة التمريرات: {str(e)}")
 
-        # قسم PPDA
-        elif an_tp == reshape_arabic_text('PPDA'):
-            st.subheader(reshape_arabic_text('معدل الضغط (PPDA)'))
-            st.write(reshape_arabic_text("PPDA: عدد التمريرات الناجحة التي يسمح بها الفريق مقابل كل فعل دفاعي في الثلث الدفاعي للخصم. القيمة الأقل تشير إلى ضغط دفاعي أقوى (عادة 5-15)."))
+    elif an_tp == 'مناطق الهجوم':
+        st.subheader('تحليل مناطق الهجوم')
+        fig, ax = plt.subplots(figsize=(10, 10), facecolor=bg_color)
+        attack_summary, fig_heatmap, fig_bar = attack_zones_analysis(fig, ax, hteamName, ateamName, hcol, acol, hteamID, ateamID)
+        
+        # عرض خريطة حرارية
+        st.pyplot(fig_heatmap)
+        
+        # عرض الرسم البياني الشريطي
+        st.pyplot(fig_bar)
+        
+        # عرض الجدول الإحصائي
+        st.subheader('إحصائيات مناطق الهجوم')
+        st.dataframe(attack_summary, hide_index=True)
 
-            # إضافة خيارات لتخصيص PPDA
-            period_choice = st.selectbox(
-                reshape_arabic_text('اختر الفترة:'),
-                ['Full Match', 'First Half', 'Second Half'],
-                key='ppda_period'
+    elif an_tp == reshape_arabic_text('Team Domination Zones'):
+        st.subheader(reshape_arabic_text('مناطق سيطرة الفريق'))
+        phase_tag = st.selectbox(
+            'اختر الفترة:', ['Full Time', 'First Half', 'Second Half'], key='phase_tag_domination')
+        fig, ax = plt.subplots(figsize=(12, 8), facecolor=bg_color)
+        team_domination_zones(
+            ax,
+            phase_tag,
+            hteamName,
+            ateamName,
+            hcol,
+            acol,
+            bg_color,
+            line_color,
+            gradient_colors)
+        # إضافة عنوان أعلى الرسم
+        fig.text(
+            0.5, 0.98,
+            reshape_arabic_text(f'{hteamName} {hgoal_count} - {agoal_count} {ateamName}'),
+            fontsize=16, fontweight='bold', ha='center', va='center', color='white')
+        fig.text(0.5, 0.94, reshape_arabic_text('مناطق السيطرة'),
+                 fontsize=14, ha='center', va='center', color='white')
+        # إضافة العلامة المائية إذا كانت مفعلة
+        if watermark_enabled:
+            add_watermark(fig, text=watermark_text, alpha=watermark_opacity, 
+                         fontsize=watermark_size, color=watermark_color)
+        
+        st.pyplot(fig)
+
+    elif an_tp == reshape_arabic_text('PPDA'):
+        st.subheader(reshape_arabic_text('معدل الضغط (PPDA)'))
+        st.write(reshape_arabic_text("PPDA: عدد التمريرات الناجحة التي يسمح بها الفريق مقابل كل فعل دفاعي في الثلث الدفاعي للخصم. القيمة الأقل تشير إلى ضغط دفاعي أقوى (عادة 5-15)."))
+
+        # إضافة خيارات لتخصيص PPDA
+        period_choice = st.selectbox(
+        reshape_arabic_text('اختر الفترة:'),
+        ['Full Match', 'First Half', 'Second Half'],
+        key='ppda_period'
+    )
+    period_map = {
+        'Full Match': None,
+        'First Half': 'FirstHalf',
+        'Second Half': 'SecondHalf'
+    }
+    selected_period = period_map[period_choice]
+
+    region_choice = st.selectbox(
+        reshape_arabic_text('اختر المنطقة:'),
+        ['الثلث الدفاعي للخصم', 'الثلث الهجومي', 'نصف الملعب الهجومي', '60% من الملعب الهجومي', 'الملعب بأكمله'],
+        index=0,
+        key='ppda_region'
+    )
+    region_map = {
+        'الثلث الدفاعي للخصم': 'opponent_defensive_third',
+        'الثلث الهجومي': 'attacking_third',
+        'نصف الملعب الهجومي': 'attacking_half',
+        '60% من الملعب الهجومي': 'attacking_60',
+        'الملعب بأكمله': 'whole'
+    }
+    selected_region = region_map[region_choice]
+
+    simulate_pressure = st.checkbox(
+        reshape_arabic_text('محاكاة أحداث الضغط (إذا لم تكن متوفرة)'),
+        value=True,
+        key='simulate_pressure'
+    )
+
+    st.subheader(reshape_arabic_text('إعدادات مخصصة لكل فريق'))
+    teams = st.session_state.df['teamName'].unique()
+    team_params = {}
+    for team in teams:
+        with st.expander(reshape_arabic_text(f'إعدادات {team}')):
+            max_pressure_distance = st.slider(
+                reshape_arabic_text(f'الحد الأقصى للمسافة لمحاكاة الضغط لـ {team} (بالأمتار):'),
+                min_value=3.0,
+                max_value=10.0,
+                value=6.0 if team == 'Celta Vigo' else 5.0,
+                step=1.0,
+                key=f'max_pressure_distance_{team}'
             )
-            period_map = {
-                'Full Match': None,
-                'First Half': 'FirstHalf',
-                'Second Half': 'SecondHalf'
+            calibration_factor = st.slider(
+                reshape_arabic_text(f'معامل المعايرة للأفعال القليلة لـ {team}:'),
+                min_value=0.3,
+                max_value=1.0,
+                value=0.4 if team == 'Celta Vigo' else 0.5,
+                step=0.1,
+                key=f'calibration_factor_{team}'
+            )
+            team_params[team] = {
+                'max_pressure_distance': max_pressure_distance,
+                'calibration_factor': calibration_factor
             }
-            selected_period = period_map[period_choice]
 
-            region_choice = st.selectbox(
-                reshape_arabic_text('اختر المنطقة:'),
-                ['الثلث الدفاعي للخصم', 'الثلث الهجومي', 'نصف الملعب الهجومي', '60% من الملعب الهجومي', 'الملعب بأكمله'],
-                index=0,
-                key='ppda_region'
-            )
-            region_map = {
-                'الثلث الدفاعي للخصم': 'opponent_defensive_third',
-                'الثلث الهجومي': 'attacking_third',
-                'نصف الملعب الهجومي': 'attacking_half',
-                '60% من الملعب الهجومي': 'attacking_60',
-                'الملعب بأكمله': 'whole'
-            }
-            selected_region = region_map[region_choice]
+    swap_sides = st.checkbox(
+        reshape_arabic_text('تبديل الجوانب في الشوط الثاني'),
+        value=True,
+        key='swap_sides'
+    )
 
-            simulate_pressure = st.checkbox(
-                reshape_arabic_text('محاكاة أحداث الضغط (إذا لم تكن متوفرة)'),
-                value=True,
-                key='simulate_pressure'
-            )
+    use_extended_defs = st.checkbox(
+        reshape_arabic_text('استخدام أفعال دفاعية موسعة (مثل ShieldBallOpp)'),
+        value=False,
+        key='use_extended_defs'
+    )
 
-            st.subheader(reshape_arabic_text('إعدادات مخصصة لكل فريق'))
-            teams = st.session_state.df['teamName'].unique()
-            team_params = {}
-            for team in teams:
-                with st.expander(reshape_arabic_text(f'إعدادات {team}')):
-                    max_pressure_distance = st.slider(
-                        reshape_arabic_text(f'الحد الأقصى للمسافة لمحاكاة الضغط لـ {team} (بالأمتار):'),
-                        min_value=3.0,
-                        max_value=10.0,
-                        value=6.0 if team == 'Celta Vigo' else 5.0,
-                        step=1.0,
-                        key=f'max_pressure_distance_{team}'
-                    )
-                    calibration_factor = st.slider(
-                        reshape_arabic_text(f'معامل المعايرة للأفعال القليلة لـ {team}:'),
-                        min_value=0.3,
-                        max_value=1.0,
-                        value=0.4 if team == 'Celta Vigo' else 0.5,
-                        step=0.1,
-                        key=f'calibration_factor_{team}'
-                    )
-                    team_params[team] = {
-                        'max_pressure_distance': max_pressure_distance,
-                        'calibration_factor': calibration_factor
-                    }
-
-            swap_sides = st.checkbox(
-                reshape_arabic_text('تبديل الجوانب في الشوط الثاني'),
-                value=True,
-                key='swap_sides'
+    try:
+        results = {}
+        for team in teams:
+            st.write(f"حساب PPDA لـ {team}")
+            results[team] = calculate_team_ppda(
+                st.session_state.df,
+                team,
+                region=selected_region,
+                period=selected_period,
+                min_def_actions=1,
+                include_pressure=True,
+                simulate_pressure=simulate_pressure,
+                max_pressure_distance=team_params[team]['max_pressure_distance'],
+                swap_sides_second_half=swap_sides,
+                use_extended_defs=use_extended_defs,
+                calibration_factor_low_defs=team_params[team]['calibration_factor']
             )
 
-            use_extended_defs = st.checkbox(
-                reshape_arabic_text('استخدام أفعال دفاعية موسعة (مثل ShieldBallOpp)'),
-                value=False,
-                key='use_extended_defs'
+        if not results:
+            st.error("لا توجد نتائج PPDA متاحة.")
+        else:
+            ppda_df = pd.DataFrame.from_dict(results, orient='index')
+
+            st.subheader(reshape_arabic_text('نتائج PPDA'))
+            st.dataframe(
+                ppda_df[['Passes Allowed', 'Defensive Actions', 'PPDA', 'Pressure Ratio (%)']],
+                use_container_width=True
             )
 
-            try:
-                results = {}
-                for team in teams:
-                    st.write(f"حساب PPDA لـ {team}")
-                    results[team] = calculate_team_ppda(
-                        st.session_state.df,
-                        team,
-                        region=selected_region,
-                        period=selected_period,
-                        min_def_actions=1,
-                        include_pressure=True,
-                        simulate_pressure=simulate_pressure,
-                        max_pressure_distance=team_params[team]['max_pressure_distance'],
-                        swap_sides_second_half=swap_sides,
-                        use_extended_defs=use_extended_defs,
-                        calibration_factor_low_defs=team_params[team]['calibration_factor']
-                    )
+            st.subheader(reshape_arabic_text('تفاصيل الأفعال الدفاعية'))
+            for team, result in results.items():
+                st.write(reshape_arabic_text(f"الفريق: {team}"))
+                action_df = pd.DataFrame.from_dict(result['Action Breakdown'], orient='index', columns=['Count'])
+                st.dataframe(action_df, use_container_width=True)
 
-                if not results:
-                    st.error("لا توجد نتائج PPDA متاحة.")
-                else:
-                    ppda_df = pd.DataFrame.from_dict(results, orient='index')
+            fig, ax = plt.subplots(figsize=(10, 6), facecolor='none')
+            ax.set_facecolor('#1a1a1a')
+            colors = sns.color_palette("husl", len(ppda_df))
+            bars = ax.bar(ppda_df.index, ppda_df['PPDA'].fillna(0), color=colors, edgecolor='white', linewidth=1.5, alpha=0.9)
 
-                    st.subheader(reshape_arabic_text('نتائج PPDA'))
-                    st.dataframe(
-                        ppda_df[['Passes Allowed', 'Defensive Actions', 'PPDA', 'Pressure Ratio (%)']],
-                        use_container_width=True
-                    )
+            for bar in bars:
+                height = bar.get_height()
+                label = f'{height:.2f}' if height > 0 else 'غير متاح'
+                ax.text(
+                    bar.get_x() + bar.get_width() / 2, height + 0.5,
+                    label, ha='center', va='bottom', color='white',
+                    fontsize=12, fontweight='bold',
+                    path_effects=[path_effects.withStroke(linewidth=2, foreground='black')]
+                )
 
-                    st.subheader(reshape_arabic_text('تفاصيل الأفعال الدفاعية'))
-                    for team, result in results.items():
-                        st.write(reshape_arabic_text(f"الفريق: {team}"))
-                        action_df = pd.DataFrame.from_dict(result['Action Breakdown'], orient='index', columns=['Count'])
-                        st.dataframe(action_df, use_container_width=True)
+            ax.set_title(
+                reshape_arabic_text(f'معدل الضغط (PPDA) لكل فريق - {period_choice}'),
+                fontsize=16, color='white', pad=20, fontweight='bold'
+            )
+            ax.set_xlabel(reshape_arabic_text('الفريق'), fontsize=12, color='white')
+            ax.set_ylabel('PPDA', fontsize=12, color='white')
 
-                    fig, ax = plt.subplots(figsize=(10, 6), facecolor='none')
-                    ax.set_facecolor('#1a1a1a')
-                    colors = sns.color_palette("husl", len(ppda_df))
-                    bars = ax.bar(ppda_df.index, ppda_df['PPDA'].fillna(0), color=colors, edgecolor='white', linewidth=1.5, alpha=0.9)
+            ax.spines['top'].set_visible(False)
+            ax.spines['right'].set_visible(False)
+            ax.spines['left'].set_color('white')
+            ax.spines['bottom'].set_color('white')
+            ax.tick_params(colors='white', labelsize=10)
 
-                    for bar in bars:
-                        height = bar.get_height()
-                        label = f'{height:.2f}' if height > 0 else 'غير متاح'
-                        ax.text(
-                            bar.get_x() + bar.get_width() / 2, height + 0.5,
-                            label, ha='center', va='bottom', color='white',
-                            fontsize=12, fontweight='bold',
-                            path_effects=[path_effects.withStroke(linewidth=2, foreground='black')]
-                        )
+            ax.grid(True, axis='y', linestyle='--', alpha=0.3, color='white')
+            ax.axhline(y=10, color='gray', linestyle='--', alpha=0.5)
+            ax.text(0, 10.5, reshape_arabic_text('متوسط PPDA في الدوري'), color='white')
 
-                    ax.set_title(
-                        reshape_arabic_text(f'معدل الضغط (PPDA) لكل فريق - {period_choice}'),
-                        fontsize=16, color='white', pad=20, fontweight='bold'
-                    )
-                    ax.set_xlabel(reshape_arabic_text('الفريق'), fontsize=12, color='white')
-                    ax.set_ylabel('PPDA', fontsize=12, color='white')
-
-                    ax.spines['top'].set_visible(False)
-                    ax.spines['right'].set_visible(False)
-                    ax.spines['left'].set_color('white')
-                    ax.spines['bottom'].set_color('white')
-                    ax.tick_params(colors='white', labelsize=10)
-
-                    ax.grid(True, axis='y', linestyle='--', alpha=0.3, color='white')
-                    ax.axhline(y=10, color='gray', linestyle='--', alpha=0.5)
-                    ax.text(0, 10.5, reshape_arabic_text('متوسط PPDA في الدوري'), color='white')
-
-                    plt.tight_layout()
-                    # إضافة العلامة المائية إذا كانت مفعلة
-                    if watermark_enabled:
-                        add_watermark(fig, text=watermark_text, alpha=watermark_opacity, 
-                                     fontsize=watermark_size, color=watermark_color)
-                    
-                    st.pyplot(fig)
-
-            except Exception as e:
-                st.error(f"خطأ في حساب PPDA: {str(e)}")
-                st.write("يرجى التحقق من البيانات المحملة.")
+            plt.tight_layout()
+            # إضافة العلامة المائية إذا كانت مفعلة
+        if watermark_enabled:
+            add_watermark(fig, text=watermark_text, alpha=watermark_opacity, 
+                         fontsize=watermark_size, color=watermark_color)
+        
+        st.pyplot(fig)
 
     except Exception as e:
-        st.error(f"خطأ عام في معالجة التحليل: {str(e)}")
+        st.error(f"خطأ في حساب PPDA: {str(e)}")
+        st.write("يرجى التحقق من البيانات المحملة.")
