@@ -2086,7 +2086,7 @@ if st.session_state.analysis_triggered and not st.session_state.df.empty and st.
     # علامات التبويب
     try:
         tab1, tab2, tab3, tab4 = st.tabs(
-            ['تحليل الفريق', 'إحصائيات المباراة', 'تحليل اللاعبين', 'أفضل اللاعبين'])إحصائيات المباراة
+            ['تحليل الفريق', 'إحصائيات المباراة', 'تحليل اللاعبين', 'أفضل اللاعبين'])
     except Exception as e:
     st.error(f"حدث خطأ: {e}")
 
