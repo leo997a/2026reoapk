@@ -1138,6 +1138,14 @@ def analyze_attacking_thirds(df, team_id, team_name, competition_name=None, seas
     مع تصميم عصري وإظهار اتجاهات الهجوم بشكل صحيح
     """
     # تحديد الفريق المنافس
+    teams_dict = {}
+    for tid in df['teamId'].unique():
+        team_rows = df[df['teamId'] == tid]
+        if not team_rows.empty:
+            # استخدام أول اسم فريق موجود في البيانات
+            teams_dict[tid] = json_data.get('home', {}).get('name', "فريق") if tid == json_data.get('home', {}).get('teamId') else json_data.get('away', {}).get('name', "فريق منافس")
+
+        # تحديد الفريق المنافس
     all_teams = df['teamId'].unique()
     opponent_id = [t for t in all_teams if t != team_id][0] if len(all_teams) > 1 else None
     opponent_name = teams_dict.get(opponent_id, "الفريق المنافس") if opponent_id else "الفريق المنافس"
