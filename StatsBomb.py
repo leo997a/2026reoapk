@@ -1255,9 +1255,8 @@ def analyze_attacking_thirds(df, team_id, team_name, competition_name=None, seas
     
     # إضافة خلفية للنص
     team_bg = patches.Rectangle((20, team_direction_y-8), 60, 16, 
-                              color=to_rgba(team_color, 0.8), 
-                              alpha=0.8, zorder=5, ec='white', lw=1, 
-                              corner_radius=8)
+                              facecolor=to_rgba(team_color, 0.8), 
+                              alpha=0.8, zorder=5, edgecolor='white', linewidth=1)
     ax.add_patch(team_bg)
     
     # إضافة نص الفريق المضيف
@@ -1268,9 +1267,8 @@ def analyze_attacking_thirds(df, team_id, team_name, competition_name=None, seas
     
     # إضافة خلفية للنص
     opponent_bg = patches.Rectangle((20, opponent_direction_y-8), 60, 16, 
-                                  color=to_rgba(opponent_color, 0.8), 
-                                  alpha=0.8, zorder=5, ec='white', lw=1, 
-                                  corner_radius=8)
+                                  facecolor=to_rgba(opponent_color, 0.8), 
+                                  alpha=0.8, zorder=5, edgecolor='white', linewidth=1)
     ax.add_patch(opponent_bg)
     
     # إضافة نص الفريق الضيف
@@ -1285,9 +1283,8 @@ def analyze_attacking_thirds(df, team_id, team_name, competition_name=None, seas
     # إضافة خلفية للعنوان
     title_bg = patches.Rectangle((0.25, 0.95), 0.5, 0.06, 
                                transform=fig.transFigure,
-                               color=to_rgba(team_color, 0.8), 
-                               alpha=0.8, zorder=5, ec='white', lw=1, 
-                               corner_radius=8)
+                               facecolor=to_rgba(team_color, 0.8), 
+                               alpha=0.8, zorder=5, edgecolor='white', linewidth=1)
     fig.add_artist(title_bg)
     
     fig_text(0.5, 0.98, title_text, fontsize=24, color='white', 
@@ -1301,9 +1298,8 @@ def analyze_attacking_thirds(df, team_id, team_name, competition_name=None, seas
     # إضافة خلفية للنص التوضيحي
     subtitle_bg = patches.Rectangle((0.25, 0.02), 0.5, 0.04, 
                                   transform=fig.transFigure,
-                                  color='black', 
-                                  alpha=0.6, zorder=5, ec='white', lw=1, 
-                                  corner_radius=8)
+                                  facecolor='black', 
+                                  alpha=0.6, zorder=5, edgecolor='white', linewidth=1)
     fig.add_artist(subtitle_bg)
     
     fig_text(0.5, 0.04, subtitle_text, fontsize=14, color='white', 
