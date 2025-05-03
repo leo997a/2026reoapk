@@ -1508,7 +1508,7 @@ with tab1:
                 st.dataframe(pass_btn, hide_index=True)
         else:
                 st.warning("لا توجد بيانات تمريرات للعرض.")
-        except Exception as e:
+    except Exception as e:
             st.error(f"خطأ في إنشاء شبكة التمريرات: {str(e)}")
 
     elif an_tp == 'مناطق الهجوم':
