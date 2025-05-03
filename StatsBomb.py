@@ -29,7 +29,7 @@ import warnings
 import os
 import requests
 from io import StringIO, BytesIO
-import matplotlib.font_manager as FM
+import matplotlib.font_manager as fm
 import ast
 
 
