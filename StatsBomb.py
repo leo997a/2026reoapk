@@ -2086,7 +2086,7 @@ if st.session_state.analysis_triggered and not st.session_state.df.empty and st.
     # علامات التبويب
     try:
         tab1, tab2, tab3, tab4 = st.tabs(
-            ['تحليل الفريق', 'تحليل اللاعبين', 'إحصائيات المباراة', 'أفضل اللاعبين'])
+            ['تحليل الفريق', 'إحصائيات المباراة', 'تحليل اللاعبين', 'أفضل اللاعبين'])إحصائيات المباراة
     except Exception as e:
         st.error(f"خطأ في إنشاء التبويبات: {str(e)}")
         st.stop()
@@ -2362,9 +2362,10 @@ with tab1:
 
 
 with tab3:
-    st.subheader(reshape_arabic_text("إحصائيات المباراة"))
-    try:
+    reshape_arabic_text("إحصائيات المباراة")
+        try:
         # حساب إحصائيات المباراة
+        # إحصائيات التمرير
         # نسبة الاستحواذ
         hpossdf = st.session_state.df[(st.session_state.df['teamId'] == list(st.session_state.teams_dict.keys())[0]) & (st.session_state.df['type'] == 'Pass')]
         apossdf = st.session_state.df[(st.session_state.df['teamId'] == list(st.session_state.teams_dict.keys())[1]) & (st.session_state.df['type'] == 'Pass')]
@@ -2438,12 +2439,17 @@ with tab3:
         # حساب متوسط طول ركلات المرمى للفريق المضيف
         if len(home_goalkick) != 0:
             try:
+                # تحويل عمود 'qualifiers' من نص إلى قائمة من القواميس
                 home_goalkick['qualifiers'] = home_goalkick['qualifiers'].apply(ast.literal_eval)
+                
+                # دالة لاستخراج قيمة 'Length'
                 def extract_length(qualifiers):
                     for item in qualifiers:
                         if 'displayName' in item['type'] and item['type']['displayName'] == 'Length':
                             return float(item['value'])
                     return None
+                
+                # تطبيق الدالة على عمود 'qualifiers'
                 home_goalkick['length'] = home_goalkick['qualifiers'].apply(extract_length).astype(float)
                 hglkl = round(home_goalkick['length'].mean(), 2)
             except Exception as e:
@@ -2455,7 +2461,10 @@ with tab3:
         # حساب متوسط طول ركلات المرمى للفريق الضيف
         if len(away_goalkick) != 0:
             try:
+                # تحويل عمود 'qualifiers' من نص إلى قائمة من القواميس
                 away_goalkick['qualifiers'] = away_goalkick['qualifiers'].apply(ast.literal_eval)
+                
+                # تطبيق دالة استخراج الطول
                 away_goalkick['length'] = away_goalkick['qualifiers'].apply(extract_length).astype(float)
                 aglkl = round(away_goalkick['length'].mean(), 2)
             except Exception as e:
