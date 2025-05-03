@@ -1624,50 +1624,50 @@ def plot_match_stats(ax, df, hteamName, ateamName, hcol, acol, bg_color, line_co
 
     # حساب الإحصائيات
     # الاستحواذ
-            hpossdf = df[(df['teamName'] == hteamName) & (df['type'] == 'Pass')]
-            apossdf = df[(df['teamName'] == ateamName) & (df['type'] == 'Pass')]
-            total_poss = len(hpossdf) + len(apossdf)
-            hposs = round((len(hpossdf) / total_poss * 100) if total_poss > 0 else 0, 2)
-            aposs = round((len(apossdf) / total_poss * 100) if total_poss > 0 else 0, 2)
+        hpossdf = df[(df['teamName'] == hteamName) & (df['type'] == 'Pass')]
+        apossdf = df[(df['teamName'] == ateamName) & (df['type'] == 'Pass')]
+        total_poss = len(hpossdf) + len(apossdf)
+        hposs = round((len(hpossdf) / total_poss * 100) if total_poss > 0 else 0, 2)
+        aposs = round((len(apossdf) / total_poss * 100) if total_poss > 0 else 0, 2)
 
     # ميلان الملعب (Field Tilt)
-            hftdf = df[(df['teamName'] == hteamName) & (df['isTouch'] == True) & (df['x'] >= 70)]
-            aftdf = df[(df['teamName'] == ateamName) & (df['isTouch'] == True) & (df['x'] >= 70)]
-            total_ft = len(hftdf) + len(aftdf)
-            hft = round((len(hftdf) / total_ft * 100) if total_ft > 0 else 0, 2)
-            aft = round((len(aftdf) / total_ft * 100) if total_ft > 0 else 0, 2)
+        hftdf = df[(df['teamName'] == hteamName) & (df['isTouch'] == True) & (df['x'] >= 70)]
+        aftdf = df[(df['teamName'] == ateamName) & (df['isTouch'] == True) & (df['x'] >= 70)]
+        total_ft = len(hftdf) + len(aftdf)
+        hft = round((len(hftdf) / total_ft * 100) if total_ft > 0 else 0, 2)
+        aft = round((len(aftdf) / total_ft * 100) if total_ft > 0 else 0, 2)
 
     # إجمالي التمريرات
-            htotalPass = len(df[(df['teamName'] == hteamName) & (df['type'] == 'Pass')])
-            atotalPass = len(df[(df['teamName'] == ateamName) & (df['type'] == 'Pass')])
+        htotalPass = len(df[(df['teamName'] == hteamName) & (df['type'] == 'Pass')])
+        atotalPass = len(df[(df['teamName'] == ateamName) & (df['type'] == 'Pass')])
 
     # التمريرات الناجحة
-            hAccPass = len(df[(df['teamName'] == hteamName) & (df['type'] == 'Pass') & (df['outcomeType'] == 'Successful')])
-            aAccPass = len(df[(df['teamName'] == ateamName) & (df['type'] == 'Pass') & (df['outcomeType'] == 'Successful')])
+        hAccPass = len(df[(df['teamName'] == hteamName) & (df['type'] == 'Pass') & (df['outcomeType'] == 'Successful')])
+        aAccPass = len(df[(df['teamName'] == ateamName) & (df['type'] == 'Pass') & (df['outcomeType'] == 'Successful')])
 
     # الكرات الطويلة
-            hLongB = len(df[(df['teamName'] == hteamName) & (df['type'] == 'Pass') & (df['qualifiers'].str.contains('Longball', na=False)) & (~df['qualifiers'].str.contains('Corner|Cross', na=False))])
-            aLongB = len(df[(df['teamName'] == ateamName) & (df['type'] == 'Pass') & (df['qualifiers'].str.contains('Longball', na=False)) & (~df['qualifiers'].str.contains('Corner|Cross', na=False))])
+        hLongB = len(df[(df['teamName'] == hteamName) & (df['type'] == 'Pass') & (df['qualifiers'].str.contains('Longball', na=False)) & (~df['qualifiers'].str.contains('Corner|Cross', na=False))])
+        aLongB = len(df[(df['teamName'] == ateamName) & (df['type'] == 'Pass') & (df['qualifiers'].str.contains('Longball', na=False)) & (~df['qualifiers'].str.contains('Corner|Cross', na=False))])
 
     # الكرات الطويلة الناجحة
-            hAccLongB = len(df[(df['teamName'] == hteamName) & (df['type'] == 'Pass') & (df['qualifiers'].str.contains('Longball', na=False)) & (df['outcomeType'] == 'Successful') & (~df['qualifiers'].str.contains('Corner|Cross', na=False))])
-            aAccLongB = len(df[(df['teamName'] == ateamName) & (df['type'] == 'Pass') & (df['qualifiers'].str.contains('Longball', na=False)) & (df['outcomeType'] == 'Successful') & (~df['qualifiers'].str.contains('Corner|Cross', na=False))])
+        hAccLongB = len(df[(df['teamName'] == hteamName) & (df['type'] == 'Pass') & (df['qualifiers'].str.contains('Longball', na=False)) & (df['outcomeType'] == 'Successful') & (~df['qualifiers'].str.contains('Corner|Cross', na=False))])
+        aAccLongB = len(df[(df['teamName'] == ateamName) & (df['type'] == 'Pass') & (df['qualifiers'].str.contains('Longball', na=False)) & (df['outcomeType'] == 'Successful') & (~df['qualifiers'].str.contains('Corner|Cross', na=False))])
 
     # التدخلات
-            htkl = len(df[(df['teamName'] == hteamName) & (df['type'] == 'Tackle')])
-            atkl = len(df[(df['teamName'] == ateamName) & (df['type'] == 'Tackle')])
+        htkl = len(df[(df['teamName'] == hteamName) & (df['type'] == 'Tackle')])
+        atkl = len(df[(df['teamName'] == ateamName) & (df['type'] == 'Tackle')])
 
     # التدخلات الناجحة
-            htklw = len(df[(df['teamName'] == hteamName) & (df['type'] == 'Tackle') & (df['outcomeType'] == 'Successful')])
-            atklw = len(df[(df['teamName'] == ateamName) & (df['type'] == 'Tackle') & (df['outcomeType'] == 'Successful')])
+        htklw = len(df[(df['teamName'] == hteamName) & (df['type'] == 'Tackle') & (df['outcomeType'] == 'Successful')])
+        atklw = len(df[(df['teamName'] == ateamName) & (df['type'] == 'Tackle') & (df['outcomeType'] == 'Successful')])
 
     # الاعتراضات
-            hintc = len(df[(df['teamName'] == hteamName) & (df['type'] == 'Interception')])
-            aintc = len(df[(df['teamName'] == ateamName) & (df['type'] == 'Interception')])
+        hintc = len(df[(df['teamName'] == hteamName) & (df['type'] == 'Interception')])
+        aintc = len(df[(df['teamName'] == ateamName) & (df['type'] == 'Interception')])
 
     # التشتيتات
-            hclr = len(df[(df['teamName'] == hteamName) & (df['type'] == 'Clearance')])
-            aclr = len(df[(df['teamName'] == ateamName) & (df['type'] == 'Clearance')])
+        hclr = len(df[(df['teamName'] == hteamName) & (df['type'] == 'Clearance')])
+        aclr = len(df[(df['teamName'] == ateamName) & (df['type'] == 'Clearance')])
 
     # المواجهات الهوائية
     harl = len(df[(df['teamName'] == hteamName) & (df['type'] == 'Aerial')])
