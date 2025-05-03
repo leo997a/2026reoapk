@@ -1712,57 +1712,34 @@ def main():
         try:
             if uploaded_file.name.endswith('.json'):
                 st.session_state.json_data = json.load(uploaded_file)
-            else:
-                st.session_state.json_data = uploaded_file.read().decode('utf-8')
-            st.success("تم تحميل الملف بنجاح!")
+                st.success("تم تحميل ملف JSON بنجاح!")
+            else:  # HTML file
+                match_data = extract_match_dict_from_html(uploaded_file)
+                if match_data:
+                    st.session_state.json_data = match_data
+                    st.success("تم استخراج البيانات من ملف HTML بنجاح!")
+                else:
+                    st.error("فشل في استخراج البيانات من ملف HTML")
         except Exception as e:
             st.error(f"خطأ في تحميل الملف: {str(e)}")
 
     if st.button("تحليل المباراة"):
-        with st.spinner("جارٍ استخراج بيانات المباراة..."):
-            st.session_state.json_data = None
-            st.session_state.df = pd.DataFrame({
-                'period': ['FirstHalf', 'FirstHalf', 'SecondHalf', 'SecondHalf', 'FirstHalf', 'SecondHalf', 'FirstHalf', 'SecondHalf'],
-                'teamName': ['TeamA', 'TeamA', 'TeamA', 'TeamB', 'TeamB', 'TeamA', 'TeamB', 'TeamA'],
-                'type': ['Pass', 'Pass', 'Pass', 'Goal', 'Pass', 'Carry', 'Tackle', 'Interception'],
-                'outcomeType': ['Successful', 'Successful', 'Successful', 'Successful', 'Successful', 'Successful', 'Successful', 'Successful'],
-                'name': ['Player1', 'Player2', 'Player1', 'Player3', 'Player4', 'Player2', 'Player3', 'Player1'],
-                'x': [10, 20, 30, 90, 50, 40, 60, 45],
-                'y': [10, 20, 30, 34, 40, 50, 45, 55],
-                'endX': [20, 30, 40, np.nan, 60, 50, np.nan, np.nan],
-                'endY': [20, 30, 40, np.nan, 50, 60, np.nan, np.nan],
-                'qualifiers': ['Longball', '', '', 'Goal', 'Longball', '', '', ''],
-                'shirtNo': [1, 2, 1, 3, 4, 2, 3, 1],
-                'position': ['DC', 'DC', 'DC', 'FW', 'MC', 'DC', 'FW', 'DC'],
-                'isFirstEleven': [True, True, True, True, True, True, True, True],
-                'playerId': [101, 102, 101, 103, 104, 102, 103, 101],
-                'isTouch': [True, True, True, True, True, True, True, True],
-                'cumulative_mins': [5, 10, 50, 60, 20, 70, 30, 40],
-                'possession_id': [1, 1, 2, 3, 3, 4, 5, 6]
-            })
-            st.session_state.players_df = pd.DataFrame({
-                'name': ['Player1', 'Player2', 'Player3', 'Player4'],
-                'shirtNo': [1, 2, 3, 4],
-                'position': ['DC', 'DC', 'FW', 'MC'],
-                'isFirstEleven': [True, True, True, True],
-                'playerId': [101, 102, 103, 104]
-            })
-            st.session_state.teams_dict = {1: 'TeamA', 2: 'TeamB'}
-            st.session_state.analysis_triggered = True
-            st.success("تم تحميل البيانات التجريبية بنجاح!")
+        if st.session_state.json_data is not None:
+            with st.spinner("جارٍ تحليل بيانات المباراة..."):
+                try:
+                    st.session_state.df, st.session_state.teams_dict, st.session_state.players_df = get_event_data(st.session_state.json_data)
+                    st.session_state.analysis_triggered = True
+                    if st.session_state.df is not None and st.session_state.teams_dict and st.session_state.players_df is not None:
+                        st.success("تم تحليل البيانات بنجاح!")
+                    else:
+                        st.error("فشل في معالجة البيانات.")
+                except Exception as e:
+                    st.error(f"خطأ في معالجة البيانات: {str(e)}")
+                    st.exception(e)
+        else:
+            st.warning("يرجى تحميل ملف بيانات أولاً")
 
-    if st.session_state.json_data:
-        try:
-            st.session_state.df, st.session_state.teams_dict, st.session_state.players_df = get_event_data(st.session_state.json_data)
-            st.session_state.analysis_triggered = True
-            if st.session_state.df is not None and st.session_state.teams_dict and st.session_state.players_df is not None:
-                st.success("تم استخراج البيانات بنجاح!")
-                st.write("الأعمدة في إطار البيانات:", st.session_state.df.columns.tolist())
-            else:
-                st.error("فشل في معالجة البيانات.")
-        except Exception as e:
-            st.error(f"خطأ في معالجة البيانات: {str(e)}")
-
+    # عرض التحليل إذا كانت البيانات جاهزة
     if st.session_state.analysis_triggered and st.session_state.df is not None and not st.session_state.df.empty:
         teams = list(st.session_state.teams_dict.values())
         if len(teams) >= 2:
@@ -1780,7 +1757,12 @@ def main():
             reshape_arabic_text("تشكيلة الفريق"),
             reshape_arabic_text("إحصائيات المباراة")
         ])
+        
+        # ... existing code ...
 
+# استدعاء الدالة الرئيسية
+if __name__ == "__main__":
+    main()
 
 with tab1:
     an_tp = st.selectbox('نوع التحليل:', [
