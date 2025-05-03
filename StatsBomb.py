@@ -2362,7 +2362,7 @@ with tab1:
 
 
 with tab3:
-    reshape_arabic_text("إحصائيات المباراة"))
+    reshape_arabic_text("إحصائيات المباراة")
         try:
         # حساب إحصائيات المباراة
         # إحصائيات التمرير
