@@ -1762,7 +1762,7 @@ def plot_match_stats(ax, df, hteamName, ateamName, hcol, acol, bg_color, line_co
 
         ax.text(105, 58, f"{round(aposs)}%", color=line_color, fontsize=16, ha='left', va='center', fontweight='bold')
         ax.text(105, 58-(1*6), f"{round(aft)}%", color=line_color, fontsize=16, ha='left', va='center', fontweight='bold')
-        ax.text(105, 58-(2*6), f"{atotalPass} ({aAccPass})", color=line_color, fontsize=16, ha='left', va='center SCRIPT_2.py', line 1821, in <module>
+        ax.text(105, 58-(2*6), f"{atotalPass} ({aAccPass})", color=line_color, fontsize=16, ha='left', va='center')
     st.title("تحليل مباراة كرة القدم")
 SyntaxError: expected 'except' or 'finally' block
 # واجهة Streamlit
