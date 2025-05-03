@@ -1596,19 +1596,31 @@ with tab1:
             st.error(f"خطأ في إنشاء شبكة التمريرات: {str(e)}")
 
     elif an_tp == 'مناطق الهجوم':
-        st.subheader('تحليل مناطق الهجوم')
-        fig, ax = plt.subplots(figsize=(10, 10), facecolor=bg_color)
-        attack_summary, fig_heatmap, fig_bar = attack_zones_analysis(fig, ax, hteamName, ateamName, hcol, acol, hteamID, ateamID)
+        st.subheader("تحليل مناطق الهجوم")
         
-        # عرض خريطة حرارية
-        st.pyplot(fig_heatmap)
+        # اختيار الفريق
+        team_ids = list(st.session_state.teams_dict.keys())
+        team_names = list(st.session_state.teams_dict.values())
+        selected_team_index = st.selectbox("اختر الفريق:", range(len(team_ids)), 
+                                          format_func=lambda x: team_names[x])
         
-        # عرض الرسم البياني الشريطي
-        st.pyplot(fig_bar)
+        selected_team_id = team_ids[selected_team_index]
+        selected_team_name = team_names[selected_team_index]
         
-        # عرض الجدول الإحصائي
-        st.subheader('إحصائيات مناطق الهجوم')
-        st.dataframe(attack_summary, hide_index=True)
+        # اختيار المسابقة والموسم (اختياري)
+        competition_name = st.text_input("اسم المسابقة (اختياري):", "")
+        
+        # تحليل وعرض مناطق الهجوم
+        if st.button("تحليل مناطق الهجوم"):
+            with st.spinner("جاري تحليل مناطق الهجوم..."):
+                fig = analyze_attacking_thirds(st.session_state.df, selected_team_id, 
+                                              selected_team_name, competition_name)
+                st.pyplot(fig)
+                
+                # حفظ الصورة
+                save_path = f"{selected_team_name}_attacking_thirds.png"
+                fig.savefig(save_path, dpi=300, bbox_inches='tight', facecolor=bg_color)
+                st.success(f"تم حفظ الصورة بنجاح: {save_path}")
 
     elif an_tp == reshape_arabic_text('Team Domination Zones'):
         st.subheader(reshape_arabic_text('مناطق سيطرة الفريق'))
