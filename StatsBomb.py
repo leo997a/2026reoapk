@@ -2023,26 +2023,9 @@ with tab1:
     }
     selected_period = period_map[period_choice]
 
-    region_choice = st.selectbox(
-        reshape_arabic_text('اختر المنطقة:'),
-        ['الثلث الدفاعي للخصم', 'الثلث الهجومي', 'نصف الملعب الهجومي', '60% من الملعب الهجومي', 'الملعب بأكمله'],
-        index=0,
-        key='ppda_region'
-    )
-    region_map = {
-        'الثلث الدفاعي للخصم': 'opponent_defensive_third',
-        'الثلث الهجومي': 'attacking_third',
-        'نصف الملعب الهجومي': 'attacking_half',
-        '60% من الملعب الهجومي': 'attacking_60',
-        'الملعب بأكمله': 'whole'
-    }
-    selected_region = region_map[region_choice]
+   
 
-    simulate_pressure = st.checkbox(
-        reshape_arabic_text('محاكاة أحداث الضغط (إذا لم تكن متوفرة)'),
-        value=True,
-        key='simulate_pressure'
-    )
+
 
     st.subheader(reshape_arabic_text('إعدادات مخصصة لكل فريق'))
     teams = st.session_state.df['teamName'].unique()
