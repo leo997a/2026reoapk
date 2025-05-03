@@ -2065,7 +2065,7 @@ with tab2:
         ax.set_title(reshape_arabic_text("مقارنة وهمية"))
         st.pyplot(fig)
 
-        with tab3:
+       with tab3:
             st.subheader(reshape_arabic_text("إحصائيات المباراة"))
             
             # إضافة اختيار الفترة
@@ -2090,34 +2090,33 @@ with tab2:
                 # التحقق من أن إطار البيانات ليس فارغًا
                 if df_to_plot.empty:
                     st.warning("لا توجد بيانات متاحة للفترة المختارة.")
-    return
-                
-                # تصريح تصحيح للتحقق من الأعمدة
-                st.write("الأعمدة في df_to_plot:", df_to_plot.columns.tolist())
+                else:
+                    # تصريح تصحيح للتحقق من الأعمدة
+                    st.write("الأعمدة في df_to_plot:", df_to_plot.columns.tolist())
 
-                fig, ax = plt.subplots(figsize=(12, 10), facecolor='#000000', dpi=150)
-                stats_df = plot_match_stats(
-                    ax,
-                    df_to_plot,
-                    hteamName,
-                    ateamName,
-                    hcol='#FF0000',
-                    acol='#0000FF',
-                    bg_color='#000000',
-                    line_color='#FFFFFF',
-                    watermark_enabled=False,
-                    watermark_text="",
-                    watermark_opacity=0.5,
-                    watermark_size=10,
-                    watermark_color='#FFFFFF',
-                    watermark_x=0.5,
-                    watermark_y=0.5,
-                    watermark_ha='center',
-                    watermark_va='center'
-                )
-                st.pyplot(fig)
-                st.subheader(reshape_arabic_text("تفاصيل الإحصائيات"))
-                st.dataframe(stats_df, use_container_width=True)
+                    fig, ax = plt.subplots(figsize=(12, 10), facecolor='#000000', dpi=150)
+                    stats_df = plot_match_stats(
+                        ax,
+                        df_to_plot,
+                        hteamName,
+                        ateamName,
+                        hcol='#FF0000',
+                        acol='#0000FF',
+                        bg_color='#000000',
+                        line_color='#FFFFFF',
+                        watermark_enabled=False,
+                        watermark_text="",
+                        watermark_opacity=0.5,
+                        watermark_size=10,
+                        watermark_color='#FFFFFF',
+                        watermark_x=0.5,
+                        watermark_y=0.5,
+                        watermark_ha='center',
+                        watermark_va='center'
+                    )
+                    st.pyplot(fig)
+                    st.subheader(reshape_arabic_text("تفاصيل الإحصائيات"))
+                    st.dataframe(stats_df, use_container_width=True)
             except Exception as e:
                 st.error(f"خطأ في عرض إحصائيات المباراة: {str(e)}")
 
