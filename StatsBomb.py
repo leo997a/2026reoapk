@@ -1613,9 +1613,8 @@ def plot_match_stats(ax, df, hteamName, ateamName, hcol, acol, bg_color, line_co
         st.write(f"فرق موجودة في البيانات: {df['teamName'].unique()}")
     
     
-    Returns:
-    pd.DataFrame
-        إطار بيانات يحتوي على إحصائيات الفريقين
+    return pd.DataFrame([home_data, away_data])
+
     
     # إعداد الملعب
     pitch = Pitch(pitch_type='uefa', corner_arcs=True, pitch_color=bg_color, line_color=bg_color, linewidth=2)
