@@ -2395,8 +2395,8 @@ with tab3:
         df['has_throwin'] = df['qualifiers'].str.contains('ThrowIn', na=False)
         df['has_goalkick'] = df['qualifiers'].str.contains('GoalKick', na=False)
 
-        # استخراج معرفات الفرق
-        team_ids = list(df['teamId'].unique())
+        # استخراج معرفات الفرق وتحويلها إلى أعداد صحيحة
+        team_ids = [int(tid) for tid in df['teamId'].unique()]
         if not team_ids or len(team_ids) < 2:
             raise ValueError("لا توجد فرق كافية في البيانات لعرض الإحصائيات.")
 
@@ -2409,8 +2409,8 @@ with tab3:
         ateamName = st.session_state.teams_dict[team_ids[1]]['away_team_name']
 
         # تصفية DataFrame لكل فريق
-        home_df = df[df['teamId'] == team_ids[0]]
-        away_df = df[df['teamId'] == team_ids[1]]
+        home_df = df[df['teamId'].astype(int) == team_ids[0]]
+        away_df = df[df['teamId'].astype(int) == team_ids[1]]
 
         # نسبة الاستحواذ
         hpossdf = home_df[home_df['type'] == 'Pass']
@@ -2438,7 +2438,7 @@ with tab3:
 
         # الكرات الطويلة
         hLongB = len(home_df[(home_df['type'] == 'Pass') & (home_df['has_longball'] == True)])
-        aLongB = len(away_df[(home_df['type'] == 'Pass') & (away_df['has_longball'] == True)])
+        aLongB = len(away_df[(away_df['type'] == 'Pass') & (away_df['has_longball'] == True)])
 
         # الكرات الطويلة الناجحة
         hAccLongB = len(home_df[(home_df['type'] == 'Pass') & (home_df['has_longball'] == True) & (home_df['outcomeType'] == 'Successful')])
@@ -2618,63 +2618,6 @@ with tab3:
         st.write("أعمدة DataFrame:", df.columns.tolist())
         st.write("Team IDs:", team_ids)
         st.exception(e)
-# تبويب تصور الأحداث
-with tab4:
-    st.subheader(reshape_arabic_text("تصور الأحداث"))
-    try:
-        df = st.session_state.df
-        team_ids = list(st.session_state.teams_dict.keys())
-        hteamName = st.session_state.teams_dict[team_ids[0]]['home_team_name']
-        ateamName = st.session_state.teams_dict[team_ids[1]]['away_team_name']
-        hcol = st.session_state.teams_dict[team_ids[0]].get('home_team_kit_colour', '#ff0000')
-        acol = st.session_state.teams_dict[team_ids[1]].get('away_team_kit_colour', '#0000ff')
-        event_types = ['All'] + list(df['type'].unique())
-        selected_event = st.selectbox(reshape_arabic_text("اختر نوع الحدث"), event_types, index=0)
-        team_options = ['All', hteamName, ateamName]
-        selected_team = st.selectbox(reshape_arabic_text("اختر الفريق"), team_options, index=0)
-        filtered_df = df.copy()
-        if selected_event != 'All':
-            filtered_df = filtered_df[filtered_df['type'] == selected_event]
-        if selected_team != 'All':
-            team_id = team_ids[0] if selected_team == hteamName else team_ids[1]
-            filtered_df = filtered_df[filtered_df['teamId'] == team_id]
-        fig, ax = plt.subplots(figsize=(10, 7), facecolor=bg_color)
-        ax.set_facecolor(bg_color)
-        try:
-            pitch_img = plt.imread('pitch.png')
-        except FileNotFoundError:
-            st.error("صورة 'pitch.png' غير موجودة. يرجى إضافتها إلى نفس المجلد.")
-            st.stop()
-        ax.imshow(pitch_img, extent=[0, 105, 0, 68])
-        if not filtered_df.empty:
-            x = filtered_df['x'].dropna()
-            y = filtered_df['y'].dropna()
-            if not x.empty and not y.empty:
-                sns.kdeplot(x=x, y=y, fill=True, cmap='Reds', alpha=0.5, ax=ax)
-        ax.set_xlim(0, 105)
-        ax.set_ylim(0, 68)
-        ax.set_xticks([])
-        ax.set_yticks([])
-        st.pyplot(fig)
-        if selected_event in ['Pass', 'Carry']:
-            fig, ax = plt.subplots(figsize=(10, 7), facecolor=bg_color)
-            ax.set_facecolor(bg_color)
-            ax.imshow(pitch_img, extent=[0, 105, 0, 68])
-            for _, row in filtered_df.iterrows():
-                if pd.notna(row['x']) and pd.notna(row['y']) and pd.notna(row['endX']) and pd.notna(row['endY']):
-                    color = hcol if row['teamId'] == team_ids[0] else acol
-                    ax.plot([row['x'], row['endX']], [row['y'], row['endY']], color=color, alpha=0.5)
-                    ax.scatter(row['x'], row['y'], color=color, s=50, alpha=0.7)
-            ax.set_xlim(0, 105)
-            ax.set_ylim(0, 68)
-            ax.set_xticks([])
-            ax.set_yticks([])
-            st.pyplot(fig)
-    except Exception as e:
-        st.error(f"خطأ في تصور الأحداث: {str(e)}")
-        st.write("أعمدة DataFrame:", df.columns.tolist())
-        st.exception(e)
-
 # تبويب تصور التمريرات
 with tab4:
     st.subheader(reshape_arabic_text("تصور التمريرات"))
