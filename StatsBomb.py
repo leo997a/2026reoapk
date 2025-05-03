@@ -1269,6 +1269,12 @@ def attack_zones_analysisdef(df, team_id, team_name, competition_name=None, seas
     
     return fig
 
+def analyze_attacking_thirds(df, team_id, team_name, competition_name=None, season_name=None):
+    """
+    تحليل نسب الهجوم في الأثلاث الثلاثة للملعب (يمين، وسط، يسار)
+    """
+    return attack_zones_analysisdef(df, team_id, team_name, competition_name, season_name)
+
 def calculate_team_ppda(
     events_df: pd.DataFrame,
     team: str,
