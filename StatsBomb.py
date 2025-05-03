@@ -1712,27 +1712,27 @@ def plot_match_stats(ax, df, hteamName, ateamName, hcol, acol, bg_color, line_co
     # تطبيع القيم للأشرطة
         stats_normalized_home = []
         stats_normalized_away = []
-    for h, a in zip(stats_home, stats_away):
-        total = h + a
-        if total > 0:
-            stats_normalized_home.append(-(h / total) * 50)
-            stats_normalized_away.append((a / total) * 50)
-        else:
-            stats_normalized_home.append(0)
-            stats_normalized_away.append(0)
+        for h, a in zip(stats_home, stats_away):
+            total = h + a
+            if total > 0:
+                stats_normalized_home.append(-(h / total) * 50)
+                stats_normalized_away.append((a / total) * 50)
+            else:
+                stats_normalized_home.append(0)
+                stats_normalized_away.append(0)
 
-    start_x = 52.5
-    ax.barh(stats_title, stats_normalized_home, height=4, color=hcol, left=start_x, alpha=0.9)
-    ax.barh(stats_title, stats_normalized_away, height=4, color=acol, left=start_x, alpha=0.9)
+        start_x = 52.5
+        ax.barh(stats_title, stats_normalized_home, height=4, color=hcol, left=start_x, alpha=0.9)
+        ax.barh(stats_title, stats_normalized_away, height=4, color=acol, left=start_x, alpha=0.9)
 
     # إيقاف عناصر المحاور
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
-    ax.spines['bottom'].set_visible(False)
-    ax.spines['left'].set_visible(False)
-    ax.tick_params(axis='both', which='both', bottom=False, top=False, left=False, right=False)
-    ax.set_xticks([])
-    ax.set_yticks([])
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.spines['bottom'].set_visible(False)
+        ax.spines['left'].set_visible(False)
+        ax.tick_params(axis='both', which='both', bottom=False, top=False, left=False, right=False)
+        ax.set_xticks([])
+        ax.set_yticks([])
 
     # النصوص (العناوين)
     stat_labels = [
