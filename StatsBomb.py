@@ -2115,7 +2115,6 @@ with tab1:
         reshape_arabic_text('Crosses'),
         reshape_arabic_text('Team Domination Zones'),
         reshape_arabic_text('Pass Target Zones'),
-        reshape_arabic_text('إحصائيات المباراة'),
         'Attacking Thirds',
         reshape_arabic_text('PPDA')
     ], index=0, key='analysis_type')
