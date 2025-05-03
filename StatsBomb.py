@@ -2436,8 +2436,8 @@ with tab3:
         aAccDrb = len(st.session_state.df[(st.session_state.df['teamId'] == list(st.session_state.teams_dict.keys())[1]) & (st.session_state.df['type'] == 'TakeOn') & (st.session_state.df['outcomeType'] == 'Successful')])
         
         # طول ركلات المرمى
-        home_goalkick = st.session_state.df[(st.session_state.df['teamId'] == list(st.session_state.teams_dict.keys())[0]) & (st.session_state.df['type'] == 'Pass') & (st.session_state.df['has_goalkick'] == True)])
-        away_goalkick = st.session_state.df[(st.session_state.df['teamId'] == list(st.session_state.teams_dict.keys())[1]) & (st.session_state.df['type'] == 'Pass') & (st.session_state.df['has_goalkick'] == True)])
+        home_goalkick = st.session_state.df[(st.session_state.df['teamId'] == list(st.session_state.teams_dict.keys())[0]) & (st.session_state.df['type'] == 'Pass') & (st.session_state.df['has_goalkick'] == True)]
+        away_goalkick = st.session_state.df[(st.session_state.df['teamId'] == list(st.session_state.teams_dict.keys())[1]) & (st.session_state.df['type'] == 'Pass') & (st.session_state.df['has_goalkick'] == True)]
         
         import ast
         
