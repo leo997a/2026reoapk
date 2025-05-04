@@ -2863,5 +2863,4 @@ with tab3:
         
     except Exception as e:
         st.error(f"خطأ في عرض إحصائيات المباراة: {str(e)}")
-        import traceback
-        st.write("تفاصيل الخطأ:", traceback.format_exc())
+     
