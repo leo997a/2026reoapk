@@ -2408,9 +2408,22 @@ with tab3:
                 hteamName = st.session_state.teams_dict[team_ids[0]]
                 ateamName = st.session_state.teams_dict[team_ids[1]]
                 
+                # إضافة عمود isGoal جديد
+                df_temp = st.session_state.df.copy()
+                if 'isGoal' not in df_temp.columns:
+                    if 'isGoal_x' in df_temp.columns and 'isGoal_y' in df_temp.columns:
+                        df_temp['isGoal'] = df_temp['isGoal_x'] | df_temp['isGoal_y']
+                    elif 'isGoal_x' in df_temp.columns:
+                        df_temp['isGoal'] = df_temp['isGoal_x']
+                    elif 'isGoal_y' in df_temp.columns:
+                        df_temp['isGoal'] = df_temp['isGoal_y']
+                    else:
+                        # إذا لم يكن أي من العمودين موجودًا، أنشئ عمود isGoal بقيمة False
+                        df_temp['isGoal'] = False
+                
                 # إنشاء الرسم البياني
                 fig, ax = plt.subplots(figsize=(12, 12), facecolor=bg_color)
-                stats_df = plot_match_stats(ax, st.session_state.df, hteamName, ateamName, hcol, acol, bg_color, line_color)
+                stats_df = plot_match_stats(ax, df_temp, hteamName, ateamName, hcol, acol, bg_color, line_color)
                 
                 # إضافة العلامة المائية إذا كانت مفعلة
                 if watermark_enabled:
