@@ -2156,62 +2156,41 @@ with tab1:
         except Exception as e:
             st.error(f"خطأ في إنشاء شبكة التمريرات: {str(e)}")
 
-    elif an_tp == 'مناطق الهجوم':
-        st.subheader("تحليل مناطق الهجوم")
+elif an_tp == 'مناطق الهجوم':
+    st.subheader("تحليل مناطق الهجوم")
     
-    # اختيار الفريق مع إضافة key فريد
+    # اختيار الفريق
     team_ids = list(st.session_state.teams_dict.keys())
     team_names = list(st.session_state.teams_dict.values())
     selected_team_index = st.selectbox("اختر الفريق:", range(len(team_ids)),
                                       format_func=lambda x: team_names[x],
-                                      key="attacking_thirds_team_select")  # إضافة key فريد
+                                      key="attacking_thirds_team_select")
     selected_team_id = team_ids[selected_team_index]
     selected_team_name = team_names[selected_team_index]
     
-    # اختيار المسابقة والموسم (اختياري)
-    competition_name = st.text_input("اسم المسابقة (اختياري):", "", key="attacking_thirds_competition")  # إضافة key فريد
+    # اختيار المسابقة
+    competition_name = st.text_input("اسم المسابقة (اختياري):", "", key="attacking_thirds_competition")
     
-    # تحليل وعرض مناطق الهجوم مباشرة بدون زر
+    # اختيار الفترة
+    period = st.selectbox("اختر الفترة:", ['Full Match', 'First Half', 'Second Half'], 
+                          key='attacking_thirds_period')
+    
+    # تحليل وعرض مناطق الهجوم
     with st.spinner("جاري تحليل مناطق الهجوم..."):
-        fig = analyze_attacking_thirds(st.session_state.df, selected_team_id,
-                                      selected_team_name, competition_name)
+        fig, summary = analyze_attacking_thirds(st.session_state.df, selected_team_id,
+                                               selected_team_name, competition_name, period)
         st.pyplot(fig)
+        
+        # عرض الإحصائيات الملخصة
+        st.write("### إحصائيات ملخصة")
+        st.write(f"**التسديدات:** {summary['Shots']}")
+        st.write(f"**التمريرات الحاسمة:** {summary['Key Passes']}")
         
         # حفظ الصورة
-        save_path = f"{selected_team_name}_attacking_thirds.png"
-        fig.savefig(save_path, dpi=300, bbox_inches='tight', facecolor=bg_color)
+        period_str = period.replace(' ', '_').lower()
+        save_path = f"{selected_team_name}_attacking_thirds_{period_str}.png"
+        fig.savefig(save_path, dpi=300, bbox_inches='tight', facecolor='#22312b')
         st.success(f"تم حفظ الصورة بنجاح: {save_path}")
-
-    if an_tp == reshape_arabic_text('Team Domination Zones'):
-        st.subheader(reshape_arabic_text('مناطق سيطرة الفريق'))
-        phase_tag = st.selectbox(
-            'اختر الفترة:', ['Full Time', 'First Half', 'Second Half'], key='phase_tag_domination')
-        fig, ax = plt.subplots(figsize=(12, 8), facecolor=bg_color)
-        team_domination_zones(
-            ax,
-            phase_tag,
-            hteamName,
-            ateamName,
-            hcol,
-            acol,
-            bg_color,
-            line_color,
-            gradient_colors)
-        # إضافة عنوان أعلى الرسم
-        fig.text(
-            0.5, 0.98,
-            reshape_arabic_text(f'{hteamName} {hgoal_count} - {agoal_count} {ateamName}'),
-            fontsize=16, fontweight='bold', ha='center', va='center', color='white')
-        fig.text(0.5, 0.94, reshape_arabic_text('مناطق السيطرة'),
-                 fontsize=14, ha='center', va='center', color='white')
-        # إضافة العلامة المائية إذا كانت مفعلة
-        if watermark_enabled:
-            fig = add_watermark(fig, text=watermark_text, alpha=watermark_opacity, 
-                       fontsize=watermark_size, color=watermark_color,
-                       x_pos=watermark_x, y_pos=watermark_y, 
-                       ha=watermark_ha, va=watermark_va)
-        
-        st.pyplot(fig)
 
     elif an_tp == reshape_arabic_text('PPDA'):
         st.subheader(reshape_arabic_text('معدل الضغط (PPDA)'))
