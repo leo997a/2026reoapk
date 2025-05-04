@@ -2142,7 +2142,7 @@ with tab1:
         reshape_arabic_text('Chances Creating Zones'),
         reshape_arabic_text('Crosses'),
         reshape_arabic_text('Team Domination Zones'),
-        reshape_arabic_text('Pass Target Zones'),
+        reshape_arabic_text('مناطق استهداف التمريرات'),
         'Attacking Thirds',
         reshape_arabic_text('PPDA')
     ], index=0, key='analysis_type')
@@ -2394,6 +2394,83 @@ with tab1:
         
     except Exception as e:
         st.error(f"حدث خطأ: {e}")
+
+   
+    # إضافة زر لعرض مناطق استهداف التمريرات
+    if st.button(reshape_arabic_text("مناطق استهداف التمريرات")):
+        try:
+            # التأكد من وجود البيانات
+            if st.session_state.df is None or st.session_state.teams_dict is None:
+                st.error("يرجى تحميل بيانات المباراة أولاً")
+            else:
+                # استخراج معرفات الفرق
+                team_ids = list(st.session_state.teams_dict.keys())
+                
+                # الحصول على أسماء الفرق
+                team_names = [st.session_state.teams_dict[team_id] for team_id in team_ids]
+                
+                # إنشاء نسخة من DataFrame
+                df_temp = st.session_state.df.copy()
+                
+                # التأكد من وجود عمود isGoal
+                if 'isGoal' not in df_temp.columns:
+                    if 'isGoal_x' in df_temp.columns and 'isGoal_y' in df_temp.columns:
+                        df_temp['isGoal'] = df_temp['isGoal_x'] | df_temp['isGoal_y']
+                    elif 'isGoal_x' in df_temp.columns:
+                        df_temp['isGoal'] = df_temp['isGoal_x']
+                    elif 'isGoal_y' in df_temp.columns:
+                        df_temp['isGoal'] = df_temp['isGoal_y']
+                    else:
+                        df_temp['isGoal'] = False
+                
+                # إنشاء الرسم البياني لمناطق استهداف التمريرات
+                fig = plot_pass_target_zones(df_temp, team_ids, team_names, hcol, acol, bg_color, line_color, watermark_enabled)
+                
+                # عرض الرسم البياني
+                st.pyplot(fig)
+                
+                # إضافة وصف
+                st.markdown(reshape_arabic_text("""
+                **مناطق استهداف التمريرات** تظهر النسب المئوية للتمريرات التي تنتهي في كل منطقة من الملعب.
+                - الألوان الداكنة تشير إلى المناطق الأكثر استهدافًا
+                - النقاط الصغيرة تمثل نهايات التمريرات الفردية
+                - النسب المئوية تعكس توزيع التمريرات على مناطق الملعب
+                """))
+                
+        except Exception as e:
+            st.error(f"خطأ في عرض مناطق استهداف التمريرات: {str(e)}")
+            st.write("أعمدة DataFrame:", list(st.session_state.df.columns))
+            st.write("Team IDs:", list(st.session_state.teams_dict.keys()))
+            import traceback
+            st.write("Traceback:", traceback.format_exc())
+    
+    # استمرار باقي الكود الحالي للإحصائيات
+    try:
+        # تعريف متغير مؤقت لتقليل التكرار 
+        df = st.session_state.df 
+ 
+        # إنشاء الأعمدة بناءً على عمود qualifiers 
+        df['has_longball'] = df['qualifiers'].str.contains('Longball', na=False) & (~df['qualifiers'].str.contains('Corner', na=False)) & (~df['qualifiers'].str.contains('Cross', na=False)) 
+        df['has_cross'] = df['qualifiers'].str.contains('Cross', na=False) 
+        df['has_freekick'] = df['qualifiers'].str.contains('Freekick', na=False) 
+        df['has_corner'] = df['qualifiers'].str.contains('Corner', na=False) 
+        df['has_throwin'] = df['qualifiers'].str.contains('ThrowIn', na=False) 
+        df['has_goalkick'] = df['qualifiers'].str.contains('GoalKick', na=False) 
+ 
+        # التأكد من وجود مفاتيح الفرق 
+        team_ids = list(st.session_state.teams_dict.keys()) 
+        if not team_ids or len(team_ids) < 2: 
+            raise ValueError("لا توجد فرق كافية في teams_dict لعرض الإحصائيات.") 
+ 
+        # نسبة الاستحواذ 
+        hpossdf = df[(df['teamId'] == team_ids[0]) & (df['type'] == 'Pass')] 
+        apossdf = df[(df['teamId'] == team_ids[1]) & (df['type'] == 'Pass')] 
+        hposs = round((len(hpossdf) / (len(hpossdf) + len(apossdf))) * 100, 2) if (len(hpossdf) + len(apossdf)) > 0 else 0 
+        aposs = round((len(apossdf) / (len(hpossdf) + len(apossdf))) * 100, 2) if (len(hpossdf) + len(apossdf)) > 0 else 0 
+        
+        # ... باقي الكود الحالي ...
+    except Exception as e:
+        st.error(f"خطأ في عرض إحصائيات المباراة: {str(e)}")
 
 with tab3: 
     st.subheader(reshape_arabic_text("إحصائيات المباراة")) 
