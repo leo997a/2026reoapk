@@ -2169,7 +2169,7 @@ with tab1:
 with tab3:
     st.subheader(reshape_arabic_text("إحصائيات المباراة"))
     if st.button(reshape_arabic_text("إحصائيات المباراة")):
-    try:
+        try:
         # التحقق من وجود البيانات
         if st.session_state.df is None or st.session_state.teams_dict is None:
             st.error("يرجى تحميل بيانات المباراة أولاً")
