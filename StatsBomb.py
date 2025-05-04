@@ -309,14 +309,8 @@ def get_event_data(json_data):
     events_dict = json_data["events"]
     # إنشاء teams_dict مع مفاتيح أعداد صحيحة وهيكلية صحيحة
     teams_dict = {
-        int(json_data['home']['teamId']): {
-            'home_team_name': json_data['home']['name'],
-            'home_team_kit_colour': '#ff0000'  # استبدل باللون المناسب إذا كان متاحًا
-        },
-        int(json_data['away']['teamId']): {
-            'away_team_name': json_data['away']['name'],
-            'away_team_kit_colour': '#0000ff'  # استبدل باللون المناسب إذا كان متاحًا
-        }
+        int(json_data['home']['teamId']): json_data['home']['name'],
+        int(json_data['away']['teamId']): json_data['away']['name']
     }
     players_dict = json_data["playerIdNameDictionary"]
     
