@@ -2171,7 +2171,7 @@ with tab3:
     if st.button(reshape_arabic_text("إحصائيات المباراة")):
         try:
         # التحقق من وجود البيانات
-        if st.session_state.df is None or st.session_state.teams_dict is None:
+    if st.session_state.df is None or st.session_state.teams_dict is None:
             st.error("يرجى تحميل بيانات المباراة أولاً")
         else:
             # استخراج معرفات الفرق
