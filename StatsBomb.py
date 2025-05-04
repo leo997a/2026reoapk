@@ -1136,15 +1136,23 @@ def analyze_attacking_thirds(df, team_id, team_name, competition_name=None, peri
     """
     تحليل نسب الهجوم في الأثلاث الثلاثة للثلث الهجومي (يسار، وسط، يمين) مع دعم الأشواط
     """
-    json_data = st.session_state.json_data
     bg_color = '#22312b'  # خلفية داكنة
     line_color = '#c7d5cc'  # لون الخطوط
 
-    # تحديد ألوان الفريق مع قيم افتراضية
-    team_color = st.session_state.get('hcol', '#FF0000') if team_id == json_data['home']['teamId'] else st.session_state.get('acol', '#0000FF')
-    opponent_id = json_data['away']['teamId'] if team_id == json_data['home']['teamId'] else json_data['home']['teamId']
-    opponent_name = json_data['away']['name'] if team_id == json_data['home']['teamId'] else json_data['home']['name']
-    opponent_color = st.session_state.get('acol', '#0000FF') if team_id == json_data['home']['teamId'] else st.session_state.get('hcol', '#FF0000')
+    # التحقق من وجود json_data
+    json_data = st.session_state.get('json_data', None)
+    if json_data is None or 'home' not in json_data or 'away' not in json_data:
+        # قيم افتراضية إذا كانت البيانات مفقودة
+        team_color = '#FF0000'  # أحمر افتراضي
+        opponent_id = -1
+        opponent_name = 'Opponent'
+        opponent_color = '#0000FF'  # أزرق افتراضي
+    else:
+        # تحديد ألوان الفريق ومعلومات المنافس
+        team_color = st.session_state.get('hcol', '#FF0000') if team_id == json_data['home'].get('teamId', -1) else st.session_state.get('acol', '#0000FF')
+        opponent_id = json_data['away']['teamId'] if team_id == json_data['home'].get('teamId', -1) else json_data['home']['teamId']
+        opponent_name = json_data['away']['name'] if team_id == json_data['home'].get('teamId', -1) else json_data['home']['name']
+        opponent_color = st.session_state.get('acol', '#0000FF') if team_id == json_data['home'].get('teamId', -1) else st.session_state.get('hcol', '#FF0000')
 
     # تصفية أحداث الفريق
     team_events = df[df['team_id'] == team_id]
@@ -1314,16 +1322,21 @@ def analyze_attacking_thirds(df, team_id, team_name, competition_name=None, peri
              path_effects=[path_effects.withStroke(linewidth=1.5, foreground='black')])
 
     # إضافة العلامة المائية إذا كانت مفعلة
-    if 'watermark_enabled' in st.session_state and st.session_state.get('watermark_enabled', False):
-        fig = add_watermark(fig, 
-                           text=st.session_state.get('watermark_text', 'Watermark'),
-                           alpha=st.session_state.get('watermark_opacity', 0.5),
-                           fontsize=st.session_state.get('watermark_size', 10),
-                           color=st.session_state.get('watermark_color', 'gray'),
-                           x_pos=st.session_state.get('watermark_x', 0.5),
-                           y_pos=st.session_state.get('watermark_y', 0.5),
-                           ha=st.session_state.get('watermark_ha', 'center'),
-                           va=st.session_state.get('watermark_va', 'center'))
+    if st.session_state.get('watermark_enabled', False):
+        try:
+            fig = add_watermark(
+                fig,
+                text=st.session_state.get('watermark_text', 'Watermark'),
+                alpha=st.session_state.get('watermark_opacity', 0.5),
+                fontsize=st.session_state.get('watermark_size', 10),
+                color=st.session_state.get('watermark_color', 'gray'),
+                x_pos=st.session_state.get('watermark_x', 0.5),
+                y_pos=st.session_state.get('watermark_y', 0.5),
+                ha=st.session_state.get('watermark_ha', 'center'),
+                va=st.session_state.get('watermark_va', 'center')
+            )
+        except Exception as e:
+            st.warning(f"خطأ في إضافة العلامة المائية: {e}")
 
     plt.tight_layout(rect=[0, 0, 1, 0.9])
     return fig, summary
