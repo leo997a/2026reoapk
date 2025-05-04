@@ -1591,13 +1591,13 @@ def calculate_ppda_separate(
         return {}
 def plot_match_stats(ax, df, hteamName, ateamName, hcol, acol, bg_color, line_color):
     """
-    رسم إحصائيات المباراة بين فريقين
+    رسم إحصائيات المباراة بتصميم عصري وجذاب
     
     المعلمات:
     ax : matplotlib.axes.Axes
-        محور الرسم
+        محور الرسم البياني
     df : pandas.DataFrame
-        إطار بيانات أحداث المباراة
+        إطار البيانات المحتوي على أحداث المباراة
     hteamName : str
         اسم الفريق المضيف
     ateamName : str
@@ -1611,408 +1611,185 @@ def plot_match_stats(ax, df, hteamName, ateamName, hcol, acol, bg_color, line_co
     line_color : str
         لون الخطوط
     
-    Returns:
-    -------
+    العائد:
     pandas.DataFrame
-        إطار بيانات يحتوي على جميع الإحصائيات المحسوبة
+        إطار بيانات يحتوي على ملخص الإحصائيات
     """
-    # إنشاء إطار بيانات لتخزين الإحصائيات
-    stats_df = pd.DataFrame()
+    # استخراج معرفات الفرق
+    team_ids = list(set(df['teamId'].dropna().astype(int).tolist()))
+    if len(team_ids) < 2:
+        st.error("لم يتم العثور على معرفات كافية للفرق")
+        return pd.DataFrame()
     
-    # إحصائيات التمرير
-    # الاستحواذ %
-    hpossdf = df[(df['teamId'] == st.session_state.json_data['home']['teamId']) & (df['type'] == 'Pass')]
-    apossdf = df[(df['teamId'] == st.session_state.json_data['away']['teamId']) & (df['type'] == 'Pass')]
+    # التأكد من وجود أعمدة isGoal
+    if 'isGoal' not in df.columns:
+        if 'isGoal_x' in df.columns and 'isGoal_y' in df.columns:
+            df['isGoal'] = df['isGoal_x'] | df['isGoal_y']
+        elif 'isGoal_x' in df.columns:
+            df['isGoal'] = df['isGoal_x']
+        elif 'isGoal_y' in df.columns:
+            df['isGoal'] = df['isGoal_y']
+        else:
+            df['isGoal'] = False
     
-    total_passes = len(hpossdf) + len(apossdf)
-    if total_passes > 0:
-        hposs = round((len(hpossdf) / total_passes) * 100, 1)
-        aposs = round((len(apossdf) / total_passes) * 100, 1)
-    else:
-        hposs = 0
-        aposs = 0
+    # حساب الإحصائيات الأساسية
+    hgoals = len(df[(df['teamId'] == team_ids[0]) & (df['isGoal'] == True)])
+    agoals = len(df[(df['teamId'] == team_ids[1]) & (df['isGoal'] == True)])
     
-    # Field Tilt % (نسبة اللعب في الثلث الهجومي)
-    hftdf = df[(df['teamId'] == st.session_state.json_data['home']['teamId']) & (df['isTouch'] == True) & (df['x'] >= 70)]
-    aftdf = df[(df['teamId'] == st.session_state.json_data['away']['teamId']) & (df['isTouch'] == True) & (df['x'] >= 70)]
+    hshots = len(df[(df['teamId'] == team_ids[0]) & (df['type'] == 'Shot')])
+    ashots = len(df[(df['teamId'] == team_ids[1]) & (df['type'] == 'Shot')])
     
-    total_final_third = len(hftdf) + len(aftdf)
-    if total_final_third > 0:
-        hft = round((len(hftdf) / total_final_third) * 100, 1)
-        aft = round((len(aftdf) / total_final_third) * 100, 1)
-    else:
-        hft = 0
-        aft = 0
+    hsot = len(df[(df['teamId'] == team_ids[0]) & (df['type'] == 'Shot') & 
+                 (df['outcomeType'] == 'OnTarget')])
+    asot = len(df[(df['teamId'] == team_ids[1]) & (df['type'] == 'Shot') & 
+                 (df['outcomeType'] == 'OnTarget')])
     
-    # إجمالي التمريرات
-    htotalPass = len(df[(df['teamId'] == st.session_state.json_data['home']['teamId']) & (df['type'] == 'Pass')])
-    atotalPass = len(df[(df['teamId'] == st.session_state.json_data['away']['teamId']) & (df['type'] == 'Pass')])
+    # حساب إحصائيات إضافية
+    hpasses = len(df[(df['teamId'] == team_ids[0]) & (df['type'] == 'Pass')])
+    apasses = len(df[(df['teamId'] == team_ids[1]) & (df['type'] == 'Pass')])
     
-    # التمريرات الناجحة
-    hAccPass = len(df[(df['teamId'] == st.session_state.json_data['home']['teamId']) & 
-                      (df['type'] == 'Pass') & 
-                      (df['outcomeType'] == 'Successful')])
-    aAccPass = len(df[(df['teamId'] == st.session_state.json_data['away']['teamId']) & 
-                      (df['type'] == 'Pass') & 
-                      (df['outcomeType'] == 'Successful')])
+    hpasses_success = len(df[(df['teamId'] == team_ids[0]) & (df['type'] == 'Pass') & 
+                            (df['outcomeType'] == 'Successful')])
+    apasses_success = len(df[(df['teamId'] == team_ids[1]) & (df['type'] == 'Pass') & 
+                            (df['outcomeType'] == 'Successful')])
     
-    # نسبة دقة التمريرات
-    hPassAcc = round((hAccPass / htotalPass * 100), 1) if htotalPass > 0 else 0
-    aPassAcc = round((aAccPass / atotalPass * 100), 1) if atotalPass > 0 else 0
+    hpasses_accuracy = round(100 * hpasses_success / hpasses, 1) if hpasses > 0 else 0
+    apasses_accuracy = round(100 * apasses_success / apasses, 1) if apasses > 0 else 0
     
-    # التمريرات الناجحة (بدون الثلث الدفاعي)
-    hAccPasswdt = len(df[(df['teamId'] == st.session_state.json_data['home']['teamId']) & 
-                         (df['type'] == 'Pass') & 
-                         (df['outcomeType'] == 'Successful') & 
-                         (df['endX'] > 35)])
-    aAccPasswdt = len(df[(df['teamId'] == st.session_state.json_data['away']['teamId']) & 
-                         (df['type'] == 'Pass') & 
-                         (df['outcomeType'] == 'Successful') & 
-                         (df['endX'] > 35)])
+    # حساب الاستحواذ
+    htouches = len(df[df['teamId'] == team_ids[0]])
+    atouches = len(df[df['teamId'] == team_ids[1]])
+    hpossession = round(100 * htouches / (htouches + atouches), 1)
+    apossession = round(100 - hpossession, 1)
     
-    # الكرات الطويلة
-    # استخدام دالة مساعدة للتحقق من وجود نوع معين في qualifiers
-    def has_qualifier(qualifiers, qualifier_name, exclude_list=None):
-        if isinstance(qualifiers, str):
-            # إذا كان qualifiers نصًا، نحاول تحويله إلى قاموس
-            try:
-                import ast
-                qualifiers = ast.literal_eval(qualifiers)
-            except:
-                return False
-        
-        if isinstance(qualifiers, dict) and 'type' in qualifiers:
-            # إذا كان qualifiers قاموسًا مباشرًا
-            if 'displayName' in qualifiers['type'] and qualifiers['type']['displayName'] == qualifier_name:
-                if exclude_list:
-                    for exclude in exclude_list:
-                        if exclude in qualifiers['type']['displayName']:
-                            return False
-                return True
-        elif isinstance(qualifiers, list):
-            # إذا كان qualifiers قائمة من القواميس
-            for q in qualifiers:
-                if isinstance(q, dict) and 'type' in q:
-                    if 'displayName' in q['type'] and q['type']['displayName'] == qualifier_name:
-                        if exclude_list:
-                            for exclude in exclude_list:
-                                if exclude in q['type']['displayName']:
-                                    return False
-                        return True
-        
-        return False
+    # حساب الركلات الركنية
+    hcorners = len(df[(df['teamId'] == team_ids[0]) & (df['type'] == 'Corner')])
+    acorners = len(df[(df['teamId'] == team_ids[1]) & (df['type'] == 'Corner')])
     
-    # تطبيق الدالة المساعدة على البيانات
-    df['has_longball'] = df['qualifiers'].apply(lambda x: has_qualifier(x, 'Longball', ['Corner', 'Cross']))
-    df['has_cross'] = df['qualifiers'].apply(lambda x: has_qualifier(x, 'Cross'))
-    df['has_freekick'] = df['qualifiers'].apply(lambda x: has_qualifier(x, 'Freekick'))
-    df['has_corner'] = df['qualifiers'].apply(lambda x: has_qualifier(x, 'Corner'))
-    df['has_throwin'] = df['qualifiers'].apply(lambda x: has_qualifier(x, 'ThrowIn'))
-    df['has_goalkick'] = df['qualifiers'].apply(lambda x: has_qualifier(x, 'GoalKick'))
+    # حساب الأخطاء
+    hfouls = len(df[(df['teamId'] == team_ids[0]) & (df['type'] == 'Foul')])
+    afouls = len(df[(df['teamId'] == team_ids[1]) & (df['type'] == 'Foul')])
     
-    # الكرات الطويلة
-    hLongB = len(df[(df['teamId'] == st.session_state.json_data['home']['teamId']) & 
-                    (df['type'] == 'Pass') & 
-                    (df['has_longball'] == True)])
-    aLongB = len(df[(df['teamId'] == st.session_state.json_data['away']['teamId']) & 
-                    (df['type'] == 'Pass') & 
-                    (df['has_longball'] == True)])
+    # حساب البطاقات
+    hyellows = len(df[(df['teamId'] == team_ids[0]) & (df['type'] == 'Card') & 
+                     (df['cardType'] == 'Yellow')])
+    ayellows = len(df[(df['teamId'] == team_ids[1]) & (df['type'] == 'Card') & 
+                     (df['cardType'] == 'Yellow')])
     
-    # الكرات الطويلة الناجحة
-    hAccLongB = len(df[(df['teamId'] == st.session_state.json_data['home']['teamId']) & 
-                       (df['type'] == 'Pass') & 
-                       (df['has_longball'] == True) & 
-                       (df['outcomeType'] == 'Successful')])
-    aAccLongB = len(df[(df['teamId'] == st.session_state.json_data['away']['teamId']) & 
-                       (df['type'] == 'Pass') & 
-                       (df['has_longball'] == True) & 
-                       (df['outcomeType'] == 'Successful')])
+    hreds = len(df[(df['teamId'] == team_ids[0]) & (df['type'] == 'Card') & 
+                  (df['cardType'] == 'Red')])
+    areds = len(df[(df['teamId'] == team_ids[1]) & (df['type'] == 'Card') & 
+                  (df['cardType'] == 'Red')])
     
-    # نسبة دقة الكرات الطويلة
-    hLongBAcc = round((hAccLongB / hLongB * 100), 1) if hLongB > 0 else 0
-    aLongBAcc = round((aAccLongB / aLongB * 100), 1) if aLongB > 0 else 0
+    # حساب التسللات
+    hoffsides = len(df[(df['teamId'] == team_ids[0]) & (df['type'] == 'Offside')])
+    aoffsides = len(df[(df['teamId'] == team_ids[1]) & (df['type'] == 'Offside')])
     
-    # العرضيات
-    hCrss = len(df[(df['teamId'] == st.session_state.json_data['home']['teamId']) & 
-                   (df['type'] == 'Pass') & 
-                   (df['has_cross'] == True)])
-    aCrss = len(df[(df['teamId'] == st.session_state.json_data['away']['teamId']) & 
-                   (df['type'] == 'Pass') & 
-                   (df['has_cross'] == True)])
+    # حساب الكرات الطويلة
+    hlongballs = len(df[(df['teamId'] == team_ids[0]) & (df['has_longball'] == True)])
+    alongballs = len(df[(df['teamId'] == team_ids[1]) & (df['has_longball'] == True)])
     
-    # العرضيات الناجحة
-    hAccCrss = len(df[(df['teamId'] == st.session_state.json_data['home']['teamId']) & 
-                      (df['type'] == 'Pass') & 
-                      (df['has_cross'] == True) & 
-                      (df['outcomeType'] == 'Successful')])
-    aAccCrss = len(df[(df['teamId'] == st.session_state.json_data['away']['teamId']) & 
-                      (df['type'] == 'Pass') & 
-                      (df['has_cross'] == True) & 
-                      (df['outcomeType'] == 'Successful')])
+    # حساب العرضيات
+    hcrosses = len(df[(df['teamId'] == team_ids[0]) & (df['has_cross'] == True)])
+    acrosses = len(df[(df['teamId'] == team_ids[1]) & (df['has_cross'] == True)])
     
-    # نسبة دقة العرضيات
-    hCrssAcc = round((hAccCrss / hCrss * 100), 1) if hCrss > 0 else 0
-    aCrssAcc = round((aAccCrss / aCrss * 100), 1) if aCrss > 0 else 0
-    
-    # الركلات الحرة
-    hfk = len(df[(df['teamId'] == st.session_state.json_data['home']['teamId']) & 
-                (df['type'] == 'Pass') & 
-                (df['has_freekick'] == True)])
-    afk = len(df[(df['teamId'] == st.session_state.json_data['away']['teamId']) & 
-                (df['type'] == 'Pass') & 
-                (df['has_freekick'] == True)])
-    
-    # الركنيات
-    hCor = len(df[(df['teamId'] == st.session_state.json_data['home']['teamId']) & 
-                 (df['type'] == 'Pass') & 
-                 (df['has_corner'] == True)])
-    aCor = len(df[(df['teamId'] == st.session_state.json_data['away']['teamId']) & 
-                 (df['type'] == 'Pass') & 
-                 (df['has_corner'] == True)])
-    
-    # رميات التماس
-    htins = len(df[(df['teamId'] == st.session_state.json_data['home']['teamId']) & 
-                  (df['type'] == 'Pass') & 
-                  (df['has_throwin'] == True)])
-    atins = len(df[(df['teamId'] == st.session_state.json_data['away']['teamId']) & 
-                  (df['type'] == 'Pass') & 
-                  (df['has_throwin'] == True)])
-    
-    # ركلات المرمى
-    hglkk = len(df[(df['teamId'] == st.session_state.json_data['home']['teamId']) & 
-                  (df['type'] == 'Pass') & 
-                  (df['has_goalkick'] == True)])
-    aglkk = len(df[(df['teamId'] == st.session_state.json_data['away']['teamId']) & 
-                  (df['type'] == 'Pass') & 
-                  (df['has_goalkick'] == True)])
-    
-    # المراوغات
-    htotalDrb = len(df[(df['teamId'] == st.session_state.json_data['home']['teamId']) & 
-                       (df['type'] == 'TakeOn')])
-    atotalDrb = len(df[(df['teamId'] == st.session_state.json_data['away']['teamId']) & 
-                       (df['type'] == 'TakeOn')])
-    
-    # المراوغات الناجحة
-    hAccDrb = len(df[(df['teamId'] == st.session_state.json_data['home']['teamId']) & 
-                     (df['type'] == 'TakeOn') & 
-                     (df['outcomeType'] == 'Successful')])
-    aAccDrb = len(df[(df['teamId'] == st.session_state.json_data['away']['teamId']) & 
-                     (df['type'] == 'TakeOn') & 
-                     (df['outcomeType'] == 'Successful')])
-    
-    # نسبة نجاح المراوغات
-    hDrbAcc = round((hAccDrb / htotalDrb * 100), 1) if htotalDrb > 0 else 0
-    aDrbAcc = round((aAccDrb / atotalDrb * 100), 1) if atotalDrb > 0 else 0
-    
-    # التسديدات
-    hShots = len(df[(df['teamId'] == st.session_state.json_data['home']['teamId']) & 
-                    (df['type'] == 'Shot')])
-    aShots = len(df[(df['teamId'] == st.session_state.json_data['away']['teamId']) & 
-                    (df['type'] == 'Shot')])
-    
-    # التسديدات على المرمى
-    hShotsOnTarget = len(df[(df['teamId'] == st.session_state.json_data['home']['teamId']) & 
-                           (df['type'] == 'Shot') & 
-                           (df['outcomeType'] == 'Successful')])
-    aShotsOnTarget = len(df[(df['teamId'] == st.session_state.json_data['away']['teamId']) & 
-                           (df['type'] == 'Shot') & 
-                           (df['outcomeType'] == 'Successful')])
-    
-    # نسبة التسديدات على المرمى
-    hShotsOnTargetPct = round((hShotsOnTarget / hShots * 100), 1) if hShots > 0 else 0
-    aShotsOnTargetPct = round((aShotsOnTarget / aShots * 100), 1) if aShots > 0 else 0
-    
-    # الأهداف
-    hGoals = len(df[(df['teamId'] == st.session_state.json_data['home']['teamId']) & 
-                    (df['type'] == 'Shot') & 
-                    (df['isGoal'] == True)])
-    aGoals = len(df[(df['teamId'] == st.session_state.json_data['away']['teamId']) & 
-                    (df['type'] == 'Shot') & 
-                    (df['isGoal'] == True)])
-    
-    # تخزين الإحصائيات في إطار البيانات
-    stats_df.loc['الاستحواذ %', hteamName] = hposs
-    stats_df.loc['الاستحواذ %', ateamName] = aposs
-    
-    stats_df.loc['نسبة اللعب في الثلث الهجومي %', hteamName] = hft
-    stats_df.loc['نسبة اللعب في الثلث الهجومي %', ateamName] = aft
-    
-    stats_df.loc['إجمالي التمريرات', hteamName] = htotalPass
-    stats_df.loc['إجمالي التمريرات', ateamName] = atotalPass
-    
-    stats_df.loc['التمريرات الناجحة', hteamName] = hAccPass
-    stats_df.loc['التمريرات الناجحة', ateamName] = aAccPass
-    
-    stats_df.loc['دقة التمريرات %', hteamName] = hPassAcc
-    stats_df.loc['دقة التمريرات %', ateamName] = aPassAcc
-    
-    stats_df.loc['الكرات الطويلة', hteamName] = hLongB
-    stats_df.loc['الكرات الطويلة', ateamName] = aLongB
-    
-    stats_df.loc['الكرات الطويلة الناجحة', hteamName] = hAccLongB
-    stats_df.loc['الكرات الطويلة الناجحة', ateamName] = aAccLongB
-    
-    stats_df.loc['دقة الكرات الطويلة %', hteamName] = hLongBAcc
-    stats_df.loc['دقة الكرات الطويلة %', ateamName] = aLongBAcc
-    
-    stats_df.loc['العرضيات', hteamName] = hCrss
-    stats_df.loc['العرضيات', ateamName] = aCrss
-    
-    stats_df.loc['العرضيات الناجحة', hteamName] = hAccCrss
-    stats_df.loc['العرضيات الناجحة', ateamName] = aAccCrss
-    
-    stats_df.loc['دقة العرضيات %', hteamName] = hCrssAcc
-    stats_df.loc['دقة العرضيات %', ateamName] = aCrssAcc
-    
-    stats_df.loc['الركلات الحرة', hteamName] = hfk
-    stats_df.loc['الركلات الحرة', ateamName] = afk
-    
-    stats_df.loc['الركنيات', hteamName] = hCor
-    stats_df.loc['الركنيات', ateamName] = aCor
-    
-    stats_df.loc['رميات التماس', hteamName] = htins
-    stats_df.loc['رميات التماس', ateamName] = atins
-    
-    stats_df.loc['ركلات المرمى', hteamName] = hglkk
-    stats_df.loc['ركلات المرمى', ateamName] = aglkk
-    
-    stats_df.loc['المراوغات', hteamName] = htotalDrb
-    stats_df.loc['المراوغات', ateamName] = atotalDrb
-    
-    stats_df.loc['المراوغات الناجحة', hteamName] = hAccDrb
-    stats_df.loc['المراوغات الناجحة', ateamName] = aAccDrb
-    
-    stats_df.loc['نسبة نجاح المراوغات %', hteamName] = hDrbAcc
-    stats_df.loc['نسبة نجاح المراوغات %', ateamName] = aDrbAcc
-    
-    stats_df.loc['التسديدات', hteamName] = hShots
-    stats_df.loc['التسديدات', ateamName] = aShots
-    
-    stats_df.loc['التسديدات على المرمى', hteamName] = hShotsOnTarget
-    stats_df.loc['التسديدات على المرمى', ateamName] = aShotsOnTarget
-    
-    stats_df.loc['نسبة التسديدات على المرمى %', hteamName] = hShotsOnTargetPct
-    stats_df.loc['نسبة التسديدات على المرمى %', ateamName] = aShotsOnTargetPct
-    
-    stats_df.loc['الأهداف', hteamName] = hGoals
-    stats_df.loc['الأهداف', ateamName] = aGoals
-    
-    # تحديد الإحصائيات التي سيتم عرضها في الرسم البياني
-    display_stats = [
-        'الاستحواذ %',
-        'نسبة اللعب في الثلث الهجومي %',
-        'إجمالي التمريرات',
-        'دقة التمريرات %',
-        'الكرات الطويلة',
-        'دقة الكرات الطويلة %',
-        'العرضيات',
-        'دقة العرضيات %',
-        'الركلات الحرة',
-        'الركنيات',
-        'المراوغات',
-        'نسبة نجاح المراوغات %',
-        'التسديدات',
-        'التسديدات على المرمى',
-        'الأهداف'
+    # إنشاء قائمة بالإحصائيات
+    stats = [
+        {'name': 'الأهداف', 'home': hgoals, 'away': agoals},
+        {'name': 'التسديدات', 'home': hshots, 'away': ashots},
+        {'name': 'التسديدات على المرمى', 'home': hsot, 'away': asot},
+        {'name': 'الاستحواذ %', 'home': hpossession, 'away': apossession},
+        {'name': 'الركلات الركنية', 'home': hcorners, 'away': acorners},
+        {'name': 'التمريرات', 'home': hpasses, 'away': apasses},
+        {'name': 'دقة التمريرات %', 'home': hpasses_accuracy, 'away': apasses_accuracy},
+        {'name': 'الأخطاء', 'home': hfouls, 'away': afouls},
+        {'name': 'البطاقات الصفراء', 'home': hyellows, 'away': ayellows},
+        {'name': 'البطاقات الحمراء', 'home': hreds, 'away': areds},
+        {'name': 'التسللات', 'home': hoffsides, 'away': aoffsides},
+        {'name': 'الكرات الطويلة', 'home': hlongballs, 'away': alongballs},
+        {'name': 'العرضيات', 'home': hcrosses, 'away': acrosses}
     ]
     
-    # إنشاء إطار بيانات للعرض
-    display_df = stats_df.loc[display_stats]
-    
-    # تعيين الألوان للفرق
-    team_colors = {hteamName: hcol, ateamName: acol}
+    # إنشاء DataFrame للإحصائيات
+    stats_df = pd.DataFrame(stats)
     
     # إعداد الرسم البياني
     ax.set_facecolor(bg_color)
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, len(stats))
     
-    # عدد الإحصائيات المعروضة
-    n_stats = len(display_stats)
-    
-    # تحديد مواضع الأشرطة
-    y_pos = np.arange(n_stats)
-    bar_height = 0.35
-    
-    # رسم الأشرطة للفريق المضيف
-    home_bars = ax.barh(y_pos - bar_height/2, display_df[hteamName], bar_height, 
-                        color=hcol, alpha=0.7, label=hteamName)
-    
-    # رسم الأشرطة للفريق الضيف
-    away_bars = ax.barh(y_pos + bar_height/2, display_df[ateamName], bar_height, 
-                        color=acol, alpha=0.7, label=ateamName)
-    
-    # إضافة قيم الإحصائيات على الأشرطة
-    for i, bar in enumerate(home_bars):
-        stat_value = display_df[hteamName].iloc[i]
-        if isinstance(stat_value, (int, float)):
-            if '%' in display_stats[i]:  # إذا كانت نسبة مئوية
-                text = f"{stat_value:.1f}%"
-            else:  # إذا كانت قيمة عددية
-                text = f"{int(stat_value)}"
-            
-            # تحديد موضع النص (داخل أو خارج الشريط)
-            width = bar.get_width()
-            if width > max(display_df[hteamName].max(), display_df[ateamName].max()) * 0.15:
-                # داخل الشريط
-                ax.text(width / 2, bar.get_y() + bar.get_height() / 2, text,
-                        ha='center', va='center', color='white', fontweight='bold',
-                        path_effects=[path_effects.withStroke(linewidth=1.5, foreground='black')])
-            else:
-                # خارج الشريط
-                ax.text(width + max(display_df[hteamName].max(), display_df[ateamName].max()) * 0.02, 
-                        bar.get_y() + bar.get_height() / 2, text,
-                        ha='left', va='center', color='white', fontweight='bold',
-                        path_effects=[path_effects.withStroke(linewidth=1.5, foreground='black')])
-    
-    for i, bar in enumerate(away_bars):
-        stat_value = display_df[ateamName].iloc[i]
-        if isinstance(stat_value, (int, float)):
-            if '%' in display_stats[i]:  # إذا كانت نسبة مئوية
-                text = f"{stat_value:.1f}%"
-            else:  # إذا كانت قيمة عددية
-                text = f"{int(stat_value)}"
-            
-            # تحديد موضع النص (داخل أو خارج الشريط)
-            width = bar.get_width()
-            if width > max(display_df[hteamName].max(), display_df[ateamName].max()) * 0.15:
-                # داخل الشريط
-                ax.text(width / 2, bar.get_y() + bar.get_height() / 2, text,
-                        ha='center', va='center', color='white', fontweight='bold',
-                        path_effects=[path_effects.withStroke(linewidth=1.5, foreground='black')])
-            else:
-                # خارج الشريط
-                ax.text(width + max(display_df[hteamName].max(), display_df[ateamName].max()) * 0.02, 
-                        bar.get_y() + bar.get_height() / 2, text,
-                        ha='left', va='center', color='white', fontweight='bold',
-                        path_effects=[path_effects.withStroke(linewidth=1.5, foreground='black')])
-    
-    # تعيين أسماء الإحصائيات
-    ax.set_yticks(y_pos)
-    ax.set_yticklabels([reshape_arabic_text(stat) for stat in display_stats], fontsize=12)
-    
-    # تعيين حدود المحور الأفقي
-    max_value = max(display_df[hteamName].max(), display_df[ateamName].max())
-    ax.set_xlim(0, max_value * 1.2)
-    
-    # إزالة الإطار والشبكة
+    # إزالة المحاور
+    ax.set_xticks([])
+    ax.set_yticks([])
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
     ax.spines['bottom'].set_visible(False)
-    ax.spines['left'].set_color(line_color)
-    
-    # إزالة علامات المحور الأفقي
-    ax.set_xticks([])
-    
-    # إضافة وسيلة إيضاح
-    ax.legend(loc='upper center', bbox_to_anchor=(0.5, 1.05), ncol=2, frameon=False, 
-              fontsize=12, labelcolor='white')
+    ax.spines['left'].set_visible(False)
     
     # إضافة عنوان
-    ax.set_title(reshape_arabic_text('إحصائيات المباراة'), color='white', fontsize=16, 
-                 fontweight='bold', pad=20,
-                 path_effects=[path_effects.withStroke(linewidth=2, foreground='black')])
+    ax.text(0.5, len(stats) + 0.8, reshape_arabic_text("إحصائيات المباراة"), 
+            ha='center', va='center', fontsize=24, color=line_color, 
+            fontweight='bold', fontfamily=selected_font)
+    
+    # إضافة أسماء الفرق
+    ax.text(0.15, len(stats) + 0.4, reshape_arabic_text(hteamName), 
+            ha='center', va='center', fontsize=18, color=hcol, 
+            fontweight='bold', fontfamily=selected_font)
+    ax.text(0.85, len(stats) + 0.4, reshape_arabic_text(ateamName), 
+            ha='center', va='center', fontsize=18, color=acol, 
+            fontweight='bold', fontfamily=selected_font)
+    
+    # إضافة النتيجة
+    ax.text(0.15, len(stats) + 0.1, str(hgoals), 
+            ha='center', va='center', fontsize=22, color=hcol, 
+            fontweight='bold', fontfamily=selected_font)
+    ax.text(0.5, len(stats) + 0.1, "-", 
+            ha='center', va='center', fontsize=22, color=line_color, 
+            fontweight='bold', fontfamily=selected_font)
+    ax.text(0.85, len(stats) + 0.1, str(agoals), 
+            ha='center', va='center', fontsize=22, color=acol, 
+            fontweight='bold', fontfamily=selected_font)
+    
+    # رسم الإحصائيات
+    for i, stat in enumerate(stats):
+        # اسم الإحصائية
+        ax.text(0.5, len(stats) - i - 0.5, reshape_arabic_text(stat['name']), 
+                ha='center', va='center', fontsize=14, color=line_color, 
+                fontweight='bold', fontfamily=selected_font)
+        
+        # قيمة الإحصائية للفريق المضيف
+        ax.text(0.15, len(stats) - i - 0.5, str(stat['home']), 
+                ha='center', va='center', fontsize=14, color=hcol, 
+                fontweight='bold', fontfamily=selected_font)
+        
+        # قيمة الإحصائية للفريق الضيف
+        ax.text(0.85, len(stats) - i - 0.5, str(stat['away']), 
+                ha='center', va='center', fontsize=14, color=acol, 
+                fontweight='bold', fontfamily=selected_font)
+        
+        # رسم شريط للإحصائيات النسبية (مثل الاستحواذ ودقة التمريرات)
+        if stat['name'] in ['الاستحواذ %', 'دقة التمريرات %']:
+            total = stat['home'] + stat['away']
+            if total > 0:
+                home_width = 0.3 * (stat['home'] / total)
+                away_width = 0.3 * (stat['away'] / total)
+                
+                # شريط الفريق المضيف
+                ax.barh(len(stats) - i - 0.5, home_width, height=0.2, 
+                       left=0.35 - home_width, color=hcol, alpha=0.7)
+                
+                # شريط الفريق الضيف
+                ax.barh(len(stats) - i - 0.5, away_width, height=0.2, 
+                       left=0.65, color=acol, alpha=0.7)
+        
+        # إضافة خط فاصل
+        if i < len(stats) - 1:
+            ax.axhline(y=len(stats) - i - 1, color=line_color, alpha=0.2, linestyle='-')
+    
+    # إضافة خط عمودي في المنتصف
+    ax.axvline(x=0.5, color=line_color, alpha=0.2, linestyle='-')
     
     return stats_df
-
 # واجهة Streamlit
 st.title("تحليل مباراة كرة القدم")
 uploaded_html = st.file_uploader("قم برفع ملف HTML للمباراة:", type=["html"])
