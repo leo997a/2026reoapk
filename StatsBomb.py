@@ -1567,6 +1567,174 @@ def calculate_ppda_separate(
     except Exception as e:
         st.error(f"خطأ في حساب PPDA: {str(e)}")
         return {}
+
+def plot_pass_target_zones(df, team_ids, team_names, hcol, acol, bg_color, line_color, watermark_enabled=True):
+    """
+    رسم مناطق استهداف التمريرات للفريقين بتصميم عصري
+    
+    المعلمات:
+    df : pandas.DataFrame
+        إطار البيانات المحتوي على أحداث المباراة
+    team_ids : list
+        قائمة تحتوي على معرفات الفريقين
+    team_names : list
+        قائمة تحتوي على أسماء الفريقين
+    hcol : str
+        لون الفريق المضيف
+    acol : str
+        لون الفريق الضيف
+    bg_color : str
+        لون الخلفية
+    line_color : str
+        لون الخطوط
+    watermark_enabled : bool
+        تفعيل/تعطيل العلامة المائية
+    
+    العائد:
+    matplotlib.figure.Figure
+        الرسم البياني لمناطق استهداف التمريرات
+    """
+    # التأكد من وجود بيانات كافية
+    if len(team_ids) < 2:
+        st.error("لا توجد معرفات كافية للفريقين")
+        return None
+    
+    # تصفية التمريرات لكل فريق
+    home_passes = df[(df['teamId'] == team_ids[0]) & (df['type'] == 'Pass')]
+    away_passes = df[(df['teamId'] == team_ids[1]) & (df['type'] == 'Pass')]
+    
+    # إنشاء الرسم البياني
+    fig, axes = plt.subplots(1, 2, figsize=(16, 8), facecolor=bg_color)
+    
+    # تقسيم الملعب إلى مناطق (5×6)
+    n_zones_x = 5
+    n_zones_y = 6
+    
+    # حساب أبعاد كل منطقة
+    zone_width = 100 / n_zones_x
+    zone_height = 100 / n_zones_y
+    
+    # إنشاء مصفوفات لتخزين عدد التمريرات في كل منطقة
+    home_zones = np.zeros((n_zones_y, n_zones_x))
+    away_zones = np.zeros((n_zones_y, n_zones_x))
+    
+    # حساب عدد التمريرات في كل منطقة للفريق المضيف
+    for _, pass_event in home_passes.iterrows():
+        x = pass_event['endX']
+        y = pass_event['endY']
+        
+        # التأكد من أن الإحداثيات ضمن حدود الملعب
+        if 0 <= x <= 100 and 0 <= y <= 100:
+            zone_x = min(int(x / zone_width), n_zones_x - 1)
+            zone_y = min(int(y / zone_height), n_zones_y - 1)
+            home_zones[zone_y, zone_x] += 1
+    
+    # حساب عدد التمريرات في كل منطقة للفريق الضيف
+    for _, pass_event in away_passes.iterrows():
+        x = pass_event['endX']
+        y = pass_event['endY']
+        
+        # التأكد من أن الإحداثيات ضمن حدود الملعب
+        if 0 <= x <= 100 and 0 <= y <= 100:
+            zone_x = min(int(x / zone_width), n_zones_x - 1)
+            zone_y = min(int(y / zone_height), n_zones_y - 1)
+            away_zones[zone_y, zone_x] += 1
+    
+    # تحويل العدد إلى نسب مئوية
+    home_total = np.sum(home_zones)
+    away_total = np.sum(away_zones)
+    
+    home_percentages = np.round((home_zones / home_total * 100), 1) if home_total > 0 else np.zeros_like(home_zones)
+    away_percentages = np.round((away_zones / away_total * 100), 1) if away_total > 0 else np.zeros_like(away_zones)
+    
+    # إنشاء تدرجات لونية للفريقين
+    home_cmap = LinearSegmentedColormap.from_list('home_cmap', [to_rgba(bg_color, 0.3), to_rgba(hcol, 0.9)])
+    away_cmap = LinearSegmentedColormap.from_list('away_cmap', [to_rgba(bg_color, 0.3), to_rgba(acol, 0.9)])
+    
+    # رسم خرائط حرارية للفريقين
+    for ax_idx, (ax, team_zones, team_percentages, team_name, team_cmap) in enumerate(
+            zip(axes, [home_zones, away_zones], [home_percentages, away_percentages], 
+                [team_names[0], team_names[1]], [home_cmap, away_cmap])):
+        
+        # إعداد الرسم
+        pitch = Pitch(pitch_type='statsbomb', pitch_color=bg_color, line_color=line_color,
+                     goal_type='line', linewidth=1.5, corner_arcs=True)
+        pitch.draw(ax=ax)
+        
+        # رسم المناطق مع النسب المئوية
+        for y in range(n_zones_y):
+            for x in range(n_zones_x):
+                # حساب إحداثيات المنطقة
+                x1 = x * zone_width
+                y1 = y * zone_height
+                x2 = (x + 1) * zone_width
+                y2 = (y + 1) * zone_height
+                
+                # حساب مركز المنطقة
+                center_x = (x1 + x2) / 2
+                center_y = (y1 + y2) / 2
+                
+                # الحصول على النسبة المئوية للمنطقة
+                percentage = team_percentages[y, x]
+                
+                # تحديد لون الخلفية بناءً على النسبة المئوية
+                alpha = min(0.9, 0.1 + (percentage / 10))
+                
+                # رسم مستطيل المنطقة
+                rect = patches.Rectangle((x1, y1), zone_width, zone_height, 
+                                        linewidth=1, edgecolor=line_color, 
+                                        facecolor=team_cmap(percentage / 15), 
+                                        alpha=alpha, zorder=2)
+                ax.add_patch(rect)
+                
+                # إضافة النسبة المئوية كنص
+                if percentage > 0:
+                    text_color = line_color if percentage < 5 else 'white'
+                    text = ax.text(center_x, center_y, f"{percentage}%", 
+                                  ha='center', va='center', fontsize=10, 
+                                  color=text_color, fontweight='bold', zorder=3,
+                                  fontfamily=selected_font)
+                    text.set_path_effects([path_effects.withStroke(linewidth=1.5, foreground=bg_color)])
+        
+        # إضافة نقاط التمريرات
+        team_passes = home_passes if ax_idx == 0 else away_passes
+        ax.scatter(team_passes['endX'], team_passes['endY'], s=5, 
+                  color=hcol if ax_idx == 0 else acol, alpha=0.3, zorder=1)
+        
+        # إضافة عنوان للرسم
+        team_color = hcol if ax_idx == 0 else acol
+        ax.set_title(reshape_arabic_text(f"مناطق استهداف التمريرات - {team_name}"), 
+                    color=team_color, fontsize=14, fontweight='bold', fontfamily=selected_font)
+        
+        # إضافة معلومات إضافية
+        total_passes = len(team_passes)
+        ax.text(50, -8, reshape_arabic_text(f"إجمالي التمريرات: {total_passes}"), 
+               ha='center', va='center', fontsize=12, color=line_color, fontfamily=selected_font)
+        
+        # إضافة الوقت
+        ax.text(50, 108, reshape_arabic_text("الوقت الكامل: 0-90 دقيقة"), 
+               ha='center', va='center', fontsize=10, color=line_color, fontfamily=selected_font)
+    
+    # إضافة عنوان رئيسي
+    score_text = f"{team_names[0]} {len(df[(df['teamId'] == team_ids[0]) & (df['isGoal'] == True)])} - {len(df[(df['teamId'] == team_ids[1]) & (df['isGoal'] == True)])} {team_names[1]}"
+    fig.suptitle(reshape_arabic_text(f"{score_text}\nمناطق استهداف التمريرات"), 
+                fontsize=16, color=line_color, fontweight='bold', y=0.98, fontfamily=selected_font)
+    
+    # إضافة معلومات القناة
+    fig.text(0.5, 0.02, reshape_arabic_text("@adnaaan433 | @sahilgdwn"), 
+            ha='center', va='center', fontsize=10, color=line_color, fontfamily=selected_font)
+    
+    # ضبط المسافات بين الرسوم
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+    
+    # إضافة العلامة المائية إذا كانت مفعلة
+    if watermark_enabled:
+        add_watermark(fig, text=watermark_text, alpha=watermark_opacity, 
+                     fontsize=watermark_size, color=watermark_color,
+                     x_pos=watermark_x, y_pos=watermark_y, 
+                     ha=watermark_ha, va=watermark_va)
+    
+    return fig
 def plot_match_stats(ax, df, hteamName, ateamName, hcol, acol, bg_color, line_color):
     """
     رسم إحصائيات المباراة بتصميم عصري وجذاب
