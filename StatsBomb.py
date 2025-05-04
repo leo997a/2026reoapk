@@ -1140,11 +1140,11 @@ def analyze_attacking_thirds(df, team_id, team_name, competition_name=None, peri
     bg_color = '#22312b'  # خلفية داكنة
     line_color = '#c7d5cc'  # لون الخطوط
 
-    # تحديد ألوان الفريق
-    team_color = st.session_state.hcol if team_id == json_data['home']['teamId'] else st.session_state.acol
+    # تحديد ألوان الفريق مع قيم افتراضية
+    team_color = st.session_state.get('hcol', '#FF0000') if team_id == json_data['home']['teamId'] else st.session_state.get('acol', '#0000FF')
     opponent_id = json_data['away']['teamId'] if team_id == json_data['home']['teamId'] else json_data['home']['teamId']
     opponent_name = json_data['away']['name'] if team_id == json_data['home']['teamId'] else json_data['home']['name']
-    opponent_color = st.session_state.acol if team_id == json_data['home']['teamId'] else st.session_state.hcol
+    opponent_color = st.session_state.get('acol', '#0000FF') if team_id == json_data['home']['teamId'] else st.session_state.get('hcol', '#FF0000')
 
     # تصفية أحداث الفريق
     team_events = df[df['team_id'] == team_id]
@@ -1155,7 +1155,7 @@ def analyze_attacking_thirds(df, team_id, team_name, competition_name=None, peri
     elif period == 'Second Half':
         team_events = team_events[team_events['period'] == 2]
 
-    # استخراج أحداث الثلث الهجومي فقط (x >= 80 لتقليل المنطقة إلى الثلث الأخير)
+    # استخراج أحداث الثلث الهجومي (x >= 80)
     final_third_events = team_events[team_events['x'] >= 80]
 
     # تقسيم الثلث الهجومي إلى ثلاث مناطق عرضية
@@ -1183,7 +1183,7 @@ def analyze_attacking_thirds(df, team_id, team_name, competition_name=None, peri
     pitch = Pitch(pitch_type='statsbomb', pitch_color=bg_color, line_color=line_color, stripe=False, goal_type='box')
     pitch.draw(ax=ax)
 
-    # تحديد اتجاه الهجوم (من اليسار إلى اليمين)
+    # تحديد اتجاه الهجوم
     attack_direction = 'right'
 
     # رسم مناطق الثلث الهجومي بتدرج لوني
@@ -1229,14 +1229,12 @@ def analyze_attacking_thirds(df, team_id, team_name, competition_name=None, peri
         ax.text(100, 13.35, f"{left_pct:.1f}%", color='white', fontsize=16, 
                 fontweight='bold', ha='center', va='center', zorder=3,
                 path_effects=[path_effects.withStroke(linewidth=2, foreground='black')])
-        
         # وسط
         circle2 = plt.Circle((100, 40), 7, color='white', alpha=0.3, zorder=2)
         ax.add_artist(circle2)
         ax.text(100, 40, f"{center_pct:.1f}%", color='white', fontsize=16, 
                 fontweight='bold', ha='center', va='center', zorder=3,
                 path_effects=[path_effects.withStroke(linewidth=2, foreground='black')])
-        
         # يمين
         circle3 = plt.Circle((100, 66.65), 7, color='white', alpha=0.3, zorder=2)
         ax.add_artist(circle3)
@@ -1250,14 +1248,12 @@ def analyze_attacking_thirds(df, team_id, team_name, competition_name=None, peri
         ax.text(20, 13.35, f"{left_pct:.1f}%", color='white', fontsize=16, 
                 fontweight='bold', ha='center', va='center', zorder=3,
                 path_effects=[path_effects.withStroke(linewidth=2, foreground='black')])
-        
         # وسط
         circle2 = plt.Circle((20, 40), 7, color='white', alpha=0.3, zorder=2)
         ax.add_artist(circle2)
         ax.text(20, 40, f"{center_pct:.1f}%", color='white', fontsize=16, 
                 fontweight='bold', ha='center', va='center', zorder=3,
                 path_effects=[path_effects.withStroke(linewidth=2, foreground='black')])
-        
         # يمين
         circle3 = plt.Circle((20, 66.65), 7, color='white', alpha=0.3, zorder=2)
         ax.add_artist(circle3)
@@ -1317,16 +1313,17 @@ def analyze_attacking_thirds(df, team_id, team_name, competition_name=None, peri
     fig.text(0.5, 0.94, subtitle_text, fontsize=16, color='white', ha='center', zorder=10,
              path_effects=[path_effects.withStroke(linewidth=1.5, foreground='black')])
 
-    # إضافة العلامة المائية
-    if 'watermark_enabled' in st.session_state and st.session_state.watermark_enabled:
-        fig = add_watermark(fig, text=st.session_state.watermark_text, 
-                           alpha=st.session_state.watermark_opacity, 
-                           fontsize=st.session_state.watermark_size, 
-                           color=st.session_state.watermark_color,
-                           x_pos=st.session_state.watermark_x, 
-                           y_pos=st.session_state.watermark_y, 
-                           ha=st.session_state.watermark_ha, 
-                           va=st.session_state.watermark_va)
+    # إضافة العلامة المائية إذا كانت مفعلة
+    if 'watermark_enabled' in st.session_state and st.session_state.get('watermark_enabled', False):
+        fig = add_watermark(fig, 
+                           text=st.session_state.get('watermark_text', 'Watermark'),
+                           alpha=st.session_state.get('watermark_opacity', 0.5),
+                           fontsize=st.session_state.get('watermark_size', 10),
+                           color=st.session_state.get('watermark_color', 'gray'),
+                           x_pos=st.session_state.get('watermark_x', 0.5),
+                           y_pos=st.session_state.get('watermark_y', 0.5),
+                           ha=st.session_state.get('watermark_ha', 'center'),
+                           va=st.session_state.get('watermark_va', 'center'))
 
     plt.tight_layout(rect=[0, 0, 1, 0.9])
     return fig, summary
