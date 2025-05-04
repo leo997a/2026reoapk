@@ -2192,11 +2192,12 @@ with tab1:
             st.write("### إحصائيات ملخصة")
             st.write(f"**التسديدات:** {summary['Shots']}")
             st.write(f"**التمريرات الحاسمة:** {summary['Key Passes']}")
+            st.write(f"**إجمالي الأحداث:** {summary['Total Events']}")
         
             # حفظ الصورة
             period_str = period.replace(' ', '_').lower()
             save_path = f"{selected_team_name}_attacking_thirds_{period_str}.png"
-            fig.savefig(save_path, dpi=300, bbox_inches='tight', facecolor='#22312b')
+            fig.savefig(save_path, dpi=300, bbox_inches='tight', facecolor=bg_color)
             st.success(f"تم حفظ الصورة بنجاح: {save_path}")
 
     elif an_tp == reshape_arabic_text('PPDA'):
