@@ -2861,6 +2861,6 @@ with tab3:
         # عرض الجدول
         st.dataframe(formatted_stats, width=800)
         
-except Exception as e:
-    st.error(f"خطأ في عرض إحصائيات المباراة: {str(e)}")
+    except Exception as e:
+        st.error(f"خطأ في عرض إحصائيات المباراة: {str(e)}")
      
