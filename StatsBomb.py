@@ -2475,56 +2475,59 @@ with tab1:
 with tab3:
     st.subheader(reshape_arabic_text("إحصائيات المباراة"))
     
-    # إضافة زر لعرض مناطق استهداف التمريرات
-    if st.button(reshape_arabic_text("مناطق استهداف التمريرات")):
-        try:
-            # التأكد من وجود البيانات
-            if st.session_state.df is None or st.session_state.teams_dict is None:
-                st.error("يرجى تحميل بيانات المباراة أولاً")
-            else:
-                # استخراج معرفات الفرق
-                team_ids = list(st.session_state.teams_dict.keys())
-                
-                # الحصول على أسماء الفرق
-                team_names = [st.session_state.teams_dict[team_id] for team_id in team_ids]
-                
-                # إنشاء نسخة من DataFrame
-                df_temp = st.session_state.df.copy()
-                
-                # التأكد من وجود عمود isGoal
-                if 'isGoal' not in df_temp.columns:
-                    if 'isGoal_x' in df_temp.columns and 'isGoal_y' in df_temp.columns:
-                        df_temp['isGoal'] = df_temp['isGoal_x'] | df_temp['isGoal_y']
-                    elif 'isGoal_x' in df_temp.columns:
-                        df_temp['isGoal'] = df_temp['isGoal_x']
-                    elif 'isGoal_y' in df_temp.columns:
-                        df_temp['isGoal'] = df_temp['isGoal_y']
-                    else:
-                        df_temp['isGoal'] = False
-                
-                # إنشاء الرسم البياني لمناطق استهداف التمريرات
-                fig = plot_pass_target_zones(df_temp, team_ids, team_names, hcol, acol, bg_color, line_color, watermark_enabled)
-                
-                # عرض الرسم البياني
-                st.pyplot(fig)
-                
-                # إضافة وصف
-                st.markdown(reshape_arabic_text("""
-                **مناطق استهداف التمريرات** تظهر النسب المئوية للتمريرات التي تنتهي في كل منطقة من الملعب.
-                - الألوان الداكنة تشير إلى المناطق الأكثر استهدافًا
-                - النقاط الصغيرة تمثل نهايات التمريرات الفردية
-                - النسب المئوية تعكس توزيع التمريرات على مناطق الملعب
-                """))
-                
-        except Exception as e:
-            st.error(f"خطأ في عرض مناطق استهداف التمريرات: {str(e)}")
-            st.write("أعمدة DataFrame:", list(st.session_state.df.columns))
-            st.write("Team IDs:", list(st.session_state.teams_dict.keys()))
-            import traceback
-            st.write("Traceback:", traceback.format_exc())
-    
-
+    try:
+        # إضافة زر لعرض مناطق استهداف التمريرات
+        if st.button(reshape_arabic_text("مناطق استهداف التمريرات")):
+            try:
+                # التأكد من وجود البيانات
+                if st.session_state.df is None or st.session_state.teams_dict is None:
+                    st.error("يرجى تحميل بيانات المباراة أولاً")
+                else:
+                    # استخراج معرفات الفرق
+                    team_ids = list(st.session_state.teams_dict.keys())
+                    
+                    # الحصول على أسماء الفرق
+                    team_names = [st.session_state.teams_dict[team_id] for team_id in team_ids]
+                    
+                    # إنشاء نسخة من DataFrame
+                    df_temp = st.session_state.df.copy()
+                    
+                    # التأكد من وجود عمود isGoal
+                    if 'isGoal' not in df_temp.columns:
+                        if 'isGoal_x' in df_temp.columns and 'isGoal_y' in df_temp.columns:
+                            df_temp['isGoal'] = df_temp['isGoal_x'] | df_temp['isGoal_y']
+                        elif 'isGoal_x' in df_temp.columns:
+                            df_temp['isGoal'] = df_temp['isGoal_x']
+                        elif 'isGoal_y' in df_temp.columns:
+                            df_temp['isGoal'] = df_temp['isGoal_y']
+                        else:
+                            df_temp['isGoal'] = False
+                    
+                    # إنشاء الرسم البياني لمناطق استهداف التمريرات
+                    fig = plot_pass_target_zones(df_temp, team_ids, team_names, hcol, acol, bg_color, line_color, watermark_enabled)
+                    
+                    # عرض الرسم البياني
+                    st.pyplot(fig)
+                    
+                    # إضافة وصف
+                    st.markdown(reshape_arabic_text("""
+                    **مناطق استهداف التمريرات** تظهر النسب المئوية للتمريرات التي تنتهي في كل منطقة من الملعب.
+                    - الألوان الداكنة تشير إلى المناطق الأكثر استهدافًا
+                    - النقاط الصغيرة تمثل نهايات التمريرات الفردية
+                    - النسب المئوية تعكس توزيع التمريرات على مناطق الملعب
+                    """))
+                    
+            except Exception as e:
+                st.error(f"خطأ في عرض مناطق استهداف التمريرات: {str(e)}")
+                st.write("أعمدة DataFrame:", list(st.session_state.df.columns))
+                st.write("Team IDs:", list(st.session_state.teams_dict.keys()))
+                import traceback
+                st.write("Traceback:", traceback.format_exc())
+        
+        # باقي الكود (حساب الإحصائيات وعرضها)
         # نسبة الاستحواذ 
+        df = st.session_state.df
+        team_ids = list(st.session_state.teams_dict.keys())
         hpossdf = df[(df['teamId'] == team_ids[0]) & (df['type'] == 'Pass')] 
         apossdf = df[(df['teamId'] == team_ids[1]) & (df['type'] == 'Pass')] 
         hposs = round((len(hpossdf) / (len(hpossdf) + len(apossdf))) * 100, 2) if (len(hpossdf) + len(apossdf)) > 0 else 0 
@@ -2639,7 +2642,6 @@ with tab3:
             hGoals = len(df[(df['teamId'] == team_ids[0]) & ((df['isGoal_x'] == True) | (df['isGoal_y'] == True))])
             aGoals = len(df[(df['teamId'] == team_ids[1]) & ((df['isGoal_x'] == True) | (df['isGoal_y'] == True))])
         else:
-            # محاولة العثور على الأهداف من خلال نوع الحدث
             hGoals = len(df[(df['teamId'] == team_ids[0]) & (df['type'] == 'Goal')])
             aGoals = len(df[(df['teamId'] == team_ids[1]) & (df['type'] == 'Goal')])
 
@@ -2717,37 +2719,31 @@ with tab3:
         # إعداد الرسم البياني
         ax.set_facecolor(bg_color)
         ax.set_xlim(0, 1)
-        ax.set_ylim(0, len(stats) + 2)  # إضافة مساحة للعنوان والنتيجة
+        ax.set_ylim(0, len(stats) + 2)
         
-        # إزالة المحاور
         ax.set_xticks([])
         ax.set_yticks([])
         for spine in ax.spines.values():
             spine.set_visible(False)
         
-        # إضافة عنوان
         title_text = reshape_arabic_text("إحصائيات المباراة")
         ax.text(0.5, len(stats) + 1.5, title_text, 
                 ha='center', va='center', fontsize=24, color=line_color, 
                 fontweight='bold', fontfamily=selected_font)
         
-        # إضافة أسماء الفرق والنتيجة
         team_box_height = 0.8
         team_box_width = 0.35
         
-        # صندوق الفريق المضيف
         home_rect = patches.Rectangle((0.05, len(stats) + 0.6), team_box_width, team_box_height, 
                                      facecolor=to_rgba(hcol, 0.2), edgecolor=hcol, linewidth=2, 
                                      alpha=0.8, zorder=2)
         ax.add_patch(home_rect)
         
-        # صندوق الفريق الضيف
         away_rect = patches.Rectangle((0.6, len(stats) + 0.6), team_box_width, team_box_height, 
                                      facecolor=to_rgba(acol, 0.2), edgecolor=acol, linewidth=2, 
                                      alpha=0.8, zorder=2)
         ax.add_patch(away_rect)
         
-        # أسماء الفرق
         ax.text(0.05 + team_box_width/2, len(stats) + 0.6 + team_box_height*0.7, 
                 reshape_arabic_text(hteamName), ha='center', va='center', 
                 fontsize=16, color=hcol, fontweight='bold', fontfamily=selected_font)
@@ -2756,7 +2752,6 @@ with tab3:
                 reshape_arabic_text(ateamName), ha='center', va='center', 
                 fontsize=16, color=acol, fontweight='bold', fontfamily=selected_font)
         
-        # النتيجة
         ax.text(0.05 + team_box_width/2, len(stats) + 0.6 + team_box_height*0.3, 
                 str(hGoals), ha='center', va='center', fontsize=22, 
                 color=hcol, fontweight='bold', fontfamily=selected_font)
@@ -2769,16 +2764,13 @@ with tab3:
                 str(aGoals), ha='center', va='center', fontsize=22, 
                 color=acol, fontweight='bold', fontfamily=selected_font)
         
-        # رسم الإحصائيات
         for i, stat in enumerate(stats):
             y_pos = len(stats) - i - 0.5
             
-            # اسم الإحصائية
             ax.text(0.5, y_pos, reshape_arabic_text(stat['name']), 
                     ha='center', va='center', fontsize=12, color=line_color, 
                     fontweight='bold', fontfamily=selected_font)
             
-            # قيمة الإحصائية للفريق المضيف
             if stat['is_percent']:
                 home_text = f"{stat['home']}%"
                 away_text = f"{stat['away']}%"
@@ -2790,77 +2782,61 @@ with tab3:
                     ha='center', va='center', fontsize=12, color=hcol, 
                     fontweight='bold', fontfamily=selected_font)
             
-            # قيمة الإحصائية للفريق الضيف
             ax.text(0.85, y_pos, away_text, 
                     ha='center', va='center', fontsize=12, color=acol, 
                     fontweight='bold', fontfamily=selected_font)
             
-            # رسم شريط للإحصائيات
             bar_height = 0.2
             max_bar_width = 0.3
             
             if stat['is_percent']:
-                # للإحصائيات النسبية مثل الاستحواذ
                 total = 100
                 home_width = max_bar_width * (stat['home'] / total)
                 away_width = max_bar_width * (stat['away'] / total)
             else:
-                # للإحصائيات العددية
                 total = max(1, stat['home'] + stat['away'])
                 home_width = max_bar_width * (stat['home'] / total)
                 away_width = max_bar_width * (stat['away'] / total)
             
-            # شريط الفريق المضيف
             home_bar = patches.Rectangle((0.35 - home_width, y_pos - bar_height/2), 
                                         home_width, bar_height, 
                                         facecolor=hcol, alpha=0.7, zorder=2)
             ax.add_patch(home_bar)
             
-            # شريط الفريق الضيف
             away_bar = patches.Rectangle((0.65, y_pos - bar_height/2), 
                                         away_width, bar_height, 
                                         facecolor=acol, alpha=0.7, zorder=2)
             ax.add_patch(away_bar)
             
-            # إضافة خط فاصل
             if i < len(stats) - 1:
                 ax.axhline(y=len(stats) - i - 1, color=line_color, alpha=0.1, linestyle='-', zorder=1)
         
-        # إضافة خط عمودي في المنتصف
         ax.axvline(x=0.5, color=line_color, alpha=0.1, linestyle='-', zorder=1)
         
-        # إضافة العلامة المائية إذا كانت مفعلة
         if watermark_enabled:
             add_watermark(fig, text=watermark_text, alpha=watermark_opacity, 
                          fontsize=watermark_size, color=watermark_color,
                          x_pos=watermark_x, y_pos=watermark_y, 
                          ha=watermark_ha, va=watermark_va)
         
-        # عرض الرسم البياني
         st.pyplot(fig)
         
-        # عرض الإحصائيات في جدول
         st.write(reshape_arabic_text("إحصائيات المباراة التفصيلية:"))
         
-        # تنسيق الجدول
         formatted_stats = stats_df.copy()
         formatted_stats.columns = [reshape_arabic_text("الإحصائية"), 
                                   reshape_arabic_text(hteamName), 
                                   reshape_arabic_text(ateamName),
                                   "is_percent"]
         
-        # إضافة علامة % للقيم النسبية
         for i, row in formatted_stats.iterrows():
             if row["is_percent"]:
                 formatted_stats.loc[i, reshape_arabic_text(hteamName)] = f"{row[reshape_arabic_text(hteamName)]}%"
                 formatted_stats.loc[i, reshape_arabic_text(ateamName)] = f"{row[reshape_arabic_text(ateamName)]}%"
         
-        # حذف عمود is_percent قبل العرض
         formatted_stats = formatted_stats.drop(columns=["is_percent"])
         
-        # عرض الجدول
         st.dataframe(formatted_stats, width=800)
         
     except Exception as e:
         st.error(f"خطأ في عرض إحصائيات المباراة: {str(e)}")
-     
