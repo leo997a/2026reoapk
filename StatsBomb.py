@@ -2525,12 +2525,12 @@ with tab3:
                 st.write("Traceback:", traceback.format_exc())
         
                 
-        except Exception as e:
-            st.error(f"خطأ في عرض مناطق استهداف التمريرات: {str(e)}")
-            st.write("أعمدة DataFrame:", list(st.session_state.df.columns))
-            st.write("Team IDs:", list(st.session_state.teams_dict.keys()))
-            import traceback
-            st.write("Traceback:", traceback.format_exc())
+            except Exception as e:
+                st.error(f"خطأ في عرض مناطق استهداف التمريرات: {str(e)}")
+                st.write("أعمدة DataFrame:", list(st.session_state.df.columns))
+                st.write("Team IDs:", list(st.session_state.teams_dict.keys()))
+                import traceback
+                st.write("Traceback:", traceback.format_exc())
     
 
         # نسبة الاستحواذ 
