@@ -354,6 +354,15 @@ def get_event_data(json_data):
         'SecondPeriodOfExtraTime': 4, 'PenaltyShootout': 5, 'PostGame': 14, 'PreMatch': 16
     }).infer_objects(copy=False)
     
+    # التحقق من وجود عمود endX قبل إجراء عمليات عليه
+    if 'endX' in df.columns:
+        df['endX'] = df['endX'] * 1.05
+    else:
+        # إنشاء عمود endX إذا لم يكن موجودًا
+        st.warning("عمود 'endX' غير موجود في البيانات. سيتم إنشاؤه من عمود 'x' إذا كان متاحًا.")
+        if 'x' in df.columns:
+            df['endX'] = df['x'].copy()
+    
     def cumulative_match_mins(events_df):
         events_out = pd.DataFrame()
         match_events = events_df.copy()
