@@ -2170,53 +2170,54 @@ with tab3:
     st.subheader(reshape_arabic_text("إحصائيات المباراة"))
     if st.button(reshape_arabic_text("إحصائيات المباراة")):
         try:
-        # التحقق من وجود البيانات
-        if st.session_state.df is None or st.session_state.teams_dict is None:
-            st.error("يرجى تحميل بيانات المباراة أولاً")
-        else:
-            # استخراج معرفات الفرق
-            team_ids = list(st.session_state.teams_dict.keys())
-            
-            # الحصول على أسماء الفرق مباشرة من teams_dict
-            hteamName = st.session_state.teams_dict[team_ids[0]]
-            ateamName = st.session_state.teams_dict[team_ids[1]]
-            
-            # إنشاء نسخة من DataFrame وإضافة عمود isGoal إذا لم يكن موجودًا
-            df_temp = st.session_state.df.copy()
-            if 'isGoal' not in df_temp.columns:
-                if 'isGoal_x' in df_temp.columns and 'isGoal_y' in df_temp.columns:
-                    df_temp['isGoal'] = df_temp['isGoal_x'] | df_temp['isGoal_y']
-                elif 'isGoal_x' in df_temp.columns:
-                    df_temp['isGoal'] = df_temp['isGoal_x']
-                elif 'isGoal_y' in df_temp.columns:
-                    df_temp['isGoal'] = df_temp['isGoal_y']
-                else:
-                    # إذا لم يكن أي من العمودين موجودًا، أنشئ عمود isGoal بقيمة False
-                    df_temp['isGoal'] = False
-            
-            # إنشاء الرسم البياني بحجم أكبر للتصميم الجديد
-            fig, ax = plt.subplots(figsize=(14, 16), facecolor=bg_color)
-            stats_df = plot_match_stats(ax, df_temp, hteamName, ateamName, hcol, acol, bg_color, line_color)
-            
-            # إضافة العلامة المائية إذا كانت مفعلة
-            if watermark_enabled:
-                add_watermark(fig, text=watermark_text, alpha=watermark_opacity, 
-                             fontsize=watermark_size, color=watermark_color,
-                             x_pos=watermark_x, y_pos=watermark_y, 
-                             ha=watermark_ha, va=watermark_va)
-            
-            # عرض الرسم البياني
-            st.pyplot(fig)
-            
-            # عرض الإحصائيات في جدول
-            st.write(reshape_arabic_text("إحصائيات المباراة التفصيلية:"))
-            st.dataframe(stats_df)
-    except Exception as e:
-        st.error(f"خطأ في عرض إحصائيات المباراة: {str(e)}")
-        st.write("أعمدة DataFrame:", list(st.session_state.df.columns))
-        st.write("Team IDs:", list(st.session_state.teams_dict.keys()))
-        import traceback
-        st.write("Traceback:", traceback.format_exc())
+            # التحقق من وجود البيانات
+            if st.session_state.df is None or st.session_state.teams_dict is None:
+                st.error("يرجى تحميل بيانات المباراة أولاً")
+            else:
+                # استخراج معرفات الفرق
+                team_ids = list(st.session_state.teams_dict.keys())
+                st.write("Team IDs:", team_ids)
+                
+                # الحصول على أسماء الفرق مباشرة من teams_dict
+                hteamName = st.session_state.teams_dict[team_ids[0]]
+                ateamName = st.session_state.teams_dict[team_ids[1]]
+                
+                # إنشاء نسخة من DataFrame وإضافة عمود isGoal إذا لم يكن موجودًا
+                df_temp = st.session_state.df.copy()
+                if 'isGoal' not in df_temp.columns:
+                    if 'isGoal_x' in df_temp.columns and 'isGoal_y' in df_temp.columns:
+                        df_temp['isGoal'] = df_temp['isGoal_x'] | df_temp['isGoal_y']
+                    elif 'isGoal_x' in df_temp.columns:
+                        df_temp['isGoal'] = df_temp['isGoal_x']
+                    elif 'isGoal_y' in df_temp.columns:
+                        df_temp['isGoal'] = df_temp['isGoal_y']
+                    else:
+                        # إذا لم يكن أي من العمودين موجودًا، أنشئ عمود isGoal بقيمة False
+                        df_temp['isGoal'] = False
+                
+                # إنشاء الرسم البياني
+                fig, ax = plt.subplots(figsize=(14, 16), facecolor=bg_color)
+                stats_df = plot_match_stats(ax, df_temp, hteamName, ateamName, hcol, acol, bg_color, line_color)
+                
+                # إضافة العلامة المائية إذا كانت مفعلة
+                if watermark_enabled:
+                    add_watermark(fig, text=watermark_text, alpha=watermark_opacity, 
+                                 fontsize=watermark_size, color=watermark_color,
+                                 x_pos=watermark_x, y_pos=watermark_y, 
+                                 ha=watermark_ha, va=watermark_va)
+                
+                # عرض الرسم البياني
+                st.pyplot(fig)
+                
+                # عرض الإحصائيات في جدول
+                st.write(reshape_arabic_text("إحصائيات المباراة التفصيلية:"))
+                st.dataframe(stats_df)
+        except Exception as e:
+            st.error(f"خطأ في عرض إحصائيات المباراة: {str(e)}")
+            st.write("أعمدة DataFrame:", list(st.session_state.df.columns))
+            st.write("Team IDs:", list(st.session_state.teams_dict.keys()))
+            import traceback
+            st.write("Traceback:", traceback.format_exc())
 # تبويب تصور التمريرات
 with tab4:
     st.subheader(reshape_arabic_text("تصور التمريرات"))
