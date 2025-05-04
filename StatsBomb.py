@@ -2156,41 +2156,41 @@ with tab1:
         except Exception as e:
             st.error(f"خطأ في إنشاء شبكة التمريرات: {str(e)}")
 
-elif an_tp == 'مناطق الهجوم':
-    st.subheader("تحليل مناطق الهجوم")
+    elif an_tp == 'مناطق الهجوم':
+        st.subheader("تحليل مناطق الهجوم")
     
-    # اختيار الفريق
-    team_ids = list(st.session_state.teams_dict.keys())
-    team_names = list(st.session_state.teams_dict.values())
-    selected_team_index = st.selectbox("اختر الفريق:", range(len(team_ids)),
-                                      format_func=lambda x: team_names[x],
-                                      key="attacking_thirds_team_select")
-    selected_team_id = team_ids[selected_team_index]
-    selected_team_name = team_names[selected_team_index]
+        # اختيار الفريق
+        team_ids = list(st.session_state.teams_dict.keys())
+        team_names = list(st.session_state.teams_dict.values())
+        selected_team_index = st.selectbox("اختر الفريق:", range(len(team_ids)),
+                                          format_func=lambda x: team_names[x],
+                                          key="attacking_thirds_team_select")
+        selected_team_id = team_ids[selected_team_index]
+        selected_team_name = team_names[selected_team_index]
     
-    # اختيار المسابقة
-    competition_name = st.text_input("اسم المسابقة (اختياري):", "", key="attacking_thirds_competition")
+        # اختيار المسابقة
+        competition_name = st.text_input("اسم المسابقة (اختياري):", "", key="attacking_thirds_competition")
     
-    # اختيار الفترة
-    period = st.selectbox("اختر الفترة:", ['Full Match', 'First Half', 'Second Half'], 
-                          key='attacking_thirds_period')
+        # اختيار الفترة
+        period = st.selectbox("اختر الفترة:", ['Full Match', 'First Half', 'Second Half'], 
+                              key='attacking_thirds_period')
     
-    # تحليل وعرض مناطق الهجوم
-    with st.spinner("جاري تحليل مناطق الهجوم..."):
-        fig, summary = analyze_attacking_thirds(st.session_state.df, selected_team_id,
-                                               selected_team_name, competition_name, period)
-        st.pyplot(fig)
+        # تحليل وعرض مناطق الهجوم
+        with st.spinner("جاري تحليل مناطق الهجوم..."):
+            fig, summary = analyze_attacking_thirds(st.session_state.df, selected_team_id,
+                                                   selected_team_name, competition_name, period)
+            st.pyplot(fig)
         
-        # عرض الإحصائيات الملخصة
-        st.write("### إحصائيات ملخصة")
-        st.write(f"**التسديدات:** {summary['Shots']}")
-        st.write(f"**التمريرات الحاسمة:** {summary['Key Passes']}")
+            # عرض الإحصائيات الملخصة
+            st.write("### إحصائيات ملخصة")
+            st.write(f"**التسديدات:** {summary['Shots']}")
+            st.write(f"**التمريرات الحاسمة:** {summary['Key Passes']}")
         
-        # حفظ الصورة
-        period_str = period.replace(' ', '_').lower()
-        save_path = f"{selected_team_name}_attacking_thirds_{period_str}.png"
-        fig.savefig(save_path, dpi=300, bbox_inches='tight', facecolor='#22312b')
-        st.success(f"تم حفظ الصورة بنجاح: {save_path}")
+            # حفظ الصورة
+            period_str = period.replace(' ', '_').lower()
+            save_path = f"{selected_team_name}_attacking_thirds_{period_str}.png"
+            fig.savefig(save_path, dpi=300, bbox_inches='tight', facecolor='#22312b')
+            st.success(f"تم حفظ الصورة بنجاح: {save_path}")
 
     elif an_tp == reshape_arabic_text('PPDA'):
         st.subheader(reshape_arabic_text('معدل الضغط (PPDA)'))
