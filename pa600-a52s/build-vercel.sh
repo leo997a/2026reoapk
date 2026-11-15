@@ -7,7 +7,7 @@ export GRADLE_USER_HOME="$PWD/.gradle-user"
 mkdir -p "$ANDROID_HOME/cmdline-tools" "$GRADLE_USER_HOME" "$PWD/dist" "$PWD/.tools"
 
 echo "Checking Java toolchain"
-if ! command -v java >/dev/null 2>&1; then
+if ! java -version 2>&1 | head -1 | grep -Eq 'version "(17|18|19|2[0-9])\.'; then
   echo "Installing portable JDK 17"
   curl -fsSL --retry 3 -o .tools/jdk.tar.gz "https://api.adoptium.net/v3/binary/latest/17/ga/linux/x64/jdk/hotspot/normal/eclipse"
   mkdir -p .tools/jdk
