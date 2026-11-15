@@ -5,6 +5,8 @@ on:
     paths:
       - 'pa600-a52s/**'
       - '.github/workflows/reo-pa600-a52s.yml'
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 jobs:
   apk:
