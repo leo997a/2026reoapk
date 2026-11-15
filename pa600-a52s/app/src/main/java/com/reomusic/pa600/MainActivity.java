@@ -8,6 +8,10 @@ import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.content.Context;
+import android.content.SharedPreferences;
+import android.text.InputType;
+import org.json.JSONArray;
+import org.json.JSONObject;
 import android.media.midi.*;
 import android.widget.*;
 import android.view.*;
@@ -22,6 +26,9 @@ public class MainActivity extends Activity {
   private MidiInputPort port;
   private MidiDeviceInfo[] choices=new MidiDeviceInfo[0];
   private Spinner spinner;
+  private EditText styleMsb, styleLsb, stylePc, styleLabel;
+  private LinearLayout favoritesList;
+  private SharedPreferences prefs;
   private TextView status, log;
   private final List<String> messages=new ArrayList<>();
   private MidiManager.DeviceCallback listener;
@@ -53,6 +60,7 @@ public class MainActivity extends Activity {
     super.onCreate(saved);
     getWindow().setStatusBarColor(BG);getWindow().setNavigationBarColor(BG);
     manager=(MidiManager)getSystemService(Context.MIDI_SERVICE);
+    prefs=getSharedPreferences("reo-pa600-a52s",MODE_PRIVATE);
     ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);scroll.setBackgroundColor(BG);
     LinearLayout root=column();root.setPadding(dp(12),dp(16),dp(12),dp(24));scroll.addView(root);
     setContentView(scroll);
@@ -81,6 +89,24 @@ public class MainActivity extends Activity {
     LinearLayout sts=section(root,"STS / Bass");
     row(sts,new String[]{"STS 1","STS 2","STS 3","STS 4"},new int[]{64,65,66,67},TILE);
     row(sts,new String[]{"BASS INV","MANUAL","TEMPO LOCK"},new int[]{99,100,101},TILE);
+    LinearLayout styles=section(root,"اختيار الإيقاعات · STYLE BANK");
+    styles.addView(label("أرقام البنك تختلف حسب الإيقاع. أدخل القيم من قائمة Styles أو دليل Korg.",12,SOFT));
+    space(styles,8);
+    styleLabel=new EditText(this);styleLabel.setSingleLine(true);styleLabel.setHint("اسم الإيقاع للمفضلة");styleLabel.setHintTextColor(SOFT);styleLabel.setTextColor(TXT);
+    styles.addView(styleLabel,new LinearLayout.LayoutParams(-1,dp(52)));
+    styleMsb=field(styles,"MSB · CC0",0);
+    styleLsb=field(styles,"LSB · CC32",0);
+    stylePc=field(styles,"Program · 0–127",0);
+    LinearLayout actions=new LinearLayout(this);
+    LinearLayout.LayoutParams actionLp=new LinearLayout.LayoutParams(0,dp(65),1);
+    actionLp.setMargins(dp(3),dp(3),dp(3),dp(3));
+    actions.addView(button("استدعاء الإيقاع",GREEN,()->sendStyle()),actionLp);
+    LinearLayout.LayoutParams saveLp=new LinearLayout.LayoutParams(0,dp(65),1);
+    saveLp.setMargins(dp(3),dp(3),dp(3),dp(3));
+    actions.addView(button("حفظ بالمفضلة",TILE,()->saveFavorite()),saveLp);
+    styles.addView(actions);
+    favoritesList=column();styles.addView(favoritesList,new LinearLayout.LayoutParams(-1,-2));
+    refreshFavorites();
     LinearLayout diag=section(root,"اختبار الإرسال");
     diag.addView(button("اختبار نوتة C4 على قناة 1",TILE,()->testNote()),new LinearLayout.LayoutParams(-1,dp(64)));
     space(diag,8);log=label("لا يوجد سجل بعد",13,SOFT);diag.addView(log);
@@ -132,6 +158,68 @@ public class MainActivity extends Activity {
     if(port==null){status.setText("اربط Pa600 واضغط اتصال أولاً");return;}
     try{port.send(bytes,0,bytes.length);StringBuilder h=new StringBuilder();for(byte b:bytes)h.append(String.format(Locale.ROOT,"%02X ",b&255));record(name+" → "+h.toString());}
     catch(IOException e){status.setText("خطأ MIDI: "+e.getMessage());}
+  }
+  private EditText field(LinearLayout parent,String title,int initial){
+    parent.addView(label(title,12,SOFT));
+    EditText edit=new EditText(this);
+    edit.setText(String.valueOf(initial));edit.setInputType(InputType.TYPE_CLASS_NUMBER);
+    edit.setTextColor(TXT);edit.setTextSize(16);edit.setSingleLine(true);
+    parent.addView(edit,new LinearLayout.LayoutParams(-1,dp(56)));
+    return edit;
+  }
+  private int get7(EditText edit){
+    int value=Integer.parseInt(edit.getText().toString().trim());
+    if(value<0||value>127)throw new IllegalArgumentException("MIDI value must be 0–127");
+    return value;
+  }
+  private void sendStyle(){
+    try{
+      int msb=get7(styleMsb),lsb=get7(styleLsb),pc=get7(stylePc);
+      send(new byte[]{(byte)0xBF,0,(byte)msb},"STYLE CC0");
+      send(new byte[]{(byte)0xBF,32,(byte)lsb},"STYLE CC32");
+      sendPc(pc);
+    }catch(Exception ex){status.setText("خطأ الأرقام: "+ex.getMessage());}
+  }
+  private void saveFavorite(){
+    try{
+      int msb=get7(styleMsb),lsb=get7(styleLsb),pc=get7(stylePc);
+      JSONArray saved=new JSONArray(prefs.getString("styles","[]"));
+      JSONObject o=new JSONObject();
+      String name=styleLabel.getText().toString().trim();
+      if(name.isEmpty())name="STYLE "+msb+"/"+lsb+"/"+pc;
+      o.put("name",name);o.put("msb",msb);o.put("lsb",lsb);o.put("pc",pc);
+      saved.put(o);prefs.edit().putString("styles",saved.toString()).apply();
+      status.setText("تم حفظ "+name);
+      refreshFavorites();
+    }catch(Exception ex){status.setText("فشل الحفظ: "+ex.getMessage());}
+  }
+  private void refreshFavorites(){
+    if(favoritesList==null)return;
+    favoritesList.removeAllViews();
+    try{
+      JSONArray all=new JSONArray(prefs.getString("styles","[]"));
+      if(all.length()>0){space(favoritesList,12);favoritesList.addView(label("المفضلة · اضغط للاستدعاء · اضغط مطولاً للحذف",12,SOFT));}
+      for(int i=0;i<all.length();i++){
+        JSONObject item=all.getJSONObject(i);
+        final int index=i;
+        final int msb=item.optInt("msb"),lsb=item.optInt("lsb"),pc=item.optInt("pc");
+        Button b=button(item.optString("name","STYLE"),TILE,()->{
+          send(new byte[]{(byte)0xBF,0,(byte)msb},"STYLE CC0");
+          send(new byte[]{(byte)0xBF,32,(byte)lsb},"STYLE CC32");
+          sendPc(pc);
+        });
+        b.setOnLongClickListener(v->{
+          try{
+            JSONArray previous=new JSONArray(prefs.getString("styles","[]"));
+            JSONArray next=new JSONArray();
+            for(int k=0;k<previous.length();k++)if(k!=index)next.put(previous.get(k));
+            prefs.edit().putString("styles",next.toString()).apply();refreshFavorites();
+          }catch(Exception ignored){}
+          return true;
+        });
+        LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,dp(65));p.topMargin=dp(6);favoritesList.addView(b,p);
+      }
+    }catch(Exception ex){status.setText("خطأ قراءة المفضلة");}
   }
   private void sendPc(int program){send(new byte[]{(byte)0xCF,(byte)program},"PC "+program);}
   private void testNote(){
