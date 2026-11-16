@@ -3,11 +3,11 @@ android {
   namespace 'com.reomusic.pa600v3'
   compileSdk 35
   defaultConfig {
-    applicationId 'com.reomusic.pa600.v3'
+    applicationId 'com.reomusic.pa600.v4'
     minSdk 26
     targetSdk 34
-    versionCode 300
-    versionName '3.0-a52s'
+    versionCode 400
+    versionName '4.0-a52s'
   }
   compileOptions {
     sourceCompatibility JavaVersion.VERSION_17
