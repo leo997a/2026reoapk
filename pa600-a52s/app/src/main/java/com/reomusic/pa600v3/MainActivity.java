@@ -201,7 +201,7 @@ public class MainActivity extends Activity {
         cc(16,0,msb);cc(16,32,lsb);pc(p);
     }
     private void show(int index){
-        tab=index;nav.removeAllViews();
+        tab=index;header.setVisibility(index==0?View.GONE:View.VISIBLE);nav.removeAllViews();
         String[] names={"العزف","الإيقاعات","SongBook","الأصوات","PAD ×4","الفحص"};
         for(int i=0;i<names.length;i++){
             final int idx=i;
@@ -219,27 +219,106 @@ public class MainActivity extends Activity {
             default:renderDiagnostic();break;
         }
     }
+    private Button liveTile(String caption,int pcValue,int color){
+        Button b=button(caption,color,()->{
+            pc(pcValue);
+            bHaptic(b);
+        });
+        b.setTextSize(12);
+        b.setMinHeight(dp(51));
+        b.setMinimumHeight(dp(51));
+        b.setPadding(dp(2),dp(3),dp(2),dp(3));
+        return b;
+    }
+    private void bHaptic(View v){v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);}
+    private LinearLayout strip(LinearLayout root,String section,float portion){
+        LinearLayout c=vertical();
+        LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,-2,portion);
+        lp.setMargins(dp(2),dp(2),dp(2),dp(2));
+        c.setPadding(dp(5),dp(5),dp(5),dp(5));c.setBackground(background(PANEL,9));
+        root.addView(c,lp);
+        TextView t=text(section,11,MUTED);t.setTypeface(Typeface.DEFAULT,Typeface.BOLD);
+        t.setGravity(Gravity.CENTER);c.addView(t,new LinearLayout.LayoutParams(-1,dp(19)));
+        return c;
+    }
+    private void tiles(LinearLayout panel,String[] captions,int[] codes,int color){
+        LinearLayout r=new LinearLayout(this);r.setOrientation(LinearLayout.HORIZONTAL);
+        for(int i=0;i<captions.length;i++){
+            Button b=liveTile(captions[i],codes[i],color);
+            LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,dp(51),1);
+            lp.setMargins(dp(1),0,dp(1),0);r.addView(b,lp);
+        }
+        panel.addView(r);
+    }
+    private void pads(LinearLayout panel){
+        LinearLayout r=new LinearLayout(this);r.setOrientation(LinearLayout.HORIZONTAL);
+        for(int i=0;i<4;i++){
+            final int idx=i;
+            Button b=button("PAD "+(i+1),GOLD,()->triggerPad(idx));
+            b.setTextSize(11);b.setPadding(0,0,0,0);
+            b.setOnLongClickListener(v->{configurePad(idx);return true;});
+            LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,dp(51),1);
+            lp.setMargins(dp(1),0,dp(1),0);r.addView(b,lp);
+        }
+        panel.addView(r);
+    }
+    private void liveRow(LinearLayout wrapper){
+        LinearLayout r=new LinearLayout(this);r.setOrientation(LinearLayout.HORIZONTAL);
+        wrapper.addView(r,new LinearLayout.LayoutParams(-1,-2));
+        LinearLayout pd=strip(r,"PAD 1–4 • TEST",4.1f);pads(pd);
+        LinearLayout sts=strip(r,"STS",4.1f);
+        tiles(sts,new String[]{"1","2","3","4"},new int[]{64,65,66,67},BUTTON);
+        LinearLayout extra=strip(r,"LIVE CONTROL",3.5f);
+        tiles(extra,new String[]{"MEM","BASS","AUTO"},new int[]{98,100,97},BUTTON);
+    }
+    private void elementRow(LinearLayout wrapper){
+        LinearLayout r=new LinearLayout(this);r.setOrientation(LinearLayout.HORIZONTAL);
+        wrapper.addView(r,new LinearLayout.LayoutParams(-1,-2));
+        LinearLayout intro=strip(r,"INTRO",3.1f);
+        tiles(intro,new String[]{"1","2","3"},new int[]{80,81,82},BUTTON);
+        LinearLayout variation=strip(r,"VARIATIONS",4.3f);
+        tiles(variation,new String[]{"1","2","3","4"},new int[]{83,84,85,86},TEAL);
+        LinearLayout breakBox=strip(r,"BREAK",1.1f);
+        tiles(breakBox,new String[]{"●"},new int[]{91},GOLD);
+        LinearLayout ending=strip(r,"ENDING",3.1f);
+        tiles(ending,new String[]{"1","2","3"},new int[]{92,93,94},BUTTON);
+    }
+    private void lowerRow(LinearLayout wrapper){
+        LinearLayout r=new LinearLayout(this);r.setOrientation(LinearLayout.HORIZONTAL);
+        wrapper.addView(r,new LinearLayout.LayoutParams(-1,-2));
+        LinearLayout fills=strip(r,"DIRECT FILL (EXTRA)",4.1f);
+        tiles(fills,new String[]{"1","2","3","4"},new int[]{87,88,89,90},BUTTON);
+        LinearLayout play=strip(r,"STYLE TRANSPORT",2.5f);
+        tiles(play,new String[]{"▶ / ■"},new int[]{103},TEAL);
+        LinearLayout secondary=strip(r,"EXTRA CONTROL",5f);
+        tiles(secondary,new String[]{"FADE","STS MD","B. INV","T.LOCK"},new int[]{95,96,99,101},BUTTON);
+    }
     private void renderLive(){
-        LinearLayout c=card("التحكم المباشر","رسائل MIDI رسمية على قناة Control 16");
-        buttons(c,new String[]{"START / STOP","PLAY / STOP"},new int[]{103,104},TEAL);
-        buttons(c,new String[]{"FADE IN / OUT","BREAK"},new int[]{95,91},BUTTON);
-        c=card("VARIATIONS","غيّر التنويع أثناء عزف الإيقاع");
-        buttons(c,new String[]{"VAR 1","VAR 2","VAR 3","VAR 4"},new int[]{83,84,85,86},TEAL);
-        c=card("FILL 1–4","الفواصل الأربعة مستقلة عن Variation");
-        buttons(c,new String[]{"FILL 1","FILL 2","FILL 3","FILL 4"},new int[]{87,88,89,90},BUTTON);
-        c=card("INTRO / ENDING","");
-        buttons(c,new String[]{"INTRO 1","INTRO 2","INTRO 3"},new int[]{80,81,82},BUTTON);
-        buttons(c,new String[]{"ENDING 1","ENDING 2","ENDING 3"},new int[]{92,93,94},GOLD);
-        c=card("STS 1–4","استدعاء إعدادات الأصوات المرتبطة بالإيقاع");
-        buttons(c,new String[]{"STS 1","STS 2","STS 3","STS 4"},new int[]{64,65,66,67},BUTTON);
-        c=card("مفاتيح إضافية","");
-        buttons(c,new String[]{"AUTO FILL","STS MODE"},new int[]{97,96},BUTTON);
-        buttons(c,new String[]{"MEMORY","BASS INV"},new int[]{98,99},BUTTON);
-        buttons(c,new String[]{"MANUAL BASS","TEMPO LOCK"},new int[]{100,101},BUTTON);
-        buttons(c,new String[]{"STYLE CHANGE"},new int[]{102},BUTTON);
-        c=card("مساعد TEMPO · قراءة فقط","الحاسبة تقيس سرعة النقر على الهاتف، ولا تغيّر سرعة Pa600");
-        tapReadout=text("-- BPM",28,WHITE);c.addView(tapReadout);
-        fullButton(c,"TAP TEMPO (على الهاتف فقط)",BUTTON,()->tapTempo());
+        // Stage-performance layout: fixed hardware-inspired positions, no menus or scrolling required for essentials.
+        LinearLayout top=new LinearLayout(this);top.setOrientation(LinearLayout.HORIZONTAL);
+        top.setGravity(Gravity.CENTER_VERTICAL);
+        LinearLayout.LayoutParams tp=new LinearLayout.LayoutParams(-1,dp(35));content.addView(top,tp);
+        TextView title=text("REO  |  Pa600QT     •     LIVE CONSOLE",16,WHITE);
+        title.setTypeface(Typeface.DEFAULT,Typeface.BOLD);
+        top.addView(title,new LinearLayout.LayoutParams(0,-1,1));
+        TextView status=text(midiSendPort!=null?"● USB CONNECTED":"● USB DISCONNECTED",12,
+            midiSendPort!=null?0xff80d9ad:0xffe9ba78);
+        top.addView(status);
+        Button reconnect=button("USB",BUTTON,()->{refreshDevices();connect();show(0);});
+        reconnect.setTextSize(10);
+        LinearLayout.LayoutParams usb=new LinearLayout.LayoutParams(dp(55),dp(35));
+        usb.leftMargin=dp(9);top.addView(reconnect,usb);
+        LinearLayout console=vertical();
+        console.setPadding(dp(2),dp(2),dp(2),dp(2));
+        content.addView(console,new LinearLayout.LayoutParams(-1,-2));
+        liveRow(console);
+        elementRow(console);
+        lowerRow(console);
+        TextView hint=text("PAD: اختبار MIDI غير مؤكد كتشغيل Loop داخلي • اضغط مطولاً للإعداد   |   باقي الأزرار ترسل أوامر Korg الرسمية",11,MUTED);
+        hint.setPadding(dp(5),dp(3),dp(5),0);
+        content.addView(hint,new LinearLayout.LayoutParams(-1,-2));
+        TextView next=text("بنوك Styles / SongBook / الأصوات / فحص MIDI في التبويبات أعلاه",11,MUTED);
+        content.addView(next);
     }
     private void tapTempo(){
         long now=SystemClock.uptimeMillis();
