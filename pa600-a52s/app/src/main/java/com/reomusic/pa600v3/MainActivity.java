@@ -220,10 +220,8 @@ public class MainActivity extends Activity {
         }
     }
     private Button liveTile(String caption,int pcValue,int color){
-        Button b=button(caption,color,()->{
-            pc(pcValue);
-            bHaptic(b);
-        });
+        Button b=button(caption,color,()->pc(pcValue));
+        b.setOnClickListener(v->{pc(pcValue);bHaptic(v);});
         b.setTextSize(12);
         b.setMinHeight(dp(51));
         b.setMinimumHeight(dp(51));
