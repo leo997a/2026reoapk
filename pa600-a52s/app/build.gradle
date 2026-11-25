@@ -6,8 +6,8 @@ android {
     applicationId 'com.reomusic.pa600.v4'
     minSdk 26
     targetSdk 34
-    versionCode 400
-    versionName '4.0-a52s'
+    versionCode 410
+    versionName '4.1-a52s'
   }
   compileOptions {
     sourceCompatibility JavaVersion.VERSION_17
