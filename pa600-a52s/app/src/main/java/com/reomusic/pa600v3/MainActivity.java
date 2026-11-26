@@ -11,8 +11,8 @@ import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.SharedPreferences;
 import android.media.midi.*;
-import android.media.AudioAttributes;
-import android.media.SoundPool;
+
+
 import android.content.Intent;
 import android.net.Uri;
 import android.os.ParcelFileDescriptor;
@@ -47,7 +47,7 @@ public class MainActivity extends Activity {
     private EditText styleName, stylePc, bookNumber, bookName, soundMsb, soundLsb, soundPc, soundCh;
     private TextView tapReadout;
     private final ArrayList<Long> taps=new ArrayList<>();
-    private SoundPool padPool;
+    
     private final NativeMidiLab lab=new NativeMidiLab();
     private final ArrayList<String> capture=new ArrayList<>();
     private boolean capturing=false;
@@ -178,7 +178,7 @@ public class MainActivity extends Activity {
         try{if(midiReceivePort!=null)midiReceivePort.close();}catch(Exception ignored){}
         try{if(midiSendPort!=null)midiSendPort.close();}catch(Exception ignored){}
         try{if(midiDevice!=null)midiDevice.close();}catch(Exception ignored){}
-        midiReceivePort=null;midiSendPort=null;midiDevice=null;updateLiveUsb();
+        midiReceivePort=null;midiSendPort=null;midiDevice=null;lab.reset();Arrays.fill(nrpnMsb,-1);Arrays.fill(nrpnLsb,-1);Arrays.fill(bookMsb,-1);receivedBook=-1;lastClockNs=0;clockIntervals.clear();measuredClockBpm=0;updateLiveUsb();updateBook();updateCaptureStatus();
     }
     private void connect(){
         if(midiManager==null){connectionText.setText("نظام الهاتف لا يدعم MIDI");return;}
@@ -209,7 +209,7 @@ public class MainActivity extends Activity {
             }
             String name=selected.getProperties().getString(MidiDeviceInfo.PROPERTY_NAME);
             connectionText.setText("● متصل: "+(name==null?"MIDI":name)+" · OUT → USB");
-            record("CONNECTED MIDI PORT 0");updateLiveUsb();
+            record("CONNECTED MIDI PORT 0");updateLiveUsb();updateCaptureStatus();
         },handler);
     }
     private String hex(byte[] data){
@@ -223,9 +223,9 @@ public class MainActivity extends Activity {
         if(logText!=null){StringBuilder sb=new StringBuilder();for(int i=0;i<Math.min(16,eventLog.size());i++)sb.append(eventLog.get(i)).append("\n");logText.setText(sb.toString());}
     }
     private void send(byte[] msg,String label){
-        if(midiSendPort==null){connectionText.setText("غير متصل · اختر Pa600 واضغط اتصال");return;}
+        if(midiSendPort==null){connectionText.setText("غير متصل · اختر Pa600 واضغط اتصال");message("USB غير متصل");return;}
         try{midiSendPort.send(msg,0,msg.length);record("OUT → "+hex(msg)+" · "+label);if(capturing)addCapture("MSG OUT "+hex(msg),System.nanoTime());}
-        catch(IOException ex){connectionText.setText("خطأ USB MIDI: "+ex.getMessage());}
+        catch(IOException ex){connectionText.setText("خطأ USB MIDI: "+ex.getMessage());message("خطأ إرسال MIDI");}
     }
     private void cc(int ch,int ctrl,int val){
         send(new byte[]{(byte)(0xB0|((ch-1)&15)),(byte)ctrl,(byte)val},"CC"+ctrl+" ch"+ch);
@@ -354,7 +354,7 @@ public class MainActivity extends Activity {
         TextView hint=text("PAD: قيد التحقق • لا صوت محلي • MIDI Control Ch16",11,MUTED);
         hint.setPadding(dp(5),dp(3),dp(5),0);
         content.addView(hint,new LinearLayout.LayoutParams(-1,-2));
-        TextView next=text("بنوك Styles / SongBook / الأصوات / فحص MIDI في التبويبات أعلاه",11,MUTED);
+        TextView next=text("STYLE · SONGBOOK · SOUND · PAD LAB · MIXER · MIDI",11,MUTED);
         content.addView(next);
 
     }
@@ -545,8 +545,8 @@ public class MainActivity extends Activity {
         if(labStatus!=null)labStatus.setText((capturing?"REC ":"STOP ")+capture.size()+" events · RX "+(midiReceivePort!=null?"OPEN":"CLOSED"));
     }
     private void exportCapture(){
-        StringBuilder out=new StringBuilder("REO PA600QT MIDI CAPTURE v4.2\\nTime: milliseconds relative to start\\n");
-        for(String line:capture)out.append(line).append('\\n');
+        StringBuilder out=new StringBuilder("REO PA600QT MIDI CAPTURE v4.2\nTime: milliseconds relative to start\n");
+        for(String line:capture)out.append(line).append('\n');
         ClipboardManager cb=(ClipboardManager)getSystemService(CLIPBOARD_SERVICE);
         cb.setPrimaryClip(ClipData.newPlainText("REO MIDI Capture",out.toString()));
         message("تم نسخ "+capture.size()+" حدث");
@@ -583,79 +583,6 @@ public class MainActivity extends Activity {
             row.addView(volume,new LinearLayout.LayoutParams(0,dp(44),1));c.addView(row);
         }
         info(c,"القيم المعروضة أوامر محلية وليست قراءة مستوى الأورك. لا يمكن تعيين 16 مساراً منفصلاً في 15 قناة؛ اختر المجموعة المطلوبة.");
-    }
-    private void initPadAudio(){
-        padPool=new SoundPool.Builder().setMaxStreams(4).setAudioAttributes(new AudioAttributes.Builder()
-          .setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build()).build();
-        padPool.setOnLoadCompleteListener((pool,id,status)->{
-            for(int i=0;i<4;i++)if(padSample[i]==id){padReady[i]=status==0;if(status!=0)record("PAD "+(i+1)+" audio load failed");}
-        });
-        for(int i=0;i<4;i++)loadPad(i);
-    }
-    private void loadPad(int i){
-        stopVirtualPad(i);padReady[i]=false;
-        if(padSample[i]!=0)padPool.unload(padSample[i]);
-        padSample[i]=0;
-        try{
-            java.io.File custom=new java.io.File(getFilesDir(),"pad"+i+".wav");
-            if(custom.exists())padSample[i]=padPool.load(custom.getAbsolutePath(),1);
-            else try(android.content.res.AssetFileDescriptor fd=getAssets().openFd("pad"+(i+1)+".wav")){
-                padSample[i]=padPool.load(fd,1);
-            }
-        }catch(Exception ex){record("PAD "+(i+1)+" load: "+ex.getMessage());}
-    }
-    private void updatePadTile(int i){
-        Button b=livePads[i];if(b==null)return;
-        b.setBackground(background(padStream[i]!=0?TEAL:GOLD,12));
-        b.setText("PAD "+(i+1)+"\n"+(padStream[i]!=0?"● PLAY":padTitles[i]));
-    }
-    private void stopVirtualPad(int i){
-        if(padPool!=null&&padStream[i]!=0)padPool.stop(padStream[i]);
-        padStream[i]=0;updatePadTile(i);
-    }
-    private void stopAllPads(){for(int i=0;i<4;i++)stopVirtualPad(i);}
-    private void toggleVirtualPad(int i){
-        if(padStream[i]!=0){stopVirtualPad(i);return;}
-        if(!padReady[i]){message("صوت PAD غير جاهز؛ جرّب مجدداً");return;}
-        float rate=(float)padBpm/81f;
-        if(prefs.getBoolean("pad_custom"+i,false))rate=1f;
-        boolean loop=prefs.getBoolean("pad_loop"+i,i!=3);
-        padStream[i]=padPool.play(padSample[i],0.72f,0.72f,1,loop?-1:0,rate);
-        updatePadTile(i);
-        if(!loop){int stream=padStream[i];handler.postDelayed(()->{if(padStream[i]==stream){padStream[i]=0;updatePadTile(i);}},(long)(2*60000.0/padBpm)+80);}
-        if(padStream[i]==0)message("تعذر تشغيل PAD");
-    }
-    private void configureVirtualPad(int i){
-        String[] choices={"استيراد WAV قصير من الهاتف","تبديل Loop / One-shot","استعادة الصوت الأصلي"};
-        new AlertDialog.Builder(this).setTitle("Virtual PAD "+(i+1)).setItems(choices,(d,which)->{
-            if(which==0){
-                pendingImport=i;Intent intent=new Intent(Intent.ACTION_OPEN_DOCUMENT);
-                intent.addCategory(Intent.CATEGORY_OPENABLE);intent.setType("audio/*");
-                startActivityForResult(intent,701);
-            }else if(which==1){
-                boolean loop=!prefs.getBoolean("pad_loop"+i,i!=3);
-                prefs.edit().putBoolean("pad_loop"+i,loop).apply();stopVirtualPad(i);message(loop?"Loop":"One-shot");
-            }else{
-                new java.io.File(getFilesDir(),"pad"+i+".wav").delete();
-                prefs.edit().remove("pad_custom"+i).apply();loadPad(i);
-            }
-        }).setNegativeButton("إلغاء",null).show();
-    }
-    @Override protected void onActivityResult(int request,int result,Intent data){
-        super.onActivityResult(request,result,data);
-        if(request!=701||result!=RESULT_OK||data==null||pendingImport<0)return;
-        int i=pendingImport;pendingImport=-1;
-        java.io.File tmp=new java.io.File(getFilesDir(),"pad"+i+".tmp");
-        try(java.io.InputStream in=getContentResolver().openInputStream(data.getData());java.io.FileOutputStream out=new java.io.FileOutputStream(tmp)){
-            byte[] buf=new byte[8192];int n,total=0;
-            while((n=in.read(buf))>0){total+=n;if(total>480000)throw new IOException("WAV must be under 480 KB");out.write(buf,0,n);}
-        }catch(Exception ex){tmp.delete();message("اختر WAV PCM قصيراً أقل من 480KB");return;}
-        try(java.io.RandomAccessFile r=new java.io.RandomAccessFile(tmp,"r")){
-            if(r.readInt()!=0x52494646){throw new IOException("RIFF");}r.seek(8);if(r.readInt()!=0x57415645)throw new IOException("WAVE");
-        }catch(Exception ex){tmp.delete();message("الملف ليس WAV");return;}
-        java.io.File dst=new java.io.File(getFilesDir(),"pad"+i+".wav");
-        if(!tmp.renameTo(dst)){tmp.delete();message("تعذر حفظ الملف");return;}
-        prefs.edit().putBoolean("pad_custom"+i,true).apply();loadPad(i);message("تم استيراد WAV إلى PAD "+(i+1));
     }
     private void renderPads(){
         LinearLayout c=card("NATIVE PAD RESEARCH","لا يوجد أمر PAD موثق في جدول Control. لا يشغّل هذا القسم أي WAV أو نوتة بديلة.");
@@ -756,6 +683,6 @@ public class MainActivity extends Activity {
     private void message(String msg){Toast.makeText(this,msg,Toast.LENGTH_LONG).show();}
     @Override protected void onDestroy(){
         if(midiManager!=null&&deviceCallback!=null)midiManager.unregisterDeviceCallback(deviceCallback);
-        if(padPool!=null){stopAllPads();padPool.release();padPool=null;}closeMidi();handler.removeCallbacksAndMessages(null);super.onDestroy();
+        closeMidi();handler.removeCallbacksAndMessages(null);super.onDestroy();
     }
 }
