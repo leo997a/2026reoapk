@@ -48,6 +48,14 @@ public class MainActivity extends Activity {
     private TextView tapReadout;
     private final ArrayList<Long> taps=new ArrayList<>();
     private SoundPool padPool;
+    private final NativeMidiLab lab=new NativeMidiLab();
+    private final ArrayList<String> capture=new ArrayList<>();
+    private boolean capturing=false;
+    private long captureStart=0;
+    private int globalChannel=15;
+    private TextView labStatus,bookStatus;
+    private final int[] nrpnMsb=new int[16],nrpnLsb=new int[16],bookMsb=new int[16];
+    private int receivedBook=-1;
     private final int[] padSample=new int[4], padStream=new int[4];
     private final boolean[] padReady=new boolean[4];
     private final String[] padTitles={"DHOL","STABS","RIQ","FILL"};
@@ -116,7 +124,8 @@ public class MainActivity extends Activity {
         getWindow().setStatusBarColor(BG);getWindow().setNavigationBarColor(BG);
         prefs=getSharedPreferences("reo-pa600-v3",MODE_PRIVATE);
         padBpm=prefs.getInt("virtual_pad_bpm",81);
-        initPadAudio();
+        globalChannel=prefs.getInt("lab_global_channel",15);
+        Arrays.fill(nrpnMsb,-1);Arrays.fill(nrpnLsb,-1);Arrays.fill(bookMsb,-1);
         getWindow().getDecorView().setSystemUiVisibility(5894);
         midiManager=(MidiManager)getSystemService(Context.MIDI_SERVICE);
         LinearLayout outer=vertical();outer.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);outer.setBackgroundColor(BG);
@@ -190,7 +199,8 @@ public class MainActivity extends Activity {
                     monitorReceiver=new MidiReceiver(){
                         @Override public void onSend(byte[] data,int offset,int count,long timestamp){
                             byte[] packet=Arrays.copyOfRange(data,offset,offset+count);
-                            handler.post(()->monitorIncoming(packet));
+                            final long receivedAt=System.nanoTime();
+                            handler.post(()->{if(token==midiGeneration)monitorIncoming(packet,receivedAt);});
                         }
                     };
                     midiReceivePort=d.openOutputPort(0);
@@ -214,7 +224,7 @@ public class MainActivity extends Activity {
     }
     private void send(byte[] msg,String label){
         if(midiSendPort==null){connectionText.setText("غير متصل · اختر Pa600 واضغط اتصال");return;}
-        try{midiSendPort.send(msg,0,msg.length);record("OUT → "+hex(msg)+" · "+label);}
+        try{midiSendPort.send(msg,0,msg.length);record("OUT → "+hex(msg)+" · "+label);if(capturing)addCapture("MSG OUT "+hex(msg),System.nanoTime());}
         catch(IOException ex){connectionText.setText("خطأ USB MIDI: "+ex.getMessage());}
     }
     private void cc(int ch,int ctrl,int val){
@@ -226,8 +236,8 @@ public class MainActivity extends Activity {
         cc(16,0,msb);cc(16,32,lsb);pc(p);
     }
     private void show(int index){
-        tab=index;liveUsb=null;Arrays.fill(livePads,null);header.setVisibility(index==0?View.GONE:View.VISIBLE);nav.removeAllViews();
-        String[] names={"العزف","الإيقاعات","SongBook","الأصوات","PAD ×4","الفحص"};
+        tab=index;liveUsb=null;labStatus=null;bookStatus=null;Arrays.fill(livePads,null);header.setVisibility(index==0?View.GONE:View.VISIBLE);nav.removeAllViews();
+        String[] names={"LIVE","STYLE","SONGBOOK","SOUND","PAD LAB","MIXER","MIDI"};
         for(int i=0;i<names.length;i++){
             final int idx=i;
             Button b=button(names[i],i==index?TEAL:PANEL,()->show(idx));
@@ -241,6 +251,7 @@ public class MainActivity extends Activity {
             case 2:renderBook();break;
             case 3:renderSounds();break;
             case 4:renderPads();break;
+            case 5:renderMixer();break;
             default:renderDiagnostic();break;
         }
     }
@@ -275,21 +286,25 @@ public class MainActivity extends Activity {
     }
     private void pads(LinearLayout panel){
         LinearLayout r=new LinearLayout(this);r.setOrientation(LinearLayout.HORIZONTAL);
-        for(int i=0;i<4;i++){
+        for(int i=0;i<5;i++){
             final int idx=i;
-            Button b=button("PAD "+(i+1)+"\n"+padTitles[i],padStream[i]!=0?TEAL:GOLD,()->toggleVirtualPad(idx));
-            livePads[i]=b;
+            Button b=button(i==4?"STOP":"PAD "+(i+1),BUTTON,()->openNativePad(idx));
             b.setTextSize(11);b.setPadding(0,0,0,0);
-            b.setOnLongClickListener(v->{configureVirtualPad(idx);return true;});
             LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,dp(51),1);
             lp.setMargins(dp(1),0,dp(1),0);r.addView(b,lp);
         }
         panel.addView(r);
     }
+    private void openNativePad(int i){
+        // No fabricated PAD trigger or local playback.
+        show(4);
+        markCapture(i==4?"PAD STOP":"PAD "+(i+1));
+        message("PAD الداخلي غير مثبت عبر MIDI. استخدم التقاط الزر الحقيقي.");
+    }
     private void liveRow(LinearLayout wrapper){
         LinearLayout r=new LinearLayout(this);r.setOrientation(LinearLayout.HORIZONTAL);
         wrapper.addView(r,new LinearLayout.LayoutParams(-1,-2));
-        LinearLayout pd=strip(r,"VIRTUAL PAD • AUDIO",4.1f);pads(pd);
+        LinearLayout pd=strip(r,"NATIVE PAD • LAB",5f);pads(pd);
         LinearLayout sts=strip(r,"STS",4.1f);
         tiles(sts,new String[]{"1","2","3","4"},new int[]{64,65,66,67},BUTTON);
         LinearLayout extra=strip(r,"LIVE CONTROL",3.5f);
@@ -336,12 +351,12 @@ public class MainActivity extends Activity {
         liveRow(console);
         elementRow(console);
         lowerRow(console);
-        TextView hint=text("VIRTUAL PAD: صوت من الهاتف · الضغط مطولاً لاختيار WAV · BPM "+padBpm+" · لا يضغط PAD الداخلي",11,MUTED);
+        TextView hint=text("PAD: قيد التحقق • لا صوت محلي • MIDI Control Ch16",11,MUTED);
         hint.setPadding(dp(5),dp(3),dp(5),0);
         content.addView(hint,new LinearLayout.LayoutParams(-1,-2));
         TextView next=text("بنوك Styles / SongBook / الأصوات / فحص MIDI في التبويبات أعلاه",11,MUTED);
         content.addView(next);
-        fullButton(content,"STOP ALL VIRTUAL PADS",BUTTON,()->stopAllPads());
+
     }
     private void tapTempo(){
         long now=SystemClock.uptimeMillis();
@@ -420,6 +435,7 @@ public class MainActivity extends Activity {
     private void renderBook(){
         LinearLayout c=card("SongBook بالأرقام","الاستدعاء الرسمي NRPN 99/98 ثم Data Entry 6/38 على قناة Control 16");
         info(c,"اختر رقم Entry الموجود داخل SongBook؛ رقم الأغنية ليس رقم ملف MIDI.");
+        bookStatus=text("",17,WHITE);c.addView(bookStatus);updateBook();
         bookNumber=field(c,"رقم SongBook (0–9999)","77",true);
         bookName=field(c,"اسم للأغنية في الهاتف","",false);
         fullButton(c,"استدعاء من SongBook",TEAL,()->{
@@ -485,20 +501,88 @@ public class MainActivity extends Activity {
         liveUsb.setText(openingMidi?"● USB OPENING":midiSendPort!=null?"● USB CONNECTED":"● USB DISCONNECTED");
         liveUsb.setTextColor(midiSendPort!=null?0xff80d9ad:0xffe9ba78);
     }
-    private void monitorIncoming(byte[] p){
-        boolean other=false;
-        for(byte x:p){
-            int n=x&255;
-            if(n==0xf8){
-                long now=System.nanoTime();
+    private void monitorIncoming(byte[] p,long receivedAt){
+        for(int i=0;i<p.length;i++){
+            if((p[i]&255)==0xf8){
+                long now=receivedAt;
                 if(lastClockNs>0){long d=now-lastClockNs;if(d>5000000L&&d<150000000L){
                     clockIntervals.add(d);if(clockIntervals.size()>48)clockIntervals.remove(0);
                     if(clockIntervals.size()>=24){long sum=0;for(long t:clockIntervals)sum+=t;measuredClockBpm=60000000000.0/(24.0*sum/clockIntervals.size());}
                 }}
                 lastClockNs=now;
-            }else if(n!=0xfe)other=true;
+            }
         }
-        if(other)record("IN ← "+hex(p));
+        if(capturing)addCapture("RAW IN "+hex(p),receivedAt);
+        for(byte[] msg:lab.feed(p)){
+            int st=msg[0]&255;
+            if(st==0xf8||st==0xfe)continue;
+            record("IN ← "+hex(msg));
+            if(capturing)addCapture("MSG IN "+hex(msg),receivedAt);
+            if(msg.length==3&&(st&0xf0)==0xb0){
+                int ch=st&15,cc=msg[1]&127,val=msg[2]&127;
+                if(cc==99){nrpnMsb[ch]=val;bookMsb[ch]=-1;}
+                if(cc==98){nrpnLsb[ch]=val;bookMsb[ch]=-1;}
+                if(cc==100||cc==101){nrpnMsb[ch]=-1;nrpnLsb[ch]=-1;bookMsb[ch]=-1;}
+                if(ch==15&&nrpnMsb[ch]==2&&nrpnLsb[ch]==64){
+                    if(cc==6)bookMsb[ch]=val;
+                    if(cc==38&&bookMsb[ch]>=0&&bookMsb[ch]<=99&&val<=99){
+                        receivedBook=bookMsb[ch]*100+val;bookMsb[ch]=-1;
+                        record("SONGBOOK RX #"+receivedBook);updateBook();
+                    }
+                }
+            }
+        }
+    }
+    private void updateBook(){if(bookStatus!=null)bookStatus.setText(receivedBook<0?"SongBook RX: لا توجد بيانات بعد":"SongBook RX: #"+receivedBook);}
+    private void addCapture(String entry,long now){
+        if(!capturing)return;
+        if(capture.size()>=12000){capturing=false;updateCaptureStatus();return;}
+        capture.add(String.format(Locale.ROOT,"%.3f %s",(now-captureStart)/1000000.0,entry));
+        if(capture.size()%50==0)updateCaptureStatus();
+    }
+    private void markCapture(String name){if(capturing){addCapture("MARK "+name,System.nanoTime());updateCaptureStatus();}}
+    private void updateCaptureStatus(){
+        if(labStatus!=null)labStatus.setText((capturing?"REC ":"STOP ")+capture.size()+" events · RX "+(midiReceivePort!=null?"OPEN":"CLOSED"));
+    }
+    private void exportCapture(){
+        StringBuilder out=new StringBuilder("REO PA600QT MIDI CAPTURE v4.2\\nTime: milliseconds relative to start\\n");
+        for(String line:capture)out.append(line).append('\\n');
+        ClipboardManager cb=(ClipboardManager)getSystemService(CLIPBOARD_SERVICE);
+        cb.setPrimaryClip(ClipData.newPlainText("REO MIDI Capture",out.toString()));
+        message("تم نسخ "+capture.size()+" حدث");
+    }
+    private void pulseGlobal(int controller){
+        if(midiSendPort==null){message("اتصل بالأورك أولاً");return;}
+        final int ch=globalChannel, generation=midiGeneration;
+        markCapture("TEST GLOBAL CH"+ch+" CC"+controller);
+        cc(ch,controller,127);
+        handler.postDelayed(()->{if(midiGeneration==generation&&midiSendPort!=null)cc(ch,controller,0);},120);
+    }
+    private void renderMixer(){
+        LinearLayout c=card("MIXER · KORG MIDI","لا تُرسل القيم عند فتح الصفحة. كل قناة 1–15 تحتاج تعييناً مطابقاً في MIDI IN. Ch16 يبقى Control.");
+        String[] tracks={"Upper 1","Upper 2","Upper 3","Lower","Pad 1","Pad 2","Pad 3","Pad 4","Drum","Percussion","Bass","Acc 1","Acc 2","Acc 3","Acc 4","Acc 5"};
+        for(int i=0;i<tracks.length;i++){
+            final int idx=i;
+            LinearLayout row=new LinearLayout(this);row.setGravity(Gravity.CENTER_VERTICAL);
+            row.addView(text(tracks[i],13,WHITE),new LinearLayout.LayoutParams(dp(95),dp(44)));
+            Spinner selector=new Spinner(this);String[] options=new String[16];options[0]="Off";for(int ch=1;ch<16;ch++)options[ch]="Ch "+ch;
+            selector.setAdapter(new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,options));
+            selector.setSelection(prefs.getInt("mix_ch"+idx,0));
+            selector.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener(){
+                public void onItemSelected(AdapterView<?> p,View v,int pos,long id){prefs.edit().putInt("mix_ch"+idx,pos).apply();}
+                public void onNothingSelected(AdapterView<?> p){}
+            });
+            row.addView(selector,new LinearLayout.LayoutParams(dp(90),dp(44)));
+            SeekBar volume=new SeekBar(this);volume.setMax(127);volume.setProgress(100);
+            volume.setContentDescription(tracks[i]+" Volume CC7");
+            volume.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){
+                public void onProgressChanged(SeekBar bar,int value,boolean user){}
+                public void onStartTrackingTouch(SeekBar bar){}
+                public void onStopTrackingTouch(SeekBar bar){int ch=selector.getSelectedItemPosition();if(ch>0)cc(ch,7,bar.getProgress());else message("عيّن قناة المسار أولاً");}
+            });
+            row.addView(volume,new LinearLayout.LayoutParams(0,dp(44),1));c.addView(row);
+        }
+        info(c,"القيم المعروضة أوامر محلية وليست قراءة مستوى الأورك. لا يمكن تعيين 16 مساراً منفصلاً في 15 قناة؛ اختر المجموعة المطلوبة.");
     }
     private void initPadAudio(){
         padPool=new SoundPool.Builder().setMaxStreams(4).setAudioAttributes(new AudioAttributes.Builder()
@@ -574,19 +658,26 @@ public class MainActivity extends Activity {
         prefs.edit().putBoolean("pad_custom"+i,true).apply();loadPad(i);message("تم استيراد WAV إلى PAD "+(i+1));
     }
     private void renderPads(){
-        LinearLayout c=card("VIRTUAL PADS · محرك صوت الهاتف","أربعة مقاطع أصلية قصيرة بسرعة 81 BPM. تعمل حتى دون USB. لا تمثل تشغيل PAD الداخلي للأورك.");
-        info(c,"اضغط مرة للتشغيل ومرة للإيقاف. اخرج صوت الهاتف إلى الميكسر عبر مسار صوت مناسب. USB MIDI لا ينقل هذا الصوت.");
-        for(int i=0;i<4;i++){
-            final int k=i;fullButton(c,"PAD "+(i+1)+" · "+padTitles[i],GOLD,()->toggleVirtualPad(k));
-            fullButton(c,"إعداد / استيراد WAV "+(i+1),BUTTON,()->configureVirtualPad(k));
-        }
-        fullButton(c,"STOP ALL PADS",TEAL,()->stopAllPads());
-        c=card("BPM","تغيير سرعة المقاطع الأصلية يغيّر الطبقة أيضاً؛ لا توجد مزامنة طور تلقائية مع الأورك.");
-        EditText bpm=field(c,"سرعة الهاتف 50–120",String.valueOf(padBpm),true);
-        fullButton(c,"تطبيق السرعة",TEAL,()->{try{stopAllPads();padBpm=num(bpm,50,120);prefs.edit().putInt("virtual_pad_bpm",padBpm).apply();message("BPM "+padBpm);}catch(Exception ex){message(ex.getMessage());}});
-        fullButton(c,"قراءة MIDI Clock (تقريبية)",BUTTON,()->message(measuredClockBpm>0&&System.nanoTime()-lastClockNs<1000000000L?String.format(Locale.ROOT,"%.1f BPM",measuredClockBpm):"لا توجد ساعة MIDI واردة حديثاً"));
-        c=card("PAD الداخلي للأورك","لم نجد أمر تشغيل MIDI موثق. لا تغير Tablet أو قنوات Control. استخدم مراقب MIDI لفحص الأزرار المادية.");
-        fullButton(c,"MIDI Monitor",BUTTON,()->show(5));
+        LinearLayout c=card("NATIVE PAD RESEARCH","لا يوجد أمر PAD موثق في جدول Control. لا يشغّل هذا القسم أي WAV أو نوتة بديلة.");
+        labStatus=text("",15,WHITE);c.addView(labStatus);updateCaptureStatus();
+        fullButton(c,"START CAPTURE · بدء التسجيل",TEAL,()->{capture.clear();lab.reset();captureStart=System.nanoTime();capturing=true;markCapture("BEGIN");});
+        info(c,"أوقف الإيقاع، ثم اضغط العلامة في التطبيق وبعدها الزر المادي نفسه على الأورك. كرر لكل زر.");
+        LinearLayout row=new LinearLayout(this);
+        for(int i=0;i<5;i++){final String label=i==4?"PAD STOP":"PAD "+(i+1);
+            Button b=button(label,BUTTON,()->markCapture(label));b.setTextSize(12);
+            row.addView(b,new LinearLayout.LayoutParams(0,dp(54),1));}
+        c.addView(row);
+        fullButton(c,"MARK VAR 2 · عينة مقارنة",BUTTON,()->markCapture("VAR 2"));
+        fullButton(c,"MARK SC1 · التشريق",BUTTON,()->markCapture("SC1"));
+        fullButton(c,"STOP CAPTURE",GOLD,()->{markCapture("END");capturing=false;updateCaptureStatus();});
+        fullButton(c,"نسخ سجل الجلسة الكامل",TEAL,()->exportCapture());
+        c=card("اختبار MIDI Global · غير مثبت","اختر قناة غير 16 وعيّنها Global في MIDI IN. جرّب Assignable Switch 1 = Pad 1 في الأورك. CC80/81 رسمياً Sound Controllers وليسَا PAD Trigger.");
+        EditText ch=field(c,"Global MIDI channel 1–15",String.valueOf(globalChannel),true);
+        fullButton(c,"حفظ قناة الاختبار",BUTTON,()->{try{globalChannel=num(ch,1,15);prefs.edit().putInt("lab_global_channel",globalChannel).apply();message("Ch "+globalChannel);}catch(Exception ex){message(ex.getMessage());}});
+        fullButton(c,"اختبار CC80 · نبضة",BUTTON,()->pulseGlobal(80));
+        fullButton(c,"اختبار CC81 · نبضة",BUTTON,()->pulseGlobal(81));
+        info(c,"جرّب بعد خفض الصوت. إن لم يشتغل PAD الحقيقي فلا تعتبره نجاحاً. لا تغير Ch16 = Control.");
+        fullButton(c,"MIDI Monitor",BUTTON,()->show(6));
     }
     private void appendFavorite(String key,JSONObject item){
         JSONArray a;
@@ -624,14 +715,15 @@ public class MainActivity extends Activity {
         fullButton(c,"اختبار VAR 2 · CF 54",TEAL,()->pc(84));
         fullButton(c,"اختبار START / STOP · CF 67",BUTTON,()->pc(103));
         fullButton(c,"اختبار C4 ch1 · قد لا يعمل مع Tablet",BUTTON,()->note(1,60,90,300));
+        fullButton(c,"MIDI Identity Request (قراءة فقط)",BUTTON,()->send(new byte[]{(byte)0xf0,0x7e,0x7f,0x06,0x01,(byte)0xf7},"IDENTITY REQUEST"));
         c=card("MIDI Monitor","IN يعني بيانات خرجت من الأورك ووصلت الهاتف. OUT يعني التطبيق أرسلها. بعض أزرار PAD قد لا ترسل رسالة قابلة للرصد.");
         logText=text("",12,MUTED);logText.setTypeface(Typeface.MONOSPACE);
         c.addView(logText);record("MONITOR READY");
         c=card("نسخة المكتبة الاحتياطية","انسخ بيانات المفضلة والحفظ إلى الحافظة كي لا تضيع عند تغيير الإصدار.");
         fullButton(c,"نسخ مكتبة الإيقاعات والأغاني",TEAL,()->exportLibrary());
         fullButton(c,"استيراد مكتبة من الحافظة",BUTTON,()->importLibrary());
-        c=card("المراجع والتنبيهات","Pa600QT OS 2.1: Control 16. Virtual PAD صوت محلي وليس تشغيل PAD الداخلي.");
-        info(c,"الإصدار REO v4.1 · Galaxy A52s · يعمل محلياً بدون إنترنت بعد التثبيت.");
+        c=card("المراجع والتنبيهات","Pa600QT OS 2.1: Control 16. Native PAD قيد التحقيق. لا تشغيل صوت محلي.");
+        info(c,"الإصدار REO v4.2 · Galaxy A52s · يعمل محلياً بدون إنترنت بعد التثبيت.");
     }
     private void exportLibrary(){
         try{
@@ -664,6 +756,6 @@ public class MainActivity extends Activity {
     private void message(String msg){Toast.makeText(this,msg,Toast.LENGTH_LONG).show();}
     @Override protected void onDestroy(){
         if(midiManager!=null&&deviceCallback!=null)midiManager.unregisterDeviceCallback(deviceCallback);
-        stopAllPads();if(padPool!=null){padPool.release();padPool=null;}closeMidi();handler.removeCallbacksAndMessages(null);super.onDestroy();
+        if(padPool!=null){stopAllPads();padPool.release();padPool=null;}closeMidi();handler.removeCallbacksAndMessages(null);super.onDestroy();
     }
 }
